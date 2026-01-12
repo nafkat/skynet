@@ -10,6 +10,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+import PayrollExport from "./pages/PayrollExport";
 import TimeEntry from "./pages/TimeEntry";
 import Employees from "./pages/Employees";
 import Projects from "./pages/Projects";
@@ -90,6 +91,16 @@ function AppRoutes() {
         element={
           <ProtectedRoute requiredRoles={['admin', 'hr']}>
             <AdminDashboard />
+          </ProtectedRoute>
+        } 
+      />
+      
+      {/* Payroll Export - Admin and HR only */}
+      <Route 
+        path="/admin/payroll-export" 
+        element={
+          <ProtectedRoute requiredRoles={['admin', 'hr']}>
+            <PayrollExport />
           </ProtectedRoute>
         } 
       />
