@@ -14,7 +14,11 @@ interface DashboardStats {
 
 export default function Dashboard() {
   const { t } = useLanguage();
-  const { user, hasElevatedRole } = useAuth();
+  const { user, hasElevatedRole, role } = useAuth();
+  
+  // Timekeeper only flag - for limited view
+  const isTimekeeperOnly = role === 'timekeeper' && !hasElevatedRole;
+  
   const [stats, setStats] = useState<DashboardStats>({
     todayEntries: 0,
     activeEmployees: 0,
@@ -28,23 +32,31 @@ export default function Dashboard() {
       const today = new Date().toISOString().split('T')[0];
       
       try {
-        // Fetch today's entries
+        // Fetch today's entries - RLS restricts to own for Timekeeper
         const { count: entriesCount } = await supabase
           .from('time_entries')
           .select('*', { count: 'exact', head: true })
           .eq('entry_date', today);
 
-        // Fetch active employees
-        const { count: employeesCount } = await supabase
-          .from('employees')
-          .select('*', { count: 'exact', head: true })
-          .eq('status', 'active');
+        // Only fetch employees/projects count for elevated roles
+        let employeesCount = 0;
+        let projectsCount = 0;
+        
+        if (hasElevatedRole) {
+          // Fetch active employees
+          const { count: empCount } = await supabase
+            .from('employees')
+            .select('*', { count: 'exact', head: true })
+            .eq('status', 'active');
+          employeesCount = empCount || 0;
+        }
 
-        // Fetch open projects
-        const { count: projectsCount } = await supabase
+        // Fetch open projects - always visible
+        const { count: projCount } = await supabase
           .from('projects')
           .select('*', { count: 'exact', head: true })
           .eq('status', 'OPEN');
+        projectsCount = projCount || 0;
 
         // Fetch pending corrections (only for elevated roles)
         let correctionsCount = 0;
@@ -58,8 +70,8 @@ export default function Dashboard() {
 
         setStats({
           todayEntries: entriesCount || 0,
-          activeEmployees: employeesCount || 0,
-          openProjects: projectsCount || 0,
+          activeEmployees: employeesCount,
+          openProjects: projectsCount,
           pendingCorrections: correctionsCount,
         });
       } catch (error) {

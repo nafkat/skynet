@@ -47,7 +47,7 @@ interface CorrectionRequest {
 
 export default function Corrections() {
   const { t } = useLanguage();
-  const { user, isAdmin } = useAuth();
+  const { user, hasElevatedRole } = useAuth();
   const [requests, setRequests] = useState<CorrectionRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRequest, setSelectedRequest] = useState<CorrectionRequest | null>(null);
@@ -231,7 +231,7 @@ export default function Corrections() {
                     </div>
                   </div>
 
-                  {isAdmin && (
+                  {hasElevatedRole && (
                     <div className="flex gap-2 ml-4">
                       <Button
                         size="sm"

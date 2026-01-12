@@ -22,6 +22,9 @@ export function Sidebar() {
   const { t, language, setLanguage } = useLanguage();
   const { signOut, isAdmin, isHR, hasElevatedRole, role } = useAuth();
 
+  // Timekeeper has VERY LIMITED access - only Dashboard and Time Entry
+  const isTimekeeperOnly = role === 'timekeeper' && !isAdmin && !isHR;
+
   const navigationItems = [
     { 
       path: '/admin/dashboard', 
@@ -33,7 +36,7 @@ export function Sidebar() {
       path: '/dashboard', 
       icon: LayoutDashboard, 
       label: t('nav.dashboard'),
-      show: !hasElevatedRole 
+      show: isTimekeeperOnly 
     },
     { 
       path: '/time-entry', 
@@ -45,19 +48,19 @@ export function Sidebar() {
       path: '/employees', 
       icon: Users, 
       label: t('nav.employees'),
-      show: isAdmin 
+      show: hasElevatedRole 
     },
     { 
       path: '/projects', 
       icon: FolderKanban, 
       label: t('nav.projects'),
-      show: isAdmin 
+      show: hasElevatedRole 
     },
     { 
       path: '/specialties', 
       icon: Wrench, 
       label: t('nav.specialties'),
-      show: isAdmin 
+      show: hasElevatedRole 
     },
     { 
       path: '/corrections', 
