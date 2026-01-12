@@ -7,7 +7,6 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -43,6 +42,9 @@ interface Employee {
   overtime_hourly_rate: number;
   regular_start_time: string;
   regular_end_time: string;
+  afm: string | null;
+  iban: string | null;
+  bank_name: string | null;
 }
 
 interface Specialty {
@@ -60,11 +62,12 @@ interface Project {
 
 interface PayrollRow {
   employee_code: string;
-  last_name: string;
   first_name: string;
-  specialty_code: string;
-  regular_minutes: number;
-  overtime_minutes: number;
+  last_name: string;
+  specialty: string;
+  afm: string;
+  iban: string;
+  bank_name: string;
   regular_hours: number;
   overtime_hours: number;
   regular_hourly_rate: number;
@@ -72,6 +75,8 @@ interface PayrollRow {
   regular_amount: number;
   overtime_amount: number;
   total_amount: number;
+  project_code?: string;
+  project_name?: string;
 }
 
 interface PreviewSummary {
@@ -98,7 +103,6 @@ export default function PayrollExport() {
   const [dateTo, setDateTo] = useState<Date>(endOfMonth(new Date()));
   const [selectedProject, setSelectedProject] = useState<string>('all');
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>('all');
-  const [groupByEmployee, setGroupByEmployee] = useState(true);
 
   // Fetch static data on mount
   useEffect(() => {
@@ -140,9 +144,20 @@ export default function PayrollExport() {
     if (data) setTimeEntries(data);
   };
 
+  // Get selected project details
+  const selectedProjectDetails = useMemo(() => {
+    if (selectedProject === 'all') return null;
+    return projects.find(p => p.id === selectedProject) || null;
+  }, [selectedProject, projects]);
+
   // Calculate payroll data
   const payrollData = useMemo(() => {
-    const employeeMap = new Map<string, PayrollRow>();
+    const employeeMap = new Map<string, {
+      employee: Employee;
+      specialty: Specialty | undefined;
+      regular_minutes: number;
+      overtime_minutes: number;
+    }>();
 
     // Filter entries by project/specialty
     const filteredEntries = timeEntries.filter(entry => {
@@ -169,31 +184,48 @@ export default function PayrollExport() {
         existing.overtime_minutes += entry.overtime_minutes;
       } else {
         employeeMap.set(employee.id, {
-          employee_code: employee.employee_code,
-          last_name: employee.last_name,
-          first_name: employee.first_name,
-          specialty_code: specialty?.code || '',
+          employee,
+          specialty,
           regular_minutes: entry.regular_minutes,
           overtime_minutes: entry.overtime_minutes,
-          regular_hours: 0,
-          overtime_hours: 0,
-          regular_hourly_rate: employee.regular_hourly_rate,
-          overtime_hourly_rate: employee.overtime_hourly_rate,
-          regular_amount: 0,
-          overtime_amount: 0,
-          total_amount: 0,
         });
       }
     });
 
     // Calculate derived fields
     const rows: PayrollRow[] = [];
-    employeeMap.forEach(row => {
-      row.regular_hours = Math.round((row.regular_minutes / 60) * 100) / 100;
-      row.overtime_hours = Math.round((row.overtime_minutes / 60) * 100) / 100;
-      row.regular_amount = Math.round(row.regular_hours * row.regular_hourly_rate * 100) / 100;
-      row.overtime_amount = Math.round(row.overtime_hours * row.overtime_hourly_rate * 100) / 100;
-      row.total_amount = Math.round((row.regular_amount + row.overtime_amount) * 100) / 100;
+    employeeMap.forEach(data => {
+      const { employee, specialty, regular_minutes, overtime_minutes } = data;
+      
+      const regular_hours = Math.round((regular_minutes / 60) * 100) / 100;
+      const overtime_hours = Math.round((overtime_minutes / 60) * 100) / 100;
+      const regular_amount = Math.round(regular_hours * employee.regular_hourly_rate * 100) / 100;
+      const overtime_amount = Math.round(overtime_hours * employee.overtime_hourly_rate * 100) / 100;
+      const total_amount = Math.round((regular_amount + overtime_amount) * 100) / 100;
+
+      const row: PayrollRow = {
+        employee_code: employee.employee_code,
+        first_name: employee.first_name,
+        last_name: employee.last_name,
+        specialty: specialty ? (language === 'el' ? specialty.name_el : specialty.name_en) : '',
+        afm: employee.afm || '',
+        iban: employee.iban || '',
+        bank_name: employee.bank_name || '',
+        regular_hours,
+        overtime_hours,
+        regular_hourly_rate: employee.regular_hourly_rate,
+        overtime_hourly_rate: employee.overtime_hourly_rate,
+        regular_amount,
+        overtime_amount,
+        total_amount,
+      };
+
+      // Add project info if filtered by project
+      if (selectedProjectDetails) {
+        row.project_code = selectedProjectDetails.project_code;
+        row.project_name = selectedProjectDetails.project_name;
+      }
+
       rows.push(row);
     });
 
@@ -201,7 +233,7 @@ export default function PayrollExport() {
     rows.sort((a, b) => a.employee_code.localeCompare(b.employee_code));
 
     return rows;
-  }, [timeEntries, employees, specialties, selectedProject, selectedSpecialty]);
+  }, [timeEntries, employees, specialties, selectedProject, selectedSpecialty, selectedProjectDetails, language]);
 
   // Preview summary
   const previewSummary = useMemo((): PreviewSummary => {
@@ -222,50 +254,70 @@ export default function PayrollExport() {
     setExporting(true);
 
     try {
-      // Prepare worksheet data
-      const wsData = payrollData.map(row => ({
-        'Employee Code': row.employee_code,
-        'Last Name': row.last_name,
-        'First Name': row.first_name,
-        'Specialty Code': row.specialty_code,
-        'Regular Minutes': row.regular_minutes,
-        'Overtime Minutes': row.overtime_minutes,
-        'Regular Hours': row.regular_hours,
-        'Overtime Hours': row.overtime_hours,
-        'Regular Rate (€/hr)': row.regular_hourly_rate,
-        'Overtime Rate (€/hr)': row.overtime_hourly_rate,
-        'Regular Amount (€)': row.regular_amount,
-        'Overtime Amount (€)': row.overtime_amount,
-        'Total Amount (€)': row.total_amount,
-      }));
+      // Prepare worksheet data with all required fields
+      const wsData = payrollData.map(row => {
+        const baseData: Record<string, string | number> = {
+          'Employee Code': row.employee_code,
+          'First Name': row.first_name,
+          'Last Name': row.last_name,
+          'Specialty': row.specialty,
+          'AFM': row.afm,
+          'IBAN': row.iban,
+          'Bank Name': row.bank_name,
+          'Regular Hours': row.regular_hours,
+          'Overtime Hours': row.overtime_hours,
+          'Regular Rate (€/hr)': row.regular_hourly_rate,
+          'Overtime Rate (€/hr)': row.overtime_hourly_rate,
+          'Regular Amount (€)': row.regular_amount,
+          'Overtime Amount (€)': row.overtime_amount,
+          'Total Amount (€)': row.total_amount,
+        };
+
+        // Add project columns if filtered
+        if (row.project_code) {
+          baseData['Project Code'] = row.project_code;
+          baseData['Project Name'] = row.project_name || '';
+        }
+
+        return baseData;
+      });
 
       // Create workbook and worksheet
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(wsData);
 
       // Set column widths
-      ws['!cols'] = [
+      const baseCols = [
         { wch: 14 }, // Employee Code
-        { wch: 16 }, // Last Name
         { wch: 14 }, // First Name
-        { wch: 14 }, // Specialty Code
-        { wch: 14 }, // Regular Minutes
-        { wch: 16 }, // Overtime Minutes
+        { wch: 16 }, // Last Name
+        { wch: 18 }, // Specialty
+        { wch: 12 }, // AFM
+        { wch: 28 }, // IBAN
+        { wch: 16 }, // Bank Name
         { wch: 14 }, // Regular Hours
         { wch: 14 }, // Overtime Hours
-        { wch: 16 }, // Regular Rate
-        { wch: 16 }, // Overtime Rate
+        { wch: 18 }, // Regular Rate
+        { wch: 18 }, // Overtime Rate
         { wch: 16 }, // Regular Amount
         { wch: 16 }, // Overtime Amount
         { wch: 16 }, // Total Amount
       ];
 
+      // Add project columns if filtered
+      if (selectedProjectDetails) {
+        baseCols.push({ wch: 14 }); // Project Code
+        baseCols.push({ wch: 24 }); // Project Name
+      }
+
+      ws['!cols'] = baseCols;
+
       XLSX.utils.book_append_sheet(wb, ws, 'Payroll');
 
-      // Generate filename
+      // Generate filename: payroll_YYYYMMDD_YYYYMMDD.xlsx
       const fromStr = format(dateFrom, 'yyyyMMdd');
       const toStr = format(dateTo, 'yyyyMMdd');
-      const filename = `payroll_${fromStr}-${toStr}.xlsx`;
+      const filename = `payroll_${fromStr}_${toStr}.xlsx`;
 
       // Download
       XLSX.writeFile(wb, filename);
@@ -400,18 +452,6 @@ export default function PayrollExport() {
                 </Select>
               </div>
             </div>
-
-            {/* Group Toggle */}
-            <div className="flex items-center gap-3">
-              <Switch
-                id="group-by-employee"
-                checked={groupByEmployee}
-                onCheckedChange={setGroupByEmployee}
-              />
-              <Label htmlFor="group-by-employee" className="cursor-pointer">
-                {language === 'el' ? 'Ομαδοποίηση ανά Εργαζόμενο' : 'Group by Employee'}
-              </Label>
-            </div>
           </CardContent>
         </Card>
 
@@ -470,11 +510,43 @@ export default function PayrollExport() {
           </CardContent>
         </Card>
 
+        {/* Export Info */}
+        <Card className="card-elevated">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-base">
+              {language === 'el' ? 'Πεδία Εξαγωγής' : 'Export Fields'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-sm text-muted-foreground space-y-2">
+              <p>
+                {language === 'el' 
+                  ? 'Το αρχείο Excel θα περιέχει τα εξής πεδία:' 
+                  : 'The Excel file will include the following fields:'}
+              </p>
+              <ul className="list-disc list-inside space-y-1 ml-2">
+                <li>{language === 'el' ? 'Κωδικός Εργαζομένου, Όνομα, Επώνυμο, Ειδικότητα' : 'Employee Code, First Name, Last Name, Specialty'}</li>
+                <li>{language === 'el' ? 'ΑΦΜ, IBAN, Τράπεζα' : 'AFM (Tax Number), IBAN, Bank Name'}</li>
+                <li>{language === 'el' ? 'Κανονικές Ώρες, Υπερωρίες' : 'Regular Hours, Overtime Hours'}</li>
+                <li>{language === 'el' ? 'Ωριαία Αμοιβή (Κανονική & Υπερωρίας)' : 'Hourly Rate (Regular & Overtime)'}</li>
+                <li>{language === 'el' ? 'Ποσά (Κανονικό, Υπερωρίας, Σύνολο)' : 'Amounts (Regular, Overtime, Total)'}</li>
+                {selectedProjectDetails && (
+                  <li className="text-primary">
+                    {language === 'el' 
+                      ? `Κωδικός & Όνομα Έργου (φιλτραρισμένο: ${selectedProjectDetails.project_code})` 
+                      : `Project Code & Name (filtered: ${selectedProjectDetails.project_code})`}
+                  </li>
+                )}
+              </ul>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Export Button */}
         <div className="flex justify-end">
           <Button
             size="lg"
-            className="btn-tablet gap-2"
+            className="btn-tablet gap-2 min-w-[200px]"
             onClick={handleExport}
             disabled={exporting || payrollData.length === 0}
           >
@@ -485,58 +557,11 @@ export default function PayrollExport() {
           </Button>
         </div>
 
-        {/* Data Preview Table */}
+        {/* Filename Preview */}
         {payrollData.length > 0 && (
-          <Card className="card-elevated">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-base">
-                {language === 'el' ? 'Προεπισκόπηση Δεδομένων' : 'Data Preview'}
-                <span className="text-muted-foreground font-normal ml-2">
-                  ({language === 'el' ? 'πρώτες 10 εγγραφές' : 'first 10 records'})
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="text-left py-2 px-2 font-medium text-muted-foreground">
-                        {language === 'el' ? 'Κωδικός' : 'Code'}
-                      </th>
-                      <th className="text-left py-2 px-2 font-medium text-muted-foreground">
-                        {language === 'el' ? 'Όνομα' : 'Name'}
-                      </th>
-                      <th className="text-left py-2 px-2 font-medium text-muted-foreground">
-                        {language === 'el' ? 'Ειδικότητα' : 'Specialty'}
-                      </th>
-                      <th className="text-right py-2 px-2 font-medium text-muted-foreground">
-                        {language === 'el' ? 'Κανονικές' : 'Regular'}
-                      </th>
-                      <th className="text-right py-2 px-2 font-medium text-muted-foreground">
-                        {language === 'el' ? 'Υπερωρίες' : 'Overtime'}
-                      </th>
-                      <th className="text-right py-2 px-2 font-medium text-muted-foreground">
-                        {language === 'el' ? 'Σύνολο' : 'Total'}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {payrollData.slice(0, 10).map((row, idx) => (
-                      <tr key={idx} className="border-b border-border/50 last:border-0">
-                        <td className="py-2 px-2 font-mono">{row.employee_code}</td>
-                        <td className="py-2 px-2">{row.last_name} {row.first_name}</td>
-                        <td className="py-2 px-2">{row.specialty_code}</td>
-                        <td className="py-2 px-2 text-right tabular-nums">{row.regular_hours.toFixed(1)}h</td>
-                        <td className="py-2 px-2 text-right tabular-nums">{row.overtime_hours.toFixed(1)}h</td>
-                        <td className="py-2 px-2 text-right tabular-nums font-medium">€{row.total_amount.toFixed(2)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+          <p className="text-sm text-muted-foreground text-right">
+            {language === 'el' ? 'Αρχείο' : 'Filename'}: <code className="bg-muted px-2 py-0.5 rounded">payroll_{format(dateFrom, 'yyyyMMdd')}_{format(dateTo, 'yyyyMMdd')}.xlsx</code>
+          </p>
         )}
       </div>
     </MainLayout>
