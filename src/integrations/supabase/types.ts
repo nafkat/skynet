@@ -64,14 +64,58 @@ export type Database = {
           },
         ]
       }
+      employee_allowed_projects: {
+        Row: {
+          created_at: string
+          employee_id: string
+          id: string
+          project_id: string
+        }
+        Insert: {
+          created_at?: string
+          employee_id: string
+          id?: string
+          project_id: string
+        }
+        Update: {
+          created_at?: string
+          employee_id?: string
+          id?: string
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_allowed_projects_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_allowed_projects_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employees: {
         Row: {
+          afm: string | null
+          bank_name: string | null
           created_at: string
           employee_code: string
           first_name: string
+          hire_date: string | null
+          iban: string | null
           id: string
+          id_number: string | null
+          id_type: string | null
           last_name: string
+          notes: string | null
           overtime_hourly_rate: number
+          phone: string | null
           regular_end_time: string
           regular_hourly_rate: number
           regular_start_time: string
@@ -80,12 +124,20 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          afm?: string | null
+          bank_name?: string | null
           created_at?: string
           employee_code: string
           first_name: string
+          hire_date?: string | null
+          iban?: string | null
           id?: string
+          id_number?: string | null
+          id_type?: string | null
           last_name: string
+          notes?: string | null
           overtime_hourly_rate?: number
+          phone?: string | null
           regular_end_time?: string
           regular_hourly_rate?: number
           regular_start_time?: string
@@ -94,12 +146,20 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          afm?: string | null
+          bank_name?: string | null
           created_at?: string
           employee_code?: string
           first_name?: string
+          hire_date?: string | null
+          iban?: string | null
           id?: string
+          id_number?: string | null
+          id_type?: string | null
           last_name?: string
+          notes?: string | null
           overtime_hourly_rate?: number
+          phone?: string | null
           regular_end_time?: string
           regular_hourly_rate?: number
           regular_start_time?: string
