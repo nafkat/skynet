@@ -6,6 +6,8 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 
+// Force rebuild
+
 // Pages
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
