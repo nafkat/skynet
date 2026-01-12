@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Globe, Anchor } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -27,7 +29,7 @@ export default function Login() {
     return <Navigate to="/dashboard" replace />;
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
@@ -37,6 +39,27 @@ export default function Login() {
       toast.error(t('auth.invalidCredentials'));
     } else {
       toast.success(t('auth.welcome'));
+    }
+
+    setIsLoading(false);
+  };
+
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: window.location.origin,
+      },
+    });
+
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success(t('auth.accountCreated'));
     }
 
     setIsLoading(false);
@@ -72,49 +95,103 @@ export default function Login() {
           </p>
         </div>
 
-        {/* Login Form */}
+        {/* Auth Forms */}
         <div className="card-elevated p-8">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-medium">
-                {t('auth.email')}
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="input-tablet"
-                placeholder="name@shipyard.com"
-                required
-                autoComplete="email"
-              />
-            </div>
+          <Tabs defaultValue="signin" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsTrigger value="signin">{t('auth.signIn')}</TabsTrigger>
+              <TabsTrigger value="signup">{t('auth.signUp')}</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="signin">
+              <form onSubmit={handleSignIn} className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="signin-email" className="text-sm font-medium">
+                    {t('auth.email')}
+                  </Label>
+                  <Input
+                    id="signin-email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="input-tablet"
+                    placeholder="name@shipyard.com"
+                    required
+                    autoComplete="email"
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm font-medium">
-                {t('auth.password')}
-              </Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="input-tablet"
-                placeholder="••••••••"
-                required
-                autoComplete="current-password"
-              />
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signin-password" className="text-sm font-medium">
+                    {t('auth.password')}
+                  </Label>
+                  <Input
+                    id="signin-password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="input-tablet"
+                    placeholder="••••••••"
+                    required
+                    autoComplete="current-password"
+                  />
+                </div>
 
-            <Button
-              type="submit"
-              className="w-full btn-tablet"
-              disabled={isLoading}
-            >
-              {isLoading ? t('auth.signingIn') : t('auth.signIn')}
-            </Button>
-          </form>
+                <Button
+                  type="submit"
+                  className="w-full btn-tablet"
+                  disabled={isLoading}
+                >
+                  {isLoading ? t('auth.signingIn') : t('auth.signIn')}
+                </Button>
+              </form>
+            </TabsContent>
+            
+            <TabsContent value="signup">
+              <form onSubmit={handleSignUp} className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="signup-email" className="text-sm font-medium">
+                    {t('auth.email')}
+                  </Label>
+                  <Input
+                    id="signup-email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="input-tablet"
+                    placeholder="name@shipyard.com"
+                    required
+                    autoComplete="email"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="signup-password" className="text-sm font-medium">
+                    {t('auth.password')}
+                  </Label>
+                  <Input
+                    id="signup-password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="input-tablet"
+                    placeholder="••••••••"
+                    required
+                    autoComplete="new-password"
+                    minLength={6}
+                  />
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full btn-tablet"
+                  disabled={isLoading}
+                >
+                  {isLoading ? t('common.loading') : t('auth.signUp')}
+                </Button>
+              </form>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </div>
