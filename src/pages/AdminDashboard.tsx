@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Link } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,7 +16,8 @@ import {
   FolderOpen, 
   AlertTriangle,
   CalendarIcon,
-  Users
+  Users,
+  FileSpreadsheet
 } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, startOfDay, endOfDay, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -339,13 +340,21 @@ export default function AdminDashboard() {
     <MainLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {language === 'el' ? 'Διοικητικός Πίνακας' : 'Admin Dashboard'}
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            {language === 'el' ? 'Επισκόπηση εργασίας και κόστους' : 'Labor and cost overview'}
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              {language === 'el' ? 'Διοικητικός Πίνακας' : 'Admin Dashboard'}
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              {language === 'el' ? 'Επισκόπηση εργασίας και κόστους' : 'Labor and cost overview'}
+            </p>
+          </div>
+          <Link to="/admin/payroll-export">
+            <Button className="btn-tablet gap-2">
+              <FileSpreadsheet className="h-5 w-5" />
+              {language === 'el' ? 'Εξαγωγή Μισθοδοσίας (Excel)' : 'Export Payroll (Excel)'}
+            </Button>
+          </Link>
         </div>
 
         {/* Filters */}
