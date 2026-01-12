@@ -92,6 +92,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "employee_allowed_projects_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees_limited"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "employee_allowed_projects_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
@@ -375,6 +382,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "time_entries_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees_limited"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "time_entries_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
@@ -403,7 +417,56 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      employees_limited: {
+        Row: {
+          employee_code: string | null
+          first_name: string | null
+          hire_date: string | null
+          id: string | null
+          last_name: string | null
+          notes: string | null
+          phone: string | null
+          regular_end_time: string | null
+          regular_start_time: string | null
+          specialty_id: string | null
+          status: Database["public"]["Enums"]["employee_status"] | null
+        }
+        Insert: {
+          employee_code?: string | null
+          first_name?: string | null
+          hire_date?: string | null
+          id?: string | null
+          last_name?: string | null
+          notes?: string | null
+          phone?: string | null
+          regular_end_time?: string | null
+          regular_start_time?: string | null
+          specialty_id?: string | null
+          status?: Database["public"]["Enums"]["employee_status"] | null
+        }
+        Update: {
+          employee_code?: string | null
+          first_name?: string | null
+          hire_date?: string | null
+          id?: string | null
+          last_name?: string | null
+          notes?: string | null
+          phone?: string | null
+          regular_end_time?: string | null
+          regular_start_time?: string | null
+          specialty_id?: string | null
+          status?: Database["public"]["Enums"]["employee_status"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employees_specialty_id_fkey"
+            columns: ["specialty_id"]
+            isOneToOne: false
+            referencedRelation: "specialties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       has_elevated_role: { Args: { _user_id: string }; Returns: boolean }
@@ -414,6 +477,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_timekeeper_only: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "hr" | "timekeeper"
