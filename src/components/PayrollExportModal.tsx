@@ -46,6 +46,9 @@ interface Employee {
   specialty_id: string;
   regular_hourly_rate: number;
   overtime_hourly_rate: number;
+  afm: string | null;
+  iban: string | null;
+  bank_name: string | null;
 }
 
 interface Specialty {
@@ -63,11 +66,12 @@ interface Project {
 
 interface PayrollRow {
   employee_code: string;
-  last_name: string;
   first_name: string;
-  specialty_code: string;
-  regular_minutes: number;
-  overtime_minutes: number;
+  last_name: string;
+  specialty: string;
+  afm: string;
+  iban: string;
+  bank_name: string;
   regular_hours: number;
   overtime_hours: number;
   regular_hourly_rate: number;
@@ -75,6 +79,8 @@ interface PayrollRow {
   regular_amount: number;
   overtime_amount: number;
   total_amount: number;
+  project_code?: string;
+  project_name?: string;
 }
 
 export function PayrollExportModal({ open, onOpenChange }: PayrollExportModalProps) {
@@ -104,7 +110,7 @@ export function PayrollExportModal({ open, onOpenChange }: PayrollExportModalPro
     const toDate = format(dateTo, 'yyyy-MM-dd');
 
     const [employeesRes, specialtiesRes, projectsRes, entriesRes] = await Promise.all([
-      supabase.from('employees').select('id, employee_code, first_name, last_name, specialty_id, regular_hourly_rate, overtime_hourly_rate').eq('status', 'active'),
+      supabase.from('employees').select('*').eq('status', 'active'),
       supabase.from('specialties').select('id, code, name_en, name_el'),
       supabase.from('projects').select('id, project_code, project_name'),
       supabase.from('time_entries')
@@ -120,8 +126,19 @@ export function PayrollExportModal({ open, onOpenChange }: PayrollExportModalPro
     setLoading(false);
   };
 
+  // Get selected project details
+  const selectedProjectDetails = useMemo(() => {
+    if (selectedProject === 'all') return null;
+    return projects.find(p => p.id === selectedProject) || null;
+  }, [selectedProject, projects]);
+
   const payrollData = useMemo(() => {
-    const employeeMap = new Map<string, PayrollRow>();
+    const employeeMap = new Map<string, {
+      employee: Employee;
+      specialty: Specialty | undefined;
+      regular_minutes: number;
+      overtime_minutes: number;
+    }>();
 
     const filteredEntries = timeEntries.filter(entry => {
       if (selectedProject !== 'all' && entry.project_id !== selectedProject) return false;
@@ -142,36 +159,53 @@ export function PayrollExportModal({ open, onOpenChange }: PayrollExportModalPro
         existing.overtime_minutes += entry.overtime_minutes;
       } else {
         employeeMap.set(employee.id, {
-          employee_code: employee.employee_code,
-          last_name: employee.last_name,
-          first_name: employee.first_name,
-          specialty_code: specialty?.code || '',
+          employee,
+          specialty,
           regular_minutes: entry.regular_minutes,
           overtime_minutes: entry.overtime_minutes,
-          regular_hours: 0,
-          overtime_hours: 0,
-          regular_hourly_rate: employee.regular_hourly_rate,
-          overtime_hourly_rate: employee.overtime_hourly_rate,
-          regular_amount: 0,
-          overtime_amount: 0,
-          total_amount: 0,
         });
       }
     });
 
     const rows: PayrollRow[] = [];
-    employeeMap.forEach(row => {
-      row.regular_hours = Math.round((row.regular_minutes / 60) * 100) / 100;
-      row.overtime_hours = Math.round((row.overtime_minutes / 60) * 100) / 100;
-      row.regular_amount = Math.round(row.regular_hours * row.regular_hourly_rate * 100) / 100;
-      row.overtime_amount = Math.round(row.overtime_hours * row.overtime_hourly_rate * 100) / 100;
-      row.total_amount = Math.round((row.regular_amount + row.overtime_amount) * 100) / 100;
+    employeeMap.forEach(data => {
+      const { employee, specialty, regular_minutes, overtime_minutes } = data;
+      
+      const regular_hours = Math.round((regular_minutes / 60) * 100) / 100;
+      const overtime_hours = Math.round((overtime_minutes / 60) * 100) / 100;
+      const regular_amount = Math.round(regular_hours * employee.regular_hourly_rate * 100) / 100;
+      const overtime_amount = Math.round(overtime_hours * employee.overtime_hourly_rate * 100) / 100;
+      const total_amount = Math.round((regular_amount + overtime_amount) * 100) / 100;
+
+      const row: PayrollRow = {
+        employee_code: employee.employee_code,
+        first_name: employee.first_name,
+        last_name: employee.last_name,
+        specialty: specialty ? (language === 'el' ? specialty.name_el : specialty.name_en) : '',
+        afm: employee.afm || '',
+        iban: employee.iban || '',
+        bank_name: employee.bank_name || '',
+        regular_hours,
+        overtime_hours,
+        regular_hourly_rate: employee.regular_hourly_rate,
+        overtime_hourly_rate: employee.overtime_hourly_rate,
+        regular_amount,
+        overtime_amount,
+        total_amount,
+      };
+
+      // Add project info if filtered
+      if (selectedProjectDetails) {
+        row.project_code = selectedProjectDetails.project_code;
+        row.project_name = selectedProjectDetails.project_name;
+      }
+
       rows.push(row);
     });
 
     rows.sort((a, b) => a.employee_code.localeCompare(b.employee_code));
     return rows;
-  }, [timeEntries, employees, specialties, selectedProject, selectedSpecialty]);
+  }, [timeEntries, employees, specialties, selectedProject, selectedSpecialty, selectedProjectDetails, language]);
 
   const preview = useMemo(() => ({
     employeeCount: payrollData.length,
@@ -189,34 +223,52 @@ export function PayrollExportModal({ open, onOpenChange }: PayrollExportModalPro
     setExporting(true);
 
     try {
-      const wsData = payrollData.map(row => ({
-        employee_code: row.employee_code,
-        last_name: row.last_name,
-        first_name: row.first_name,
-        specialty_code: row.specialty_code,
-        regular_minutes: row.regular_minutes,
-        overtime_minutes: row.overtime_minutes,
-        regular_hours: row.regular_hours,
-        overtime_hours: row.overtime_hours,
-        regular_hourly_rate: row.regular_hourly_rate,
-        overtime_hourly_rate: row.overtime_hourly_rate,
-        regular_amount: row.regular_amount,
-        overtime_amount: row.overtime_amount,
-        total_amount: row.total_amount,
-      }));
+      const wsData = payrollData.map(row => {
+        const baseData: Record<string, string | number> = {
+          'Employee Code': row.employee_code,
+          'First Name': row.first_name,
+          'Last Name': row.last_name,
+          'Specialty': row.specialty,
+          'AFM': row.afm,
+          'IBAN': row.iban,
+          'Bank Name': row.bank_name,
+          'Regular Hours': row.regular_hours,
+          'Overtime Hours': row.overtime_hours,
+          'Regular Rate (€/hr)': row.regular_hourly_rate,
+          'Overtime Rate (€/hr)': row.overtime_hourly_rate,
+          'Regular Amount (€)': row.regular_amount,
+          'Overtime Amount (€)': row.overtime_amount,
+          'Total Amount (€)': row.total_amount,
+        };
+
+        if (row.project_code) {
+          baseData['Project Code'] = row.project_code;
+          baseData['Project Name'] = row.project_name || '';
+        }
+
+        return baseData;
+      });
 
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(wsData);
 
-      ws['!cols'] = [
-        { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 14 },
-        { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 14 },
-        { wch: 18 }, { wch: 18 }, { wch: 14 }, { wch: 16 }, { wch: 14 },
+      const baseCols = [
+        { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 18 },
+        { wch: 12 }, { wch: 28 }, { wch: 16 },
+        { wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 18 },
+        { wch: 16 }, { wch: 16 }, { wch: 14 },
       ];
+
+      if (selectedProjectDetails) {
+        baseCols.push({ wch: 14 }, { wch: 24 });
+      }
+
+      ws['!cols'] = baseCols;
 
       XLSX.utils.book_append_sheet(wb, ws, 'Payroll');
 
-      const filename = `payroll_${format(dateFrom, 'yyyyMMdd')}-${format(dateTo, 'yyyyMMdd')}.xlsx`;
+      // Filename: payroll_YYYYMMDD_YYYYMMDD.xlsx
+      const filename = `payroll_${format(dateFrom, 'yyyyMMdd')}_${format(dateTo, 'yyyyMMdd')}.xlsx`;
       XLSX.writeFile(wb, filename);
 
       toast.success(language === 'el' ? `Εξαγωγή: ${filename}` : `Exported: ${filename}`);
@@ -343,6 +395,11 @@ export function PayrollExportModal({ open, onOpenChange }: PayrollExportModalPro
               </div>
             )}
           </div>
+
+          {/* Filename Preview */}
+          <p className="text-xs text-muted-foreground text-center">
+            {language === 'el' ? 'Αρχείο' : 'File'}: <code className="bg-muted px-1.5 py-0.5 rounded">payroll_{format(dateFrom, 'yyyyMMdd')}_{format(dateTo, 'yyyyMMdd')}.xlsx</code>
+          </p>
 
           {/* Export Button */}
           <Button
