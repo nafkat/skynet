@@ -9,6 +9,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 // Pages
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import AdminDashboard from "./pages/AdminDashboard";
 import TimeEntry from "./pages/TimeEntry";
 import Employees from "./pages/Employees";
 import Projects from "./pages/Projects";
@@ -42,10 +43,38 @@ function ProtectedRoute({
   }
 
   if (requiredRoles && role && !requiredRoles.includes(role)) {
+    // Redirect based on role
+    if (role === 'admin' || role === 'hr') {
+      return <Navigate to="/admin/dashboard" replace />;
+    }
     return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;
+}
+
+// Smart redirect based on user role
+function RoleBasedRedirect() {
+  const { user, role, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-pulse text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // Admin and HR go to admin dashboard, timekeepers go to regular dashboard
+  if (role === 'admin' || role === 'hr') {
+    return <Navigate to="/admin/dashboard" replace />;
+  }
+
+  return <Navigate to="/dashboard" replace />;
 }
 
 function AppRoutes() {
@@ -53,8 +82,19 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={<Login />} />
       
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/" element={<RoleBasedRedirect />} />
       
+      {/* Admin Dashboard - Admin and HR only */}
+      <Route 
+        path="/admin/dashboard" 
+        element={
+          <ProtectedRoute requiredRoles={['admin', 'hr']}>
+            <AdminDashboard />
+          </ProtectedRoute>
+        } 
+      />
+      
+      {/* Timekeeper Dashboard */}
       <Route 
         path="/dashboard" 
         element={

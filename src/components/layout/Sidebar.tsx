@@ -23,10 +23,16 @@ export function Sidebar() {
 
   const navigationItems = [
     { 
+      path: '/admin/dashboard', 
+      icon: LayoutDashboard, 
+      label: language === 'el' ? 'Διοικητικός Πίνακας' : 'Admin Dashboard',
+      show: hasElevatedRole 
+    },
+    { 
       path: '/dashboard', 
       icon: LayoutDashboard, 
       label: t('nav.dashboard'),
-      show: true 
+      show: !hasElevatedRole 
     },
     { 
       path: '/time-entry', 
