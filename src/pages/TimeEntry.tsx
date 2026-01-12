@@ -49,12 +49,15 @@ interface TimeEntry {
 
 export default function TimeEntry() {
   const { t, language } = useLanguage();
-  const { user } = useAuth();
+  const { user, hasElevatedRole, role } = useAuth();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [recentEntries, setRecentEntries] = useState<TimeEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  // Timekeeper only flag
+  const isTimekeeperOnly = role === 'timekeeper' && !hasElevatedRole;
 
   // Form state
   const [selectedEmployee, setSelectedEmployee] = useState('');
@@ -69,21 +72,21 @@ export default function TimeEntry() {
 
   const fetchData = async () => {
     try {
-      // Fetch active employees (limited fields for timekeepers)
+      // For Timekeeper: use limited view that doesn't expose sensitive data
+      // RLS policies already filter what they can see
       const { data: employeesData } = await supabase
         .from('employees')
         .select('id, employee_code, first_name, last_name, specialty_id')
         .eq('status', 'active')
         .order('last_name');
 
-      // Fetch open projects only
+      // Projects - RLS filters to open projects for Timekeeper
       const { data: projectsData } = await supabase
         .from('projects')
         .select('id, project_code, project_name')
-        .eq('status', 'OPEN')
         .order('project_code');
 
-      // Fetch recent entries (last 7 days)
+      // Fetch recent entries - RLS restricts to own entries for Timekeeper
       const sevenDaysAgo = format(subHours(new Date(), 168), 'yyyy-MM-dd');
       const { data: entriesData } = await supabase
         .from('time_entries')

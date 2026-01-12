@@ -126,28 +126,31 @@ function AppRoutes() {
         } 
       />
       
+      {/* Employees - Admin and HR */}
       <Route 
         path="/employees" 
         element={
-          <ProtectedRoute requiredRoles={['admin']}>
+          <ProtectedRoute requiredRoles={['admin', 'hr']}>
             <Employees />
           </ProtectedRoute>
         } 
       />
       
+      {/* Projects - Admin and HR */}
       <Route 
         path="/projects" 
         element={
-          <ProtectedRoute requiredRoles={['admin']}>
+          <ProtectedRoute requiredRoles={['admin', 'hr']}>
             <Projects />
           </ProtectedRoute>
         } 
       />
       
+      {/* Specialties - Admin and HR */}
       <Route 
         path="/specialties" 
         element={
-          <ProtectedRoute requiredRoles={['admin']}>
+          <ProtectedRoute requiredRoles={['admin', 'hr']}>
             <Specialties />
           </ProtectedRoute>
         } 

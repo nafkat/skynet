@@ -69,7 +69,7 @@ export default function Login() {
             {t('auth.shipyardSystem')}
           </h1>
           <p className="text-muted-foreground mt-2">
-            {t('auth.welcome')}
+            {language === 'el' ? 'Σύνδεση Admin / HR / Timekeeper' : 'Admin / HR / Timekeeper Sign In'}
           </p>
         </div>
 
