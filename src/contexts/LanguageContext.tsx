@@ -16,9 +16,11 @@ export const translations: Translations = {
   'auth.email': { en: 'Email', el: 'Email' },
   'auth.password': { en: 'Password', el: 'Κωδικός' },
   'auth.signIn': { en: 'Sign In', el: 'Είσοδος' },
+  'auth.signUp': { en: 'Sign Up', el: 'Εγγραφή' },
   'auth.signingIn': { en: 'Signing in...', el: 'Σύνδεση...' },
   'auth.invalidCredentials': { en: 'Invalid credentials', el: 'Λάθος στοιχεία' },
   'auth.welcome': { en: 'Welcome back', el: 'Καλώς ήρθατε' },
+  'auth.accountCreated': { en: 'Account created! You can now sign in.', el: 'Ο λογαριασμός δημιουργήθηκε! Μπορείτε να συνδεθείτε.' },
   'auth.shipyardSystem': { en: 'Shipyard Time Tracking', el: 'Ναυπηγείο - Καταγραφή Χρόνου' },
   
   // Navigation
