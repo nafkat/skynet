@@ -239,7 +239,10 @@ export type Database = {
       }
       projects: {
         Row: {
+          assigned_shipyard_company: string
           created_at: string
+          customer_company_afm: string | null
+          customer_company_name: string
           id: string
           project_code: string
           project_name: string
@@ -247,7 +250,10 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          assigned_shipyard_company?: string
           created_at?: string
+          customer_company_afm?: string | null
+          customer_company_name?: string
           id?: string
           project_code: string
           project_name: string
@@ -255,7 +261,10 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          assigned_shipyard_company?: string
           created_at?: string
+          customer_company_afm?: string | null
+          customer_company_name?: string
           id?: string
           project_code?: string
           project_name?: string
