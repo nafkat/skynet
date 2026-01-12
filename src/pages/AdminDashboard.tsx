@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Navigate, Link } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { PayrollExportModal } from '@/components/PayrollExportModal';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -99,6 +100,9 @@ export default function AdminDashboard() {
   const [customDateTo, setCustomDateTo] = useState<Date>(new Date());
   const [selectedProject, setSelectedProject] = useState<string>('all');
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>('all');
+  
+  // Payroll Export Modal
+  const [payrollModalOpen, setPayrollModalOpen] = useState(false);
 
   // Calculate date range based on selection
   const dateRange = useMemo(() => {
@@ -349,13 +353,14 @@ export default function AdminDashboard() {
               {language === 'el' ? 'Επισκόπηση εργασίας και κόστους' : 'Labor and cost overview'}
             </p>
           </div>
-          <Link to="/admin/payroll-export">
-            <Button className="btn-tablet gap-2">
-              <FileSpreadsheet className="h-5 w-5" />
-              {language === 'el' ? 'Εξαγωγή Μισθοδοσίας (Excel)' : 'Export Payroll (Excel)'}
-            </Button>
-          </Link>
+          <Button className="btn-tablet gap-2" onClick={() => setPayrollModalOpen(true)}>
+            <FileSpreadsheet className="h-5 w-5" />
+            {language === 'el' ? 'Εξαγωγή Μισθοδοσίας (Excel)' : 'Export Payroll (Excel)'}
+          </Button>
         </div>
+
+        {/* Payroll Export Modal */}
+        <PayrollExportModal open={payrollModalOpen} onOpenChange={setPayrollModalOpen} />
 
         {/* Filters */}
         <Card className="card-elevated">
