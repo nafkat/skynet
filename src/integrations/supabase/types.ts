@@ -19,6 +19,8 @@ export type Database = {
           created_at: string
           id: string
           new_end_time: string | null
+          new_entry_date: string | null
+          new_project_id: string | null
           new_start_time: string | null
           request_reason: string
           requested_by: string
@@ -32,6 +34,8 @@ export type Database = {
           created_at?: string
           id?: string
           new_end_time?: string | null
+          new_entry_date?: string | null
+          new_project_id?: string | null
           new_start_time?: string | null
           request_reason: string
           requested_by: string
@@ -45,6 +49,8 @@ export type Database = {
           created_at?: string
           id?: string
           new_end_time?: string | null
+          new_entry_date?: string | null
+          new_project_id?: string | null
           new_start_time?: string | null
           request_reason?: string
           requested_by?: string
@@ -55,6 +61,13 @@ export type Database = {
           time_entry_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "correction_requests_new_project_id_fkey"
+            columns: ["new_project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "correction_requests_time_entry_id_fkey"
             columns: ["time_entry_id"]

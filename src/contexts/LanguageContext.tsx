@@ -76,6 +76,18 @@ export const translations: Translations = {
   'timeEntry.regular': { en: 'Regular', el: 'Κανονικές' },
   'timeEntry.overtime': { en: 'Overtime', el: 'Υπερωρίες' },
   'timeEntry.requestCorrection': { en: 'Request Correction', el: 'Αίτηση Διόρθωσης' },
+  'timeEntry.editEntry': { en: 'Edit Entry', el: 'Επεξεργασία Καταχώρησης' },
+  'timeEntry.editingEntry': { en: 'Editing entry', el: 'Επεξεργασία καταχώρησης' },
+  'timeEntry.entryLoadedForEditing': { en: 'Entry loaded for editing', el: 'Η καταχώρηση φορτώθηκε για επεξεργασία' },
+  'timeEntry.saveChanges': { en: 'Save Changes', el: 'Αποθήκευση Αλλαγών' },
+  'timeEntry.cancelEdit': { en: 'Cancel Edit', el: 'Ακύρωση Επεξεργασίας' },
+  'timeEntry.changesSaved': { en: 'Changes saved successfully', el: 'Οι αλλαγές αποθηκεύτηκαν' },
+  'timeEntry.correctionSubmitted': { en: 'Correction request submitted', el: 'Η αίτηση διόρθωσης υποβλήθηκε' },
+  'timeEntry.correctionReason': { en: 'Reason for correction', el: 'Λόγος διόρθωσης' },
+  'timeEntry.correctionReasonPlaceholder': { en: 'Explain why this entry needs to be corrected...', el: 'Εξηγήστε γιατί χρειάζεται διόρθωση αυτή η καταχώρηση...' },
+  'timeEntry.reasonRequired': { en: 'Please provide a reason for the correction', el: 'Παρακαλώ δώστε αιτιολογία για τη διόρθωση' },
+  'timeEntry.employeeReadOnly': { en: 'Employee cannot be changed when editing', el: 'Ο εργαζόμενος δεν μπορεί να αλλάξει κατά την επεξεργασία' },
+  'timeEntry.endAfterStart': { en: 'End time must be after start time', el: 'Η ώρα λήξης πρέπει να είναι μετά την ώρα έναρξης' },
   
   // Employees
   'employees.title': { en: 'Employees', el: 'Εργαζόμενοι' },
