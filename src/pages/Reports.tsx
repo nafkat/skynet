@@ -368,23 +368,23 @@ export default function Reports() {
             <div className="stat-card">
               <div className="flex items-center gap-3">
                 <DollarSign className="h-5 w-5 text-muted-foreground" />
-                <span className="stat-label">{t('reports.totalRegularOT')}</span>
+                <span className="stat-label">{t('reports.totalRegularPlusOT')}</span>
               </div>
               <span className="stat-value">{formatCurrency(reportData.totalRegularPay + reportData.totalOvertimePay)}</span>
             </div>
             <div className="stat-card">
               <div className="flex items-center gap-3">
                 <DollarSign className="h-5 w-5 text-primary" />
-                <span className="stat-label">{t('reports.totalAllInOT')}</span>
+                <span className="stat-label">{t('reports.totalAllInPlusOT')}</span>
               </div>
               <span className="stat-value">{formatCurrency(reportData.totalRegularAllInPay + reportData.totalOvertimePay)}</span>
             </div>
             <div className="stat-card">
               <div className="flex items-center gap-3">
-                <DollarSign className="h-5 w-5 text-muted-foreground" />
-                <span className="stat-label">{t('reports.laborCost')}</span>
+                <DollarSign className="h-5 w-5 text-warning" />
+                <span className="stat-label">{t('reports.totalOT')}</span>
               </div>
-              <span className="stat-value">{formatCurrency(reportData.totalRegularAllInPay + reportData.totalOvertimePay)}</span>
+              <span className="stat-value">{formatCurrency(reportData.totalOvertimePay)}</span>
             </div>
           </div>
 
@@ -400,8 +400,8 @@ export default function Reports() {
                     <th className="table-cell text-left">{t('employees.title')}</th>
                     <th className="table-cell text-right">{t('reports.regularHours')}</th>
                     <th className="table-cell text-right">{t('reports.overtimeHours')}</th>
-                    <th className="table-cell text-right">{t('reports.totalRegularOT')}</th>
-                    <th className="table-cell text-right">{t('reports.totalAllInOT')}</th>
+                    <th className="table-cell text-right">{t('reports.totalRegularPlusOT')}</th>
+                    <th className="table-cell text-right">{t('reports.totalAllInPlusOT')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -436,8 +436,8 @@ export default function Reports() {
                     <th className="table-cell text-left">{t('projects.title')}</th>
                     <th className="table-cell text-right">{t('reports.regularHours')}</th>
                     <th className="table-cell text-right">{t('reports.overtimeHours')}</th>
-                    <th className="table-cell text-right">{t('reports.laborCost')}</th>
-                    <th className="table-cell text-right">{t('reports.laborCostAllIn')}</th>
+                    <th className="table-cell text-right">{t('reports.totalRegularPlusOT')}</th>
+                    <th className="table-cell text-right">{t('reports.totalAllInPlusOT')}</th>
                   </tr>
                 </thead>
                 <tbody>
