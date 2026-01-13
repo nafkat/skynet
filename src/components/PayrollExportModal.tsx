@@ -45,6 +45,7 @@ interface Employee {
   last_name: string;
   specialty_id: string;
   regular_hourly_rate: number;
+  regular_rate_all_in: number;
   overtime_hourly_rate: number;
   afm: string | null;
   iban: string | null;
@@ -75,12 +76,16 @@ interface PayrollRow {
   regular_hours: number;
   overtime_hours: number;
   regular_hourly_rate: number;
+  regular_rate_all_in: number;
   overtime_hourly_rate: number;
-  regular_amount: number;
-  overtime_amount: number;
-  total_amount: number;
+  regular_cost: number;
+  regular_all_in_cost: number;
+  overtime_cost: number;
+  total_regular_ot: number;
+  total_all_in_ot: number;
   project_code?: string;
   project_name?: string;
+  hasMissingLegalData: boolean;
 }
 
 export function PayrollExportModal({ open, onOpenChange }: PayrollExportModalProps) {
@@ -173,9 +178,16 @@ export function PayrollExportModal({ open, onOpenChange }: PayrollExportModalPro
       
       const regular_hours = Math.round((regular_minutes / 60) * 100) / 100;
       const overtime_hours = Math.round((overtime_minutes / 60) * 100) / 100;
-      const regular_amount = Math.round(regular_hours * employee.regular_hourly_rate * 100) / 100;
-      const overtime_amount = Math.round(overtime_hours * employee.overtime_hourly_rate * 100) / 100;
-      const total_amount = Math.round((regular_amount + overtime_amount) * 100) / 100;
+      
+      // Calculate costs
+      const regular_cost = Math.round(regular_hours * employee.regular_hourly_rate * 100) / 100;
+      const regular_all_in_cost = Math.round(regular_hours * (employee.regular_rate_all_in || 0) * 100) / 100;
+      const overtime_cost = Math.round(overtime_hours * employee.overtime_hourly_rate * 100) / 100;
+      const total_regular_ot = Math.round((regular_cost + overtime_cost) * 100) / 100;
+      const total_all_in_ot = Math.round((regular_all_in_cost + overtime_cost) * 100) / 100;
+
+      // Check for missing legal data
+      const hasMissingLegalData = !employee.afm || !employee.iban || !employee.bank_name;
 
       const row: PayrollRow = {
         employee_code: employee.employee_code,
@@ -188,10 +200,14 @@ export function PayrollExportModal({ open, onOpenChange }: PayrollExportModalPro
         regular_hours,
         overtime_hours,
         regular_hourly_rate: employee.regular_hourly_rate,
+        regular_rate_all_in: employee.regular_rate_all_in || 0,
         overtime_hourly_rate: employee.overtime_hourly_rate,
-        regular_amount,
-        overtime_amount,
-        total_amount,
+        regular_cost,
+        regular_all_in_cost,
+        overtime_cost,
+        total_regular_ot,
+        total_all_in_ot,
+        hasMissingLegalData,
       };
 
       // Add project info if filtered
@@ -211,12 +227,26 @@ export function PayrollExportModal({ open, onOpenChange }: PayrollExportModalPro
     employeeCount: payrollData.length,
     totalRegularHours: payrollData.reduce((sum, r) => sum + r.regular_hours, 0),
     totalOvertimeHours: payrollData.reduce((sum, r) => sum + r.overtime_hours, 0),
-    totalAmount: payrollData.reduce((sum, r) => sum + r.total_amount, 0),
+    totalRegularOT: payrollData.reduce((sum, r) => sum + r.total_regular_ot, 0),
+    totalAllInOT: payrollData.reduce((sum, r) => sum + r.total_all_in_ot, 0),
+    hasMissingLegalData: payrollData.some(r => r.hasMissingLegalData),
+    employeesWithMissingData: payrollData.filter(r => r.hasMissingLegalData).length,
   }), [payrollData]);
+
 
   const handleExport = () => {
     if (payrollData.length === 0) {
       toast.error(language === 'el' ? 'Δεν υπάρχουν δεδομένα' : 'No data to export');
+      return;
+    }
+
+    // Block export if any employee has missing legal data
+    if (preview.hasMissingLegalData) {
+      toast.error(
+        language === 'el' 
+          ? `Η εξαγωγή αποκλείεται: ${preview.employeesWithMissingData} εργαζόμενο(ι) χωρίς ΑΦΜ, IBAN ή Τράπεζα` 
+          : `Export blocked: ${preview.employeesWithMissingData} employee(s) missing AFM, IBAN, or Bank`
+      );
       return;
     }
 
@@ -229,16 +259,19 @@ export function PayrollExportModal({ open, onOpenChange }: PayrollExportModalPro
           'First Name': row.first_name,
           'Last Name': row.last_name,
           'Specialty': row.specialty,
-          'AFM': row.afm,
-          'IBAN': row.iban,
-          'Bank Name': row.bank_name,
           'Regular Hours': row.regular_hours,
           'Overtime Hours': row.overtime_hours,
           'Regular Rate (€/hr)': row.regular_hourly_rate,
+          'Regular All-in (€/hr)': row.regular_rate_all_in,
           'Overtime Rate (€/hr)': row.overtime_hourly_rate,
-          'Regular Amount (€)': row.regular_amount,
-          'Overtime Amount (€)': row.overtime_amount,
-          'Total Amount (€)': row.total_amount,
+          'Regular Cost (€)': row.regular_cost,
+          'Regular All-in Cost (€)': row.regular_all_in_cost,
+          'Overtime Cost (€)': row.overtime_cost,
+          'Total (Regular + OT) (€)': row.total_regular_ot,
+          'Total (All-in + OT) (€)': row.total_all_in_ot,
+          'AFM': row.afm,
+          'IBAN': row.iban,
+          'Bank Name': row.bank_name,
         };
 
         if (row.project_code) {
@@ -253,10 +286,12 @@ export function PayrollExportModal({ open, onOpenChange }: PayrollExportModalPro
       const ws = XLSX.utils.json_to_sheet(wsData);
 
       const baseCols = [
-        { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 18 },
-        { wch: 12 }, { wch: 28 }, { wch: 16 },
-        { wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 18 },
-        { wch: 16 }, { wch: 16 }, { wch: 14 },
+        { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 18 }, // Employee info
+        { wch: 14 }, { wch: 14 }, // Hours
+        { wch: 16 }, { wch: 18 }, { wch: 16 }, // Rates
+        { wch: 14 }, { wch: 18 }, { wch: 14 }, // Costs
+        { wch: 18 }, { wch: 18 }, // Totals
+        { wch: 12 }, { wch: 28 }, { wch: 16 }, // Legal
       ];
 
       if (selectedProjectDetails) {
@@ -355,7 +390,7 @@ export function PayrollExportModal({ open, onOpenChange }: PayrollExportModalPro
             </div>
           </div>
 
-          {/* Preview */}
+        {/* Preview */}
           <div className="rounded-xl bg-muted/50 p-4">
             <p className="text-xs font-medium text-muted-foreground mb-3">
               {language === 'el' ? 'ΠΡΟΕΠΙΣΚΟΠΗΣΗ' : 'PREVIEW'}
@@ -363,35 +398,50 @@ export function PayrollExportModal({ open, onOpenChange }: PayrollExportModalPro
             {loading ? (
               <p className="text-sm text-muted-foreground">{language === 'el' ? 'Φόρτωση...' : 'Loading...'}</p>
             ) : (
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <p className="text-lg font-bold">{preview.employeeCount}</p>
-                    <p className="text-xs text-muted-foreground">{language === 'el' ? 'Εργαζόμενοι' : 'Employees'}</p>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <p className="text-lg font-bold">{preview.employeeCount}</p>
+                      <p className="text-xs text-muted-foreground">{language === 'el' ? 'Εργαζόμενοι' : 'Employees'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <p className="text-lg font-bold">{preview.totalRegularHours.toFixed(1)}</p>
+                      <p className="text-xs text-muted-foreground">{language === 'el' ? 'Κανονικές' : 'Regular hrs'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Timer className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <p className="text-lg font-bold">{preview.totalOvertimeHours.toFixed(1)}</p>
+                      <p className="text-xs text-muted-foreground">{language === 'el' ? 'Υπερωρίες' : 'Overtime hrs'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <p className="text-lg font-bold">€{preview.totalRegularOT.toFixed(2)}</p>
+                      <p className="text-xs text-muted-foreground">{language === 'el' ? 'Κανονικό + ΥΩ' : 'Regular + OT'}</p>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <p className="text-lg font-bold">{preview.totalRegularHours.toFixed(1)}</p>
-                    <p className="text-xs text-muted-foreground">{language === 'el' ? 'Κανονικές' : 'Regular hrs'}</p>
+                <div className="pt-2 border-t border-border">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">{language === 'el' ? 'Σύνολο (All-in + ΥΩ)' : 'Total (All-in + OT)'}</span>
+                    <span className="font-bold">€{preview.totalAllInOT.toFixed(2)}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Timer className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <p className="text-lg font-bold">{preview.totalOvertimeHours.toFixed(1)}</p>
-                    <p className="text-xs text-muted-foreground">{language === 'el' ? 'Υπερωρίες' : 'Overtime hrs'}</p>
+                {preview.hasMissingLegalData && (
+                  <div className="mt-2 p-2 rounded-lg bg-destructive/10 border border-destructive/20 text-xs text-destructive">
+                    ⚠️ {language === 'el' 
+                      ? `${preview.employeesWithMissingData} εργαζόμενο(ι) χωρίς ΑΦΜ/IBAN/Τράπεζα - η εξαγωγή θα αποκλειστεί` 
+                      : `${preview.employeesWithMissingData} employee(s) missing AFM/IBAN/Bank - export will be blocked`}
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <p className="text-lg font-bold">€{preview.totalAmount.toFixed(2)}</p>
-                    <p className="text-xs text-muted-foreground">{language === 'el' ? 'Σύνολο' : 'Total'}</p>
-                  </div>
-                </div>
+                )}
               </div>
             )}
           </div>

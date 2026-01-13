@@ -138,6 +138,7 @@ export type Database = {
           phone: string | null
           regular_end_time: string
           regular_hourly_rate: number
+          regular_rate_all_in: number
           regular_start_time: string
           specialty_id: string
           status: Database["public"]["Enums"]["employee_status"]
@@ -160,6 +161,7 @@ export type Database = {
           phone?: string | null
           regular_end_time?: string
           regular_hourly_rate?: number
+          regular_rate_all_in?: number
           regular_start_time?: string
           specialty_id: string
           status?: Database["public"]["Enums"]["employee_status"]
@@ -182,6 +184,7 @@ export type Database = {
           phone?: string | null
           regular_end_time?: string
           regular_hourly_rate?: number
+          regular_rate_all_in?: number
           regular_start_time?: string
           specialty_id?: string
           status?: Database["public"]["Enums"]["employee_status"]

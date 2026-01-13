@@ -21,6 +21,7 @@ interface Employee {
   first_name: string;
   last_name: string;
   regular_hourly_rate: number;
+  regular_rate_all_in: number;
   overtime_hourly_rate: number;
 }
 
@@ -41,12 +42,14 @@ interface ReportData {
   totalRegularMinutes: number;
   totalOvertimeMinutes: number;
   totalRegularPay: number;
+  totalRegularAllInPay: number;
   totalOvertimePay: number;
   byEmployee: {
     employee: Employee;
     regularMinutes: number;
     overtimeMinutes: number;
     regularPay: number;
+    regularAllInPay: number;
     overtimePay: number;
   }[];
   byProject: {
@@ -54,6 +57,7 @@ interface ReportData {
     regularMinutes: number;
     overtimeMinutes: number;
     laborCost: number;
+    laborCostAllIn: number;
   }[];
 }
 
@@ -80,7 +84,7 @@ export default function Reports() {
   const fetchFilterData = async () => {
     try {
       const [employeesRes, projectsRes, specialtiesRes] = await Promise.all([
-        supabase.from('employees').select('id, employee_code, first_name, last_name, regular_hourly_rate, overtime_hourly_rate').order('employee_code'),
+        supabase.from('employees').select('id, employee_code, first_name, last_name, regular_hourly_rate, regular_rate_all_in, overtime_hourly_rate').order('employee_code'),
         supabase.from('projects').select('id, project_code, project_name').order('project_code'),
         supabase.from('specialties').select('*').order('code'),
       ]);
@@ -133,6 +137,7 @@ export default function Reports() {
       let totalRegularMinutes = 0;
       let totalOvertimeMinutes = 0;
       let totalRegularPay = 0;
+      let totalRegularAllInPay = 0;
       let totalOvertimePay = 0;
 
       const employeeMap = new Map<string, any>();
@@ -146,9 +151,11 @@ export default function Reports() {
         totalOvertimeMinutes += entry.overtime_minutes;
 
         const regularPay = (entry.regular_minutes / 60) * (emp?.regular_hourly_rate || 0);
+        const regularAllInPay = (entry.regular_minutes / 60) * (emp?.regular_rate_all_in || 0);
         const overtimePay = (entry.overtime_minutes / 60) * (emp?.overtime_hourly_rate || 0);
 
         totalRegularPay += regularPay;
+        totalRegularAllInPay += regularAllInPay;
         totalOvertimePay += overtimePay;
 
         // Aggregate by employee
@@ -158,11 +165,13 @@ export default function Reports() {
             regularMinutes: 0,
             overtimeMinutes: 0,
             regularPay: 0,
+            regularAllInPay: 0,
             overtimePay: 0,
           };
           existing.regularMinutes += entry.regular_minutes;
           existing.overtimeMinutes += entry.overtime_minutes;
           existing.regularPay += regularPay;
+          existing.regularAllInPay += regularAllInPay;
           existing.overtimePay += overtimePay;
           employeeMap.set(emp.id, existing);
         }
@@ -174,10 +183,12 @@ export default function Reports() {
             regularMinutes: 0,
             overtimeMinutes: 0,
             laborCost: 0,
+            laborCostAllIn: 0,
           };
           existing.regularMinutes += entry.regular_minutes;
           existing.overtimeMinutes += entry.overtime_minutes;
           existing.laborCost += regularPay + overtimePay;
+          existing.laborCostAllIn += regularAllInPay + overtimePay;
           projectMap.set(proj.id, existing);
         }
       });
@@ -186,6 +197,7 @@ export default function Reports() {
         totalRegularMinutes,
         totalOvertimeMinutes,
         totalRegularPay,
+        totalRegularAllInPay,
         totalOvertimePay,
         byEmployee: Array.from(employeeMap.values()),
         byProject: Array.from(projectMap.values()),
@@ -338,7 +350,7 @@ export default function Reports() {
       {reportData && (
         <>
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
             <div className="stat-card">
               <div className="flex items-center gap-3">
                 <Clock className="h-5 w-5 text-muted-foreground" />
@@ -356,16 +368,23 @@ export default function Reports() {
             <div className="stat-card">
               <div className="flex items-center gap-3">
                 <DollarSign className="h-5 w-5 text-muted-foreground" />
-                <span className="stat-label">{t('reports.totalPayroll')}</span>
+                <span className="stat-label">{t('reports.totalRegularOT')}</span>
               </div>
               <span className="stat-value">{formatCurrency(reportData.totalRegularPay + reportData.totalOvertimePay)}</span>
+            </div>
+            <div className="stat-card">
+              <div className="flex items-center gap-3">
+                <DollarSign className="h-5 w-5 text-primary" />
+                <span className="stat-label">{t('reports.totalAllInOT')}</span>
+              </div>
+              <span className="stat-value">{formatCurrency(reportData.totalRegularAllInPay + reportData.totalOvertimePay)}</span>
             </div>
             <div className="stat-card">
               <div className="flex items-center gap-3">
                 <DollarSign className="h-5 w-5 text-muted-foreground" />
                 <span className="stat-label">{t('reports.laborCost')}</span>
               </div>
-              <span className="stat-value">{formatCurrency(reportData.totalRegularPay + reportData.totalOvertimePay)}</span>
+              <span className="stat-value">{formatCurrency(reportData.totalRegularAllInPay + reportData.totalOvertimePay)}</span>
             </div>
           </div>
 
@@ -381,7 +400,8 @@ export default function Reports() {
                     <th className="table-cell text-left">{t('employees.title')}</th>
                     <th className="table-cell text-right">{t('reports.regularHours')}</th>
                     <th className="table-cell text-right">{t('reports.overtimeHours')}</th>
-                    <th className="table-cell text-right">{t('reports.totalPayroll')}</th>
+                    <th className="table-cell text-right">{t('reports.totalRegularOT')}</th>
+                    <th className="table-cell text-right">{t('reports.totalAllInOT')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -396,6 +416,7 @@ export default function Reports() {
                       <td className="table-cell text-right font-mono">{formatHours(row.regularMinutes)}</td>
                       <td className="table-cell text-right font-mono text-warning">{formatHours(row.overtimeMinutes)}</td>
                       <td className="table-cell text-right font-medium">{formatCurrency(row.regularPay + row.overtimePay)}</td>
+                      <td className="table-cell text-right font-medium text-primary">{formatCurrency(row.regularAllInPay + row.overtimePay)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -416,6 +437,7 @@ export default function Reports() {
                     <th className="table-cell text-right">{t('reports.regularHours')}</th>
                     <th className="table-cell text-right">{t('reports.overtimeHours')}</th>
                     <th className="table-cell text-right">{t('reports.laborCost')}</th>
+                    <th className="table-cell text-right">{t('reports.laborCostAllIn')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -430,6 +452,7 @@ export default function Reports() {
                       <td className="table-cell text-right font-mono">{formatHours(row.regularMinutes)}</td>
                       <td className="table-cell text-right font-mono text-warning">{formatHours(row.overtimeMinutes)}</td>
                       <td className="table-cell text-right font-medium">{formatCurrency(row.laborCost)}</td>
+                      <td className="table-cell text-right font-medium text-primary">{formatCurrency(row.laborCostAllIn)}</td>
                     </tr>
                   ))}
                 </tbody>

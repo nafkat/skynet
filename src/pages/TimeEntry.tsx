@@ -24,6 +24,9 @@ interface Employee {
   first_name: string;
   last_name: string;
   specialty_id: string;
+  regular_hourly_rate?: number;
+  regular_rate_all_in?: number;
+  overtime_hourly_rate?: number;
 }
 
 interface Project {
@@ -83,9 +86,10 @@ export default function TimeEntry() {
     try {
       // For Timekeeper: use limited view that doesn't expose sensitive data
       // RLS policies already filter what they can see
+      // Include pay rates only for elevated roles to check validity
       const { data: employeesData } = await supabase
         .from('employees')
-        .select('id, employee_code, first_name, last_name, specialty_id')
+        .select('id, employee_code, first_name, last_name, specialty_id, regular_hourly_rate, regular_rate_all_in, overtime_hourly_rate')
         .eq('status', 'active')
         .order('last_name');
 
@@ -149,11 +153,24 @@ export default function TimeEntry() {
     resetForm();
   };
 
+  // Check if selected employee has valid pay rates
+  const selectedEmployeeData = employees.find(e => e.id === selectedEmployee);
+  const hasValidPayRates = selectedEmployeeData ? 
+    (selectedEmployeeData.regular_hourly_rate && selectedEmployeeData.regular_hourly_rate > 0) &&
+    (selectedEmployeeData.regular_rate_all_in && selectedEmployeeData.regular_rate_all_in > 0) &&
+    (selectedEmployeeData.overtime_hourly_rate && selectedEmployeeData.overtime_hourly_rate > 0) : true;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!selectedEmployee || !selectedProject || !startTime || !endTime) {
       toast.error(t('common.fillAllFields') || 'Please fill in all fields');
+      return;
+    }
+
+    // Validate pay rates
+    if (!hasValidPayRates) {
+      toast.error(t('timeEntry.incompletePayRates'));
       return;
     }
 
@@ -342,6 +359,16 @@ export default function TimeEntry() {
               {formMode === 'edit' && (
                 <p className="text-xs text-muted-foreground">{t('timeEntry.employeeReadOnly')}</p>
               )}
+              {/* Pay rate warning */}
+              {selectedEmployee && !hasValidPayRates && (
+                <div className="mt-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm text-destructive font-medium">{t('timeEntry.incompletePayRatesTitle')}</p>
+                    <p className="text-xs text-destructive/80 mt-1">{t('timeEntry.incompletePayRatesDesc')}</p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Project */}
@@ -410,7 +437,7 @@ export default function TimeEntry() {
                 </Button>
               )}
               
-              <Button type="submit" className="flex-1 btn-tablet" disabled={submitting}>
+              <Button type="submit" className="flex-1 btn-tablet" disabled={submitting || (selectedEmployee && !hasValidPayRates)}>
                 {formMode === 'create' ? (
                   <>
                     <Plus className="h-5 w-5 mr-2" />
