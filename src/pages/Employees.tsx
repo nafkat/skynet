@@ -26,7 +26,24 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { Plus, Search, Edit2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Search, Edit2, ChevronDown, ChevronRight, Archive, Trash2, MoreHorizontal } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -72,15 +89,22 @@ interface EmployeeAllowedProject {
 }
 
 export default function Employees() {
-  const { t, language } = useLanguage();
-  const { hasElevatedRole } = useAuth();
+const { t, language } = useLanguage();
+  const { hasElevatedRole, isAdmin } = useAuth();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [specialties, setSpecialties] = useState<Specialty[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [employeeProjects, setEmployeeProjects] = useState<EmployeeAllowedProject[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('active');
+  
+  // Delete/Archive state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [canHardDelete, setCanHardDelete] = useState(false);
+  const [checkingDeletability, setCheckingDeletability] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [payrollSectionOpen, setPayrollSectionOpen] = useState(false);
@@ -299,9 +323,108 @@ export default function Employees() {
     return matchesSearch && matchesStatus;
   });
 
-  const getSpecialtyName = (specialty: Specialty | undefined) => {
+const getSpecialtyName = (specialty: Specialty | undefined) => {
     if (!specialty) return '';
     return language === 'el' ? specialty.name_el : specialty.name_en;
+  };
+
+  const checkCanDelete = async (employeeId: string): Promise<boolean> => {
+    try {
+      setCheckingDeletability(true);
+      
+      // Check for time entries
+      const { count: timeEntriesCount } = await supabase
+        .from('time_entries')
+        .select('*', { count: 'exact', head: true })
+        .eq('employee_id', employeeId);
+      
+      if (timeEntriesCount && timeEntriesCount > 0) {
+        return false;
+      }
+
+      // Check for correction requests (via time entries - already handled above)
+      // But also check if employee requested any corrections
+      const { count: correctionsCount } = await supabase
+        .from('correction_requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('requested_by', employeeId);
+
+      return (correctionsCount ?? 0) === 0;
+    } catch (error) {
+      console.error('Error checking deletability:', error);
+      return false;
+    } finally {
+      setCheckingDeletability(false);
+    }
+  };
+
+  const handleArchiveClick = (employee: Employee) => {
+    setSelectedEmployee(employee);
+    setArchiveDialogOpen(true);
+  };
+
+  const handleDeleteClick = async (employee: Employee) => {
+    setSelectedEmployee(employee);
+    const canDelete = await checkCanDelete(employee.id);
+    setCanHardDelete(canDelete);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleArchiveConfirm = async () => {
+    if (!selectedEmployee) return;
+    
+    try {
+      const newStatus = selectedEmployee.status === 'active' ? 'inactive' : 'active';
+      const { error } = await supabase
+        .from('employees')
+        .update({ status: newStatus })
+        .eq('id', selectedEmployee.id);
+      
+      if (error) throw error;
+      
+      toast.success(
+        newStatus === 'inactive' 
+          ? t('employees.archiveSuccess') 
+          : t('employees.restoreSuccess')
+      );
+      fetchData();
+    } catch (error: any) {
+      console.error('Error archiving employee:', error);
+      toast.error(error.message || t('employees.archiveError'));
+    } finally {
+      setArchiveDialogOpen(false);
+      setSelectedEmployee(null);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!selectedEmployee || !canHardDelete) return;
+    
+    try {
+      // First delete allowed projects
+      await supabase
+        .from('employee_allowed_projects')
+        .delete()
+        .eq('employee_id', selectedEmployee.id);
+      
+      // Then delete employee
+      const { error } = await supabase
+        .from('employees')
+        .delete()
+        .eq('id', selectedEmployee.id);
+      
+      if (error) throw error;
+      
+      toast.success(t('employees.deleteSuccess'));
+      fetchData();
+    } catch (error: any) {
+      console.error('Error deleting employee:', error);
+      toast.error(error.message || t('employees.deleteError'));
+    } finally {
+      setDeleteDialogOpen(false);
+      setSelectedEmployee(null);
+      setCanHardDelete(false);
+    }
   };
 
   if (loading) {
@@ -697,13 +820,36 @@ export default function Employees() {
                     </span>
                   </td>
                   <td className="table-cell text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => openEditDialog(employee)}
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuItem onClick={() => openEditDialog(employee)}>
+                          <Edit2 className="h-4 w-4 mr-2" />
+                          {t('common.edit')}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => handleArchiveClick(employee)}>
+                          <Archive className="h-4 w-4 mr-2" />
+                          {employee.status === 'active' 
+                            ? t('employees.archive') 
+                            : t('employees.restore')
+                          }
+                        </DropdownMenuItem>
+                        {isAdmin && (
+                          <DropdownMenuItem
+                            onClick={() => handleDeleteClick(employee)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            {t('employees.delete')}
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </td>
                 </tr>
               ))}
@@ -717,6 +863,65 @@ export default function Employees() {
           </div>
         )}
       </div>
+
+      {/* Archive Confirmation Dialog */}
+      <AlertDialog open={archiveDialogOpen} onOpenChange={setArchiveDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {selectedEmployee?.status === 'active' 
+                ? t('employees.archiveConfirmTitle')
+                : t('employees.restoreConfirmTitle')
+              }
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {selectedEmployee?.status === 'active'
+                ? `${t('employees.archiveConfirmMessage')} ${selectedEmployee?.first_name} ${selectedEmployee?.last_name}?`
+                : `${t('employees.restoreConfirmMessage')} ${selectedEmployee?.first_name} ${selectedEmployee?.last_name}?`
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleArchiveConfirm}>
+              {selectedEmployee?.status === 'active' 
+                ? t('employees.archive') 
+                : t('employees.restore')
+              }
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('employees.deleteConfirmTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {checkingDeletability ? (
+                <span className="text-muted-foreground">{t('common.loading')}</span>
+              ) : canHardDelete ? (
+                `${t('employees.deleteConfirmMessage')} ${selectedEmployee?.first_name} ${selectedEmployee?.last_name}?`
+              ) : (
+                <span className="text-destructive">
+                  {t('employees.cannotDeleteMessage')}
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={!canHardDelete || checkingDeletability}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {t('employees.delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </MainLayout>
   );
 }
