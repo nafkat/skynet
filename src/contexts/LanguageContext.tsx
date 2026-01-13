@@ -63,6 +63,9 @@ export const translations: Translations = {
   'common.thisMonth': { en: 'This Month', el: 'Αυτό τον Μήνα' },
   'common.fillRequired': { en: 'Please fill in all required fields', el: 'Συμπληρώστε όλα τα υποχρεωτικά πεδία' },
   'common.error': { en: 'An error occurred', el: 'Προέκυψε σφάλμα' },
+  'common.refresh': { en: 'Refresh', el: 'Ανανέωση' },
+  'common.lastRefresh': { en: 'Last refresh', el: 'Τελευταία ανανέωση' },
+  'common.refreshFailed': { en: 'Refresh failed. Please try again.', el: 'Η ανανέωση απέτυχε. Παρακαλώ δοκιμάστε ξανά.' },
   
   // Time Entry
   'timeEntry.title': { en: 'Time Registration', el: 'Καταγραφή Χρόνου' },
