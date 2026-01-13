@@ -26,7 +26,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { Plus, Search, Edit2, ChevronDown, ChevronRight, Archive, Trash2, MoreHorizontal } from 'lucide-react';
+import { Plus, Search, Edit2, ChevronDown, ChevronRight, Archive, Trash2, MoreHorizontal, AlertCircle } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -69,6 +69,7 @@ interface Employee {
   specialty_id: string;
   status: 'active' | 'inactive';
   regular_hourly_rate: number;
+  regular_rate_all_in: number;
   overtime_hourly_rate: number;
   regular_start_time: string;
   regular_end_time: string;
@@ -120,8 +121,9 @@ const [searchQuery, setSearchQuery] = useState('');
   const [regularEnd, setRegularEnd] = useState('14:00');
   
   // Form state - Pay Rates (Admin/HR only)
-  const [regularRate, setRegularRate] = useState('0');
-  const [overtimeRate, setOvertimeRate] = useState('0');
+  const [regularRate, setRegularRate] = useState('');
+  const [regularRateAllIn, setRegularRateAllIn] = useState('');
+  const [overtimeRate, setOvertimeRate] = useState('');
   
   // Form state - HR Details
   const [phone, setPhone] = useState('');
@@ -167,8 +169,9 @@ const [searchQuery, setSearchQuery] = useState('');
     setLastName('');
     setSpecialtyId('');
     setStatus('active');
-    setRegularRate('0');
-    setOvertimeRate('0');
+    setRegularRate('');
+    setRegularRateAllIn('');
+    setOvertimeRate('');
     setRegularStart('07:00');
     setRegularEnd('14:00');
     setPhone('');
@@ -191,6 +194,7 @@ const [searchQuery, setSearchQuery] = useState('');
     setSpecialtyId(employee.specialty_id);
     setStatus(employee.status);
     setRegularRate(employee.regular_hourly_rate.toString());
+    setRegularRateAllIn(employee.regular_rate_all_in?.toString() || '');
     setOvertimeRate(employee.overtime_hourly_rate.toString());
     setRegularStart(employee.regular_start_time.slice(0, 5));
     setRegularEnd(employee.regular_end_time.slice(0, 5));
@@ -213,6 +217,15 @@ const [searchQuery, setSearchQuery] = useState('');
     setIsDialogOpen(true);
   };
 
+  // Pay rate validation
+  const payRatesValid = () => {
+    if (!hasElevatedRole) return true;
+    const regRate = parseFloat(regularRate);
+    const allInRate = parseFloat(regularRateAllIn);
+    const otRate = parseFloat(overtimeRate);
+    return regRate > 0 && allInRate > 0 && otRate > 0;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -223,6 +236,12 @@ const [searchQuery, setSearchQuery] = useState('');
 
     if (!regularStart || !regularEnd) {
       toast.error(t('employees.scheduleRequired'));
+      return;
+    }
+
+    // Validate pay rates for Admin/HR
+    if (hasElevatedRole && !payRatesValid()) {
+      toast.error(t('employees.payRatesRequired'));
       return;
     }
 
@@ -243,6 +262,7 @@ const [searchQuery, setSearchQuery] = useState('');
       // Only include sensitive fields if user has elevated role
       if (hasElevatedRole) {
         employeeData.regular_hourly_rate = parseFloat(regularRate) || 0;
+        employeeData.regular_rate_all_in = parseFloat(regularRateAllIn) || 0;
         employeeData.overtime_hourly_rate = parseFloat(overtimeRate) || 0;
         employeeData.afm = afm || null;
         employeeData.id_type = idType || null;
@@ -568,16 +588,33 @@ const getSpecialtyName = (specialty: Specialty | undefined) => {
                     <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
                       {t('employees.payRates')}
                     </h3>
-                    <div className="grid grid-cols-2 gap-4">
+                    <p className="text-xs text-muted-foreground">
+                      {t('employees.allRatesRequired')}
+                    </p>
+                    <div className="grid grid-cols-3 gap-4">
                       <div className="space-y-2">
                         <Label>{t('employees.regularRate')} *</Label>
                         <Input
                           type="number"
                           step="0.01"
-                          min="0"
+                          min="0.01"
                           value={regularRate}
                           onChange={(e) => setRegularRate(e.target.value)}
-                          className="input-tablet"
+                          className={`input-tablet ${parseFloat(regularRate) <= 0 ? 'border-destructive' : ''}`}
+                          placeholder="0.00"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{t('employees.regularRateAllIn')} *</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          value={regularRateAllIn}
+                          onChange={(e) => setRegularRateAllIn(e.target.value)}
+                          className={`input-tablet ${parseFloat(regularRateAllIn) <= 0 ? 'border-destructive' : ''}`}
+                          placeholder="0.00"
                           required
                         />
                       </div>
@@ -586,14 +623,21 @@ const getSpecialtyName = (specialty: Specialty | undefined) => {
                         <Input
                           type="number"
                           step="0.01"
-                          min="0"
+                          min="0.01"
                           value={overtimeRate}
                           onChange={(e) => setOvertimeRate(e.target.value)}
-                          className="input-tablet"
+                          className={`input-tablet ${parseFloat(overtimeRate) <= 0 ? 'border-destructive' : ''}`}
+                          placeholder="0.00"
                           required
                         />
                       </div>
                     </div>
+                    {!payRatesValid() && (regularRate || regularRateAllIn || overtimeRate) && (
+                      <p className="text-xs text-destructive flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {t('employees.payRatesInvalid')}
+                      </p>
+                    )}
                   </div>
                 )}
 
