@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -13,9 +14,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Clock, Plus, Edit2, AlertCircle } from 'lucide-react';
+import { Clock, Plus, Edit2, AlertCircle, X, Save, FileEdit } from 'lucide-react';
 import { toast } from 'sonner';
-import { format, isWithinInterval, subHours } from 'date-fns';
+import { format, subHours } from 'date-fns';
 
 interface Employee {
   id: string;
@@ -31,7 +32,7 @@ interface Project {
   project_name: string;
 }
 
-interface TimeEntry {
+interface TimeEntryData {
   id: string;
   employee_id: string;
   project_id: string;
@@ -47,14 +48,22 @@ interface TimeEntry {
   projects: Project;
 }
 
+type FormMode = 'create' | 'edit';
+
 export default function TimeEntry() {
   const { t, language } = useLanguage();
   const { user, hasElevatedRole, role } = useAuth();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [recentEntries, setRecentEntries] = useState<TimeEntry[]>([]);
+  const [recentEntries, setRecentEntries] = useState<TimeEntryData[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  // Form mode and editing state
+  const [formMode, setFormMode] = useState<FormMode>('create');
+  const [editingEntry, setEditingEntry] = useState<TimeEntryData | null>(null);
+  const [correctionReason, setCorrectionReason] = useState('');
+  const formRef = useRef<HTMLDivElement>(null);
 
   // Timekeeper only flag
   const isTimekeeperOnly = role === 'timekeeper' && !hasElevatedRole;
@@ -102,7 +111,7 @@ export default function TimeEntry() {
 
       setEmployees(employeesData || []);
       setProjects(projectsData || []);
-      setRecentEntries((entriesData as TimeEntry[]) || []);
+      setRecentEntries((entriesData as TimeEntryData[]) || []);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -110,41 +119,113 @@ export default function TimeEntry() {
     }
   };
 
+  const resetForm = () => {
+    setFormMode('create');
+    setEditingEntry(null);
+    setSelectedEmployee('');
+    setSelectedProject('');
+    setEntryDate(format(new Date(), 'yyyy-MM-dd'));
+    setStartTime('07:00');
+    setEndTime('14:00');
+    setCorrectionReason('');
+  };
+
+  const handleEdit = (entry: TimeEntryData) => {
+    setFormMode('edit');
+    setEditingEntry(entry);
+    setSelectedEmployee(entry.employee_id);
+    setSelectedProject(entry.project_id);
+    setEntryDate(entry.entry_date);
+    setStartTime(entry.start_time.slice(0, 5));
+    setEndTime(entry.end_time.slice(0, 5));
+    setCorrectionReason('');
+
+    // Scroll to form
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    toast.info(t('timeEntry.entryLoadedForEditing'));
+  };
+
+  const handleCancelEdit = () => {
+    resetForm();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!selectedEmployee || !selectedProject || !startTime || !endTime) {
-      toast.error('Please fill in all fields');
+      toast.error(t('common.fillAllFields') || 'Please fill in all fields');
+      return;
+    }
+
+    // Validate times
+    if (startTime >= endTime) {
+      toast.error(t('timeEntry.endAfterStart') || 'End time must be after start time');
       return;
     }
 
     setSubmitting(true);
 
     try {
-      const { error } = await supabase.from('time_entries').insert({
-        employee_id: selectedEmployee,
-        project_id: selectedProject,
-        entry_date: entryDate,
-        start_time: startTime,
-        end_time: endTime,
-        created_by: user?.id,
-      });
+      if (formMode === 'create') {
+        // Create new entry
+        const { error } = await supabase.from('time_entries').insert({
+          employee_id: selectedEmployee,
+          project_id: selectedProject,
+          entry_date: entryDate,
+          start_time: startTime,
+          end_time: endTime,
+          created_by: user?.id,
+        });
 
-      if (error) throw error;
+        if (error) throw error;
+        toast.success(t('timeEntry.success'));
+      } else {
+        // Edit mode
+        if (!editingEntry) return;
 
-      toast.success(t('timeEntry.success'));
+        if (hasElevatedRole) {
+          // Admin/HR can directly update
+          const { error } = await supabase
+            .from('time_entries')
+            .update({
+              project_id: selectedProject,
+              entry_date: entryDate,
+              start_time: startTime,
+              end_time: endTime,
+            })
+            .eq('id', editingEntry.id);
+
+          if (error) throw error;
+          toast.success(t('timeEntry.changesSaved'));
+        } else {
+          // Timekeeper must submit correction request
+          if (!correctionReason.trim()) {
+            toast.error(t('timeEntry.reasonRequired') || 'Please provide a reason for the correction');
+            setSubmitting(false);
+            return;
+          }
+
+          const { error } = await supabase.from('correction_requests').insert({
+            time_entry_id: editingEntry.id,
+            requested_by: user?.id,
+            new_start_time: startTime,
+            new_end_time: endTime,
+            new_entry_date: entryDate,
+            new_project_id: selectedProject,
+            request_reason: correctionReason.trim(),
+            status: 'pending',
+          });
+
+          if (error) throw error;
+          toast.success(t('timeEntry.correctionSubmitted'));
+        }
+      }
       
-      // Reset form
-      setSelectedEmployee('');
-      setSelectedProject('');
-      setStartTime('07:00');
-      setEndTime('14:00');
-      
-      // Refresh entries
+      resetForm();
       fetchData();
     } catch (error: any) {
-      console.error('Error creating time entry:', error);
-      toast.error(error.message || 'Error creating time entry');
+      console.error('Error:', error);
+      toast.error(error.message || 'An error occurred');
     } finally {
       setSubmitting(false);
     }
@@ -156,8 +237,11 @@ export default function TimeEntry() {
     return `${hours}h ${mins}m`;
   };
 
-  const canEdit = (entry: TimeEntry) => {
+  // Check if entry can be directly edited (within 24h by creator or elevated role)
+  const canDirectEdit = (entry: TimeEntryData) => {
     if (!user) return false;
+    if (hasElevatedRole) return true;
+    
     if (entry.created_by !== user.id) return false;
     
     const createdAt = new Date(entry.created_at);
@@ -165,6 +249,19 @@ export default function TimeEntry() {
     const hoursDiff = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
     
     return hoursDiff <= 24;
+  };
+
+  // Check if user can request correction (their own entry, past 24h)
+  const canRequestCorrection = (entry: TimeEntryData) => {
+    if (!user) return false;
+    if (hasElevatedRole) return false; // Admin/HR edit directly
+    if (entry.created_by !== user.id) return false;
+    
+    const createdAt = new Date(entry.created_at);
+    const now = new Date();
+    const hoursDiff = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
+    
+    return hoursDiff > 24;
   };
 
   if (loading) {
@@ -186,12 +283,29 @@ export default function TimeEntry() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Time Entry Form */}
-        <div className="card-elevated p-6">
+        <div className="card-elevated p-6" ref={formRef}>
+          {/* Edit mode banner */}
+          {formMode === 'edit' && editingEntry && (
+            <div className="mb-4 p-3 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileEdit className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">
+                  {t('timeEntry.editingEntry')}: {editingEntry.employees.first_name} {editingEntry.employees.last_name} • {format(new Date(editingEntry.entry_date), 'MMM d, yyyy')}
+                </span>
+              </div>
+              <Button variant="ghost" size="sm" onClick={handleCancelEdit} className="h-7 px-2">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
               <Clock className="h-5 w-5 text-primary-foreground" />
             </div>
-            <h2 className="text-lg font-semibold">{t('timeEntry.register')}</h2>
+            <h2 className="text-lg font-semibold">
+              {formMode === 'create' ? t('timeEntry.register') : t('timeEntry.editEntry')}
+            </h2>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -209,7 +323,11 @@ export default function TimeEntry() {
             {/* Employee */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">{t('timeEntry.selectEmployee')}</Label>
-              <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
+              <Select 
+                value={selectedEmployee} 
+                onValueChange={setSelectedEmployee}
+                disabled={formMode === 'edit'}
+              >
                 <SelectTrigger className="input-tablet">
                   <SelectValue placeholder={t('timeEntry.selectEmployee')} />
                 </SelectTrigger>
@@ -221,6 +339,9 @@ export default function TimeEntry() {
                   ))}
                 </SelectContent>
               </Select>
+              {formMode === 'edit' && (
+                <p className="text-xs text-muted-foreground">{t('timeEntry.employeeReadOnly')}</p>
+              )}
             </div>
 
             {/* Project */}
@@ -262,10 +383,52 @@ export default function TimeEntry() {
               </div>
             </div>
 
-            <Button type="submit" className="w-full btn-tablet" disabled={submitting}>
-              <Plus className="h-5 w-5 mr-2" />
-              {submitting ? t('common.loading') : t('timeEntry.register')}
-            </Button>
+            {/* Correction Reason (Timekeeper in edit mode only) */}
+            {formMode === 'edit' && isTimekeeperOnly && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">{t('timeEntry.correctionReason')} *</Label>
+                <Textarea
+                  value={correctionReason}
+                  onChange={(e) => setCorrectionReason(e.target.value)}
+                  placeholder={t('timeEntry.correctionReasonPlaceholder')}
+                  className="min-h-[80px]"
+                  required
+                />
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              {formMode === 'edit' && (
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={handleCancelEdit}
+                  className="flex-1"
+                >
+                  {t('timeEntry.cancelEdit')}
+                </Button>
+              )}
+              
+              <Button type="submit" className="flex-1 btn-tablet" disabled={submitting}>
+                {formMode === 'create' ? (
+                  <>
+                    <Plus className="h-5 w-5 mr-2" />
+                    {submitting ? t('common.loading') : t('timeEntry.register')}
+                  </>
+                ) : hasElevatedRole ? (
+                  <>
+                    <Save className="h-5 w-5 mr-2" />
+                    {submitting ? t('common.loading') : t('timeEntry.saveChanges')}
+                  </>
+                ) : (
+                  <>
+                    <FileEdit className="h-5 w-5 mr-2" />
+                    {submitting ? t('common.loading') : t('timeEntry.requestCorrection')}
+                  </>
+                )}
+              </Button>
+            </div>
           </form>
         </div>
 
@@ -282,7 +445,11 @@ export default function TimeEntry() {
               {recentEntries.map((entry) => (
                 <div
                   key={entry.id}
-                  className="p-4 rounded-xl border border-border bg-muted/30 hover:bg-muted/50 transition-colors"
+                  className={`p-4 rounded-xl border transition-colors ${
+                    editingEntry?.id === entry.id 
+                      ? 'border-primary bg-primary/5' 
+                      : 'border-border bg-muted/30 hover:bg-muted/50'
+                  }`}
                 >
                   <div className="flex items-start justify-between">
                     <div>
@@ -317,16 +484,25 @@ export default function TimeEntry() {
                       )}
                     </div>
                     
-                    {canEdit(entry) ? (
-                      <Button variant="ghost" size="sm" className="h-8">
-                        <Edit2 className="h-4 w-4" />
+                    {/* Edit button - always show if can edit or request correction */}
+                    {(canDirectEdit(entry) || canRequestCorrection(entry)) && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-8"
+                        onClick={() => handleEdit(entry)}
+                        disabled={editingEntry?.id === entry.id}
+                      >
+                        {canDirectEdit(entry) ? (
+                          <Edit2 className="h-4 w-4" />
+                        ) : (
+                          <>
+                            <AlertCircle className="h-4 w-4 mr-1" />
+                            <span className="text-xs">{t('timeEntry.requestCorrection')}</span>
+                          </>
+                        )}
                       </Button>
-                    ) : entry.created_by === user?.id ? (
-                      <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground">
-                        <AlertCircle className="h-4 w-4 mr-1" />
-                        {t('timeEntry.requestCorrection')}
-                      </Button>
-                    ) : null}
+                    )}
                   </div>
                 </div>
               ))}
