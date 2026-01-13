@@ -67,7 +67,9 @@ interface LaborByProject {
   projectName: string;
   totalHours: number;
   overtimeHours: number;
-  totalLaborCost: number;
+  regularCost: number;
+  allInCost: number;
+  otCost: number;
   overtimePercentage: number;
 }
 
@@ -76,7 +78,9 @@ interface LaborBySpecialty {
   specialtyId: string;
   totalHours: number;
   overtimeHours: number;
-  totalLaborCost: number;
+  regularCost: number;
+  allInCost: number;
+  otCost: number;
 }
 
 interface Alert {
@@ -232,7 +236,7 @@ export default function AdminDashboard() {
     };
   }, [filteredEntries, projects]);
 
-  // Labor by Project
+  // Labor by Project - aligned with dashboard cost logic
   const laborByProject = useMemo(() => {
     const projectMap = new Map<string, LaborByProject>();
     
@@ -242,16 +246,22 @@ export default function AdminDashboard() {
         projectName: entry.projects.project_name,
         totalHours: 0,
         overtimeHours: 0,
-        totalLaborCost: 0,
+        regularCost: 0,
+        allInCost: 0,
+        otCost: 0,
         overtimePercentage: 0,
       };
       
-      existing.totalHours += entry.duration_minutes / 60;
-      existing.overtimeHours += entry.overtime_minutes / 60;
+      const regularHours = entry.regular_minutes / 60;
+      const overtimeHours = entry.overtime_minutes / 60;
       
-      const regularCost = (entry.regular_minutes / 60) * entry.employees.regular_hourly_rate;
-      const overtimeCost = (entry.overtime_minutes / 60) * entry.employees.overtime_hourly_rate;
-      existing.totalLaborCost += regularCost + overtimeCost;
+      existing.totalHours += entry.duration_minutes / 60;
+      existing.overtimeHours += overtimeHours;
+      
+      // Per-entry cost calculation (respecting individual employee rates)
+      existing.regularCost += regularHours * (entry.employees.regular_hourly_rate || 0);
+      existing.allInCost += regularHours * (entry.employees.regular_rate_all_in || 0);
+      existing.otCost += overtimeHours * (entry.employees.overtime_hourly_rate || 0);
       
       projectMap.set(entry.project_id, existing);
     });
@@ -267,7 +277,7 @@ export default function AdminDashboard() {
     return Array.from(projectMap.values()).sort((a, b) => b.totalHours - a.totalHours);
   }, [filteredEntries]);
 
-  // Labor by Specialty
+  // Labor by Specialty - aligned with dashboard cost logic
   const laborBySpecialty = useMemo(() => {
     const specialtyMap = new Map<string, LaborBySpecialty>();
     
@@ -282,15 +292,21 @@ export default function AdminDashboard() {
         specialtyId: entry.employees.specialty_id,
         totalHours: 0,
         overtimeHours: 0,
-        totalLaborCost: 0,
+        regularCost: 0,
+        allInCost: 0,
+        otCost: 0,
       };
       
-      existing.totalHours += entry.duration_minutes / 60;
-      existing.overtimeHours += entry.overtime_minutes / 60;
+      const regularHours = entry.regular_minutes / 60;
+      const overtimeHours = entry.overtime_minutes / 60;
       
-      const regularCost = (entry.regular_minutes / 60) * entry.employees.regular_hourly_rate;
-      const overtimeCost = (entry.overtime_minutes / 60) * entry.employees.overtime_hourly_rate;
-      existing.totalLaborCost += regularCost + overtimeCost;
+      existing.totalHours += entry.duration_minutes / 60;
+      existing.overtimeHours += overtimeHours;
+      
+      // Per-entry cost calculation (respecting individual employee rates)
+      existing.regularCost += regularHours * (entry.employees.regular_hourly_rate || 0);
+      existing.allInCost += regularHours * (entry.employees.regular_rate_all_in || 0);
+      existing.otCost += overtimeHours * (entry.employees.overtime_hourly_rate || 0);
       
       specialtyMap.set(entry.employees.specialty_id, existing);
     });
@@ -643,7 +659,13 @@ export default function AdminDashboard() {
                         {language === 'el' ? 'Υπερωρίες' : 'Overtime'}
                       </th>
                       <th className="text-right py-3 px-2 text-sm font-medium text-muted-foreground">
-                        {language === 'el' ? 'Κόστος' : 'Cost'}
+                        {t('reports.totalRegularPlusOT')}
+                      </th>
+                      <th className="text-right py-3 px-2 text-sm font-medium text-muted-foreground">
+                        {t('reports.totalAllInPlusOT')}
+                      </th>
+                      <th className="text-right py-3 px-2 text-sm font-medium text-muted-foreground">
+                        {t('reports.totalOT')}
                       </th>
                       <th className="text-right py-3 px-2 text-sm font-medium text-muted-foreground">
                         {language === 'el' ? 'Υπερ. %' : 'OT %'}
@@ -657,7 +679,9 @@ export default function AdminDashboard() {
                         <td className="py-3 px-2">{item.projectName}</td>
                         <td className="py-3 px-2 text-right tabular-nums">{formatHours(item.totalHours)}</td>
                         <td className="py-3 px-2 text-right tabular-nums">{formatHours(item.overtimeHours)}</td>
-                        <td className="py-3 px-2 text-right tabular-nums">{formatCurrency(item.totalLaborCost)}</td>
+                        <td className="py-3 px-2 text-right tabular-nums">{formatCurrency(item.regularCost + item.otCost)}</td>
+                        <td className="py-3 px-2 text-right tabular-nums text-primary font-medium">{formatCurrency(item.allInCost + item.otCost)}</td>
+                        <td className="py-3 px-2 text-right tabular-nums">{formatCurrency(item.otCost)}</td>
                         <td className={cn(
                           "py-3 px-2 text-right tabular-nums",
                           item.overtimePercentage > 30 && "font-semibold"
@@ -700,7 +724,13 @@ export default function AdminDashboard() {
                         {language === 'el' ? 'Υπερωρίες' : 'Overtime'}
                       </th>
                       <th className="text-right py-3 px-2 text-sm font-medium text-muted-foreground">
-                        {language === 'el' ? 'Κόστος' : 'Cost'}
+                        {t('reports.totalRegularPlusOT')}
+                      </th>
+                      <th className="text-right py-3 px-2 text-sm font-medium text-muted-foreground">
+                        {t('reports.totalAllInPlusOT')}
+                      </th>
+                      <th className="text-right py-3 px-2 text-sm font-medium text-muted-foreground">
+                        {t('reports.totalOT')}
                       </th>
                     </tr>
                   </thead>
@@ -710,7 +740,9 @@ export default function AdminDashboard() {
                         <td className="py-3 px-2">{item.specialty}</td>
                         <td className="py-3 px-2 text-right tabular-nums">{formatHours(item.totalHours)}</td>
                         <td className="py-3 px-2 text-right tabular-nums">{formatHours(item.overtimeHours)}</td>
-                        <td className="py-3 px-2 text-right tabular-nums">{formatCurrency(item.totalLaborCost)}</td>
+                        <td className="py-3 px-2 text-right tabular-nums">{formatCurrency(item.regularCost + item.otCost)}</td>
+                        <td className="py-3 px-2 text-right tabular-nums text-primary font-medium">{formatCurrency(item.allInCost + item.otCost)}</td>
+                        <td className="py-3 px-2 text-right tabular-nums">{formatCurrency(item.otCost)}</td>
                       </tr>
                     ))}
                   </tbody>
