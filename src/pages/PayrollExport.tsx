@@ -138,6 +138,7 @@ export default function PayrollExport() {
     const { data } = await supabase
       .from('time_entries')
       .select('id, entry_date, regular_minutes, overtime_minutes, employee_id, project_id')
+      .eq('is_deleted', false)
       .gte('entry_date', fromDate)
       .lte('entry_date', toDate);
 

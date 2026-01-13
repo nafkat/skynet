@@ -203,6 +203,19 @@ export const translations: Translations = {
   'corrections.pending': { en: 'Pending', el: 'Εκκρεμής' },
   'corrections.approved': { en: 'Approved', el: 'Εγκρίθηκε' },
   'corrections.rejected': { en: 'Rejected', el: 'Απορρίφθηκε' },
+  'corrections.editRequest': { en: 'Edit Request', el: 'Αίτηση Επεξεργασίας' },
+  'corrections.deleteRequest': { en: 'Delete Request', el: 'Αίτηση Διαγραφής' },
+  
+  // Delete functionality
+  'timeEntry.delete': { en: 'Delete Entry', el: 'Διαγραφή Καταχώρησης' },
+  'timeEntry.deleteConfirm': { en: 'Are you sure you want to delete this entry?', el: 'Είστε σίγουροι ότι θέλετε να διαγράψετε αυτή την καταχώρηση;' },
+  'timeEntry.deleteSuccess': { en: 'Entry deleted successfully', el: 'Η καταχώρηση διαγράφηκε' },
+  'timeEntry.deleteReason': { en: 'Reason for deletion', el: 'Λόγος διαγραφής' },
+  'timeEntry.deleteReasonPlaceholder': { en: 'Explain why this entry needs to be deleted...', el: 'Εξηγήστε γιατί χρειάζεται διαγραφή αυτή η καταχώρηση...' },
+  'timeEntry.requestDeletion': { en: 'Request Deletion', el: 'Αίτηση Διαγραφής' },
+  'timeEntry.deletionRequestSubmitted': { en: 'Deletion request submitted for approval', el: 'Η αίτηση διαγραφής υποβλήθηκε προς έγκριση' },
+  'timeEntry.cannotDeleteOldEntry': { en: 'This entry is from a previous day. Submit a deletion request for HR/Admin approval.', el: 'Αυτή η καταχώρηση είναι από προηγούμενη ημέρα. Υποβάλετε αίτηση διαγραφής για έγκριση.' },
+  'timeEntry.optional': { en: 'Optional', el: 'Προαιρετικό' },
 };
 
 interface LanguageContextType {

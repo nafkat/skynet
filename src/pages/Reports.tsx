@@ -110,6 +110,7 @@ export default function Reports() {
           employees (id, employee_code, first_name, last_name, specialty_id, regular_hourly_rate, overtime_hourly_rate),
           projects (id, project_code, project_name)
         `)
+        .eq('is_deleted', false)
         .gte('entry_date', startDate)
         .lte('entry_date', endDate);
 

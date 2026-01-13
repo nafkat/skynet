@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Check, X, Clock, AlertCircle } from 'lucide-react';
+import { Check, X, Clock, AlertCircle, Trash2, Edit2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -21,6 +21,7 @@ interface CorrectionRequest {
   time_entry_id: string;
   requested_by: string;
   request_reason: string;
+  request_type: 'EDIT' | 'DELETE';
   new_start_time: string | null;
   new_end_time: string | null;
   status: 'pending' | 'approved' | 'rejected';
@@ -33,6 +34,7 @@ interface CorrectionRequest {
     entry_date: string;
     start_time: string;
     end_time: string;
+    is_deleted: boolean;
     employees: {
       first_name: string;
       last_name: string;
@@ -69,6 +71,7 @@ export default function Corrections() {
             entry_date,
             start_time,
             end_time,
+            is_deleted,
             employees (first_name, last_name, employee_code),
             projects (project_code, project_name)
           )
@@ -103,23 +106,39 @@ export default function Corrections() {
 
       if (updateError) throw updateError;
 
-      // If approved, update the time entry
+      // If approved, apply the change based on request type
       if (status === 'approved') {
-        const updateData: any = {};
-        if (selectedRequest.new_start_time) {
-          updateData.start_time = selectedRequest.new_start_time;
-        }
-        if (selectedRequest.new_end_time) {
-          updateData.end_time = selectedRequest.new_end_time;
-        }
-
-        if (Object.keys(updateData).length > 0) {
-          const { error: entryError } = await supabase
+        if (selectedRequest.request_type === 'DELETE') {
+          // Soft delete the time entry
+          const { error: deleteError } = await supabase
             .from('time_entries')
-            .update(updateData)
+            .update({
+              is_deleted: true,
+              deleted_at: new Date().toISOString(),
+              deleted_by: user.id,
+              delete_reason: selectedRequest.request_reason,
+            })
             .eq('id', selectedRequest.time_entry_id);
 
-          if (entryError) throw entryError;
+          if (deleteError) throw deleteError;
+        } else {
+          // EDIT request - update the time entry
+          const updateData: any = {};
+          if (selectedRequest.new_start_time) {
+            updateData.start_time = selectedRequest.new_start_time;
+          }
+          if (selectedRequest.new_end_time) {
+            updateData.end_time = selectedRequest.new_end_time;
+          }
+
+          if (Object.keys(updateData).length > 0) {
+            const { error: entryError } = await supabase
+              .from('time_entries')
+              .update(updateData)
+              .eq('id', selectedRequest.time_entry_id);
+
+            if (entryError) throw entryError;
+          }
         }
       }
 
@@ -154,6 +173,23 @@ export default function Corrections() {
         styles[status as keyof typeof styles]
       )}>
         {labels[status as keyof typeof labels]}
+      </span>
+    );
+  };
+
+  const getRequestTypeBadge = (requestType: 'EDIT' | 'DELETE') => {
+    if (requestType === 'DELETE') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border bg-destructive/10 text-destructive border-destructive/30">
+          <Trash2 className="h-3 w-3" />
+          {t('corrections.deleteRequest')}
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border bg-primary/10 text-primary border-primary/30">
+        <Edit2 className="h-3 w-3" />
+        {t('corrections.editRequest')}
       </span>
     );
   };
@@ -196,6 +232,7 @@ export default function Corrections() {
                       <h3 className="font-semibold">
                         {request.time_entries.employees.first_name} {request.time_entries.employees.last_name}
                       </h3>
+                      {getRequestTypeBadge(request.request_type)}
                       {getStatusBadge(request.status)}
                     </div>
                     <p className="text-sm text-muted-foreground mb-3">
@@ -215,12 +252,23 @@ export default function Corrections() {
                       </div>
                     </div>
 
-                    {(request.new_start_time || request.new_end_time) && (
+                    {/* Only show new time section for EDIT requests */}
+                    {request.request_type === 'EDIT' && (request.new_start_time || request.new_end_time) && (
                       <div className="bg-muted/50 rounded-lg p-3 mb-4">
                         <p className="text-xs text-muted-foreground mb-1">{t('corrections.newTime')}</p>
                         <p className="font-mono">
                           {request.new_start_time?.slice(0, 5) || request.time_entries.start_time.slice(0, 5)} -{' '}
                           {request.new_end_time?.slice(0, 5) || request.time_entries.end_time.slice(0, 5)}
+                        </p>
+                      </div>
+                    )}
+                    
+                    {/* Show delete warning for DELETE requests */}
+                    {request.request_type === 'DELETE' && (
+                      <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 mb-4">
+                        <p className="text-xs text-destructive font-medium mb-1">⚠️ {t('corrections.deleteRequest')}</p>
+                        <p className="text-sm text-destructive/80">
+                          This entry will be permanently marked as deleted if approved.
                         </p>
                       </div>
                     )}

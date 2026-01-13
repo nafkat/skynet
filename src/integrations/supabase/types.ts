@@ -23,6 +23,7 @@ export type Database = {
           new_project_id: string | null
           new_start_time: string | null
           request_reason: string
+          request_type: string
           requested_by: string
           review_notes: string | null
           reviewed_at: string | null
@@ -38,6 +39,7 @@ export type Database = {
           new_project_id?: string | null
           new_start_time?: string | null
           request_reason: string
+          request_type?: string
           requested_by: string
           review_notes?: string | null
           reviewed_at?: string | null
@@ -53,6 +55,7 @@ export type Database = {
           new_project_id?: string | null
           new_start_time?: string | null
           request_reason?: string
+          request_type?: string
           requested_by?: string
           review_notes?: string | null
           reviewed_at?: string | null
@@ -350,11 +353,15 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string
+          delete_reason: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           duration_minutes: number
           employee_id: string
           end_time: string
           entry_date: string
           id: string
+          is_deleted: boolean
           overtime_minutes: number
           project_id: string
           regular_minutes: number
@@ -364,11 +371,15 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by: string
+          delete_reason?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           duration_minutes?: number
           employee_id: string
           end_time: string
           entry_date: string
           id?: string
+          is_deleted?: boolean
           overtime_minutes?: number
           project_id: string
           regular_minutes?: number
@@ -378,11 +389,15 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string
+          delete_reason?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           duration_minutes?: number
           employee_id?: string
           end_time?: string
           entry_date?: string
           id?: string
+          is_deleted?: boolean
           overtime_minutes?: number
           project_id?: string
           regular_minutes?: number
@@ -494,6 +509,7 @@ export type Database = {
         Returns: boolean
       }
       is_timekeeper_only: { Args: { _user_id: string }; Returns: boolean }
+      is_today_athens: { Args: { _date: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "hr" | "timekeeper"

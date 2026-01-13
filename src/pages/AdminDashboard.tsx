@@ -167,6 +167,7 @@ export default function AdminDashboard() {
               project_name
             )
           `)
+          .eq('is_deleted', false)
           .gte('entry_date', fromDate)
           .lte('entry_date', toDate),
         supabase.from('projects').select('*'),
