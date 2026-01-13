@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { RefreshButton } from '@/components/RefreshButton';
 import {
   Select,
   SelectContent,
@@ -61,6 +62,7 @@ export default function TimeEntry() {
   const [recentEntries, setRecentEntries] = useState<TimeEntryData[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
 
   // Form mode and editing state
   const [formMode, setFormMode] = useState<FormMode>('create');
@@ -82,7 +84,8 @@ export default function TimeEntry() {
     fetchData();
   }, []);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
+    setLoading(true);
     try {
       // For Timekeeper: use limited view that doesn't expose sensitive data
       // RLS policies already filter what they can see
@@ -116,12 +119,14 @@ export default function TimeEntry() {
       setEmployees(employeesData || []);
       setProjects(projectsData || []);
       setRecentEntries((entriesData as TimeEntryData[]) || []);
+      setLastRefresh(new Date());
     } catch (error) {
       console.error('Error fetching data:', error);
+      throw error;
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const resetForm = () => {
     setFormMode('create');
@@ -461,7 +466,10 @@ export default function TimeEntry() {
 
         {/* Recent Entries */}
         <div className="card-elevated p-6">
-          <h2 className="text-lg font-semibold mb-6">{t('timeEntry.recentEntries')}</h2>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+            <h2 className="text-lg font-semibold">{t('timeEntry.recentEntries')}</h2>
+            <RefreshButton onRefresh={fetchData} lastRefresh={lastRefresh} />
+          </div>
           
           {recentEntries.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">

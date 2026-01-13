@@ -1,10 +1,11 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { PayrollExportModal } from '@/components/PayrollExportModal';
+import { RefreshButton } from '@/components/RefreshButton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -103,6 +104,9 @@ export default function AdminDashboard() {
   
   // Payroll Export Modal
   const [payrollModalOpen, setPayrollModalOpen] = useState(false);
+  
+  // Last refresh timestamp
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
 
   // Calculate date range based on selection
   const dateRange = useMemo(() => {
@@ -125,55 +129,62 @@ export default function AdminDashboard() {
     }
   }, [hasElevatedRole, dateRange]);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     
     const fromDate = format(dateRange.from, 'yyyy-MM-dd');
     const toDate = format(dateRange.to, 'yyyy-MM-dd');
 
-    const [entriesRes, projectsRes, specialtiesRes] = await Promise.all([
-      supabase
-        .from('time_entries')
-        .select(`
-          id,
-          entry_date,
-          regular_minutes,
-          overtime_minutes,
-          duration_minutes,
-          employee_id,
-          project_id,
-          employees!inner (
+    try {
+      const [entriesRes, projectsRes, specialtiesRes] = await Promise.all([
+        supabase
+          .from('time_entries')
+          .select(`
             id,
-            first_name,
-            last_name,
-            specialty_id,
-            regular_hourly_rate,
-            overtime_hourly_rate
-          ),
-          projects!inner (
-            id,
-            project_code,
-            project_name
-          )
-        `)
-        .gte('entry_date', fromDate)
-        .lte('entry_date', toDate),
-      supabase.from('projects').select('*'),
-      supabase.from('specialties').select('*'),
-    ]);
+            entry_date,
+            regular_minutes,
+            overtime_minutes,
+            duration_minutes,
+            employee_id,
+            project_id,
+            employees!inner (
+              id,
+              first_name,
+              last_name,
+              specialty_id,
+              regular_hourly_rate,
+              overtime_hourly_rate
+            ),
+            projects!inner (
+              id,
+              project_code,
+              project_name
+            )
+          `)
+          .gte('entry_date', fromDate)
+          .lte('entry_date', toDate),
+        supabase.from('projects').select('*'),
+        supabase.from('specialties').select('*'),
+      ]);
 
-    if (entriesRes.data) {
-      setTimeEntries(entriesRes.data as unknown as TimeEntry[]);
-    }
-    if (projectsRes.data) {
-      setProjects(projectsRes.data);
-    }
-    if (specialtiesRes.data) {
-      setSpecialties(specialtiesRes.data);
-    }
+      if (entriesRes.data) {
+        setTimeEntries(entriesRes.data as unknown as TimeEntry[]);
+      }
+      if (projectsRes.data) {
+        setProjects(projectsRes.data);
+      }
+      if (specialtiesRes.data) {
+        setSpecialties(specialtiesRes.data);
+      }
 
-    setLoading(false);
-  };
+      setLastRefresh(new Date());
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, [dateRange]);
 
   // Filter entries based on selected filters
   const filteredEntries = useMemo(() => {
@@ -353,10 +364,13 @@ export default function AdminDashboard() {
               {language === 'el' ? 'Επισκόπηση εργασίας και κόστους' : 'Labor and cost overview'}
             </p>
           </div>
-          <Button className="btn-tablet gap-2" onClick={() => setPayrollModalOpen(true)}>
-            <FileSpreadsheet className="h-5 w-5" />
-            {language === 'el' ? 'Εξαγωγή Μισθοδοσίας (Excel)' : 'Export Payroll (Excel)'}
-          </Button>
+          <div className="flex items-center gap-3">
+            <RefreshButton onRefresh={fetchData} lastRefresh={lastRefresh} />
+            <Button className="btn-tablet gap-2" onClick={() => setPayrollModalOpen(true)}>
+              <FileSpreadsheet className="h-5 w-5" />
+              {language === 'el' ? 'Εξαγωγή Μισθοδοσίας (Excel)' : 'Export Payroll (Excel)'}
+            </Button>
+          </div>
         </div>
 
         {/* Payroll Export Modal */}

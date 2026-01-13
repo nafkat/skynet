@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { RefreshButton } from '@/components/RefreshButton';
 import { Clock, Users, FolderKanban, GitPullRequest } from 'lucide-react';
 
 interface DashboardStats {
@@ -26,63 +27,68 @@ export default function Dashboard() {
     pendingCorrections: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+
+  const fetchStats = useCallback(async () => {
+    const today = new Date().toISOString().split('T')[0];
+    
+    setLoading(true);
+    try {
+      // Fetch today's entries - RLS restricts to own for Timekeeper
+      const { count: entriesCount } = await supabase
+        .from('time_entries')
+        .select('*', { count: 'exact', head: true })
+        .eq('entry_date', today);
+
+      // Only fetch employees/projects count for elevated roles
+      let employeesCount = 0;
+      let projectsCount = 0;
+      
+      if (hasElevatedRole) {
+        // Fetch active employees
+        const { count: empCount } = await supabase
+          .from('employees')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'active');
+        employeesCount = empCount || 0;
+      }
+
+      // Fetch open projects - always visible
+      const { count: projCount } = await supabase
+        .from('projects')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'OPEN');
+      projectsCount = projCount || 0;
+
+      // Fetch pending corrections (only for elevated roles)
+      let correctionsCount = 0;
+      if (hasElevatedRole) {
+        const { count } = await supabase
+          .from('correction_requests')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'pending');
+        correctionsCount = count || 0;
+      }
+
+      setStats({
+        todayEntries: entriesCount || 0,
+        activeEmployees: employeesCount,
+        openProjects: projectsCount,
+        pendingCorrections: correctionsCount,
+      });
+      
+      setLastRefresh(new Date());
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, [hasElevatedRole]);
 
   useEffect(() => {
-    const fetchStats = async () => {
-      const today = new Date().toISOString().split('T')[0];
-      
-      try {
-        // Fetch today's entries - RLS restricts to own for Timekeeper
-        const { count: entriesCount } = await supabase
-          .from('time_entries')
-          .select('*', { count: 'exact', head: true })
-          .eq('entry_date', today);
-
-        // Only fetch employees/projects count for elevated roles
-        let employeesCount = 0;
-        let projectsCount = 0;
-        
-        if (hasElevatedRole) {
-          // Fetch active employees
-          const { count: empCount } = await supabase
-            .from('employees')
-            .select('*', { count: 'exact', head: true })
-            .eq('status', 'active');
-          employeesCount = empCount || 0;
-        }
-
-        // Fetch open projects - always visible
-        const { count: projCount } = await supabase
-          .from('projects')
-          .select('*', { count: 'exact', head: true })
-          .eq('status', 'OPEN');
-        projectsCount = projCount || 0;
-
-        // Fetch pending corrections (only for elevated roles)
-        let correctionsCount = 0;
-        if (hasElevatedRole) {
-          const { count } = await supabase
-            .from('correction_requests')
-            .select('*', { count: 'exact', head: true })
-            .eq('status', 'pending');
-          correctionsCount = count || 0;
-        }
-
-        setStats({
-          todayEntries: entriesCount || 0,
-          activeEmployees: employeesCount,
-          openProjects: projectsCount,
-          pendingCorrections: correctionsCount,
-        });
-      } catch (error) {
-        console.error('Error fetching dashboard stats:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchStats();
-  }, [hasElevatedRole]);
+  }, [fetchStats]);
 
   const statCards = [
     {
@@ -113,9 +119,12 @@ export default function Dashboard() {
 
   return (
     <MainLayout>
-      <div className="page-header">
-        <h1 className="page-title">{t('nav.dashboard')}</h1>
-        <p className="page-subtitle">{t('dashboard.weeklyOverview')}</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div className="page-header mb-0">
+          <h1 className="page-title">{t('nav.dashboard')}</h1>
+          <p className="page-subtitle">{t('dashboard.weeklyOverview')}</p>
+        </div>
+        <RefreshButton onRefresh={fetchStats} lastRefresh={lastRefresh} />
       </div>
 
       {/* Stats Grid */}
