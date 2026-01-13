@@ -38,6 +38,7 @@ interface TimeEntry {
     last_name: string;
     specialty_id: string;
     regular_hourly_rate: number;
+    regular_rate_all_in: number;
     overtime_hourly_rate: number;
   };
   projects: {
@@ -153,6 +154,7 @@ export default function AdminDashboard() {
               last_name,
               specialty_id,
               regular_hourly_rate,
+              regular_rate_all_in,
               overtime_hourly_rate
             ),
             projects!inner (
@@ -199,25 +201,33 @@ export default function AdminDashboard() {
     });
   }, [timeEntries, selectedProject, selectedSpecialty]);
 
-  // KPI Calculations
+  // KPI Calculations - aligned with Reports logic
   const kpis = useMemo(() => {
-    const totalWorkMinutes = filteredEntries.reduce((sum, e) => sum + e.duration_minutes, 0);
+    const totalRegularMinutes = filteredEntries.reduce((sum, e) => sum + e.regular_minutes, 0);
     const totalOvertimeMinutes = filteredEntries.reduce((sum, e) => sum + e.overtime_minutes, 0);
     
-    // Calculate labor cost
-    let totalLaborCost = 0;
+    // Calculate costs using same logic as Reports
+    let regularCost = 0;
+    let allInCost = 0;
+    let otCost = 0;
+    
     filteredEntries.forEach(entry => {
-      const regularCost = (entry.regular_minutes / 60) * entry.employees.regular_hourly_rate;
-      const overtimeCost = (entry.overtime_minutes / 60) * entry.employees.overtime_hourly_rate;
-      totalLaborCost += regularCost + overtimeCost;
+      const regularHours = entry.regular_minutes / 60;
+      const overtimeHours = entry.overtime_minutes / 60;
+      
+      regularCost += regularHours * (entry.employees.regular_hourly_rate || 0);
+      allInCost += regularHours * (entry.employees.regular_rate_all_in || 0);
+      otCost += overtimeHours * (entry.employees.overtime_hourly_rate || 0);
     });
 
     const openProjectsCount = projects.filter(p => p.status === 'OPEN').length;
 
     return {
-      totalWorkHours: totalWorkMinutes / 60,
+      regularHours: totalRegularMinutes / 60,
       overtimeHours: totalOvertimeMinutes / 60,
-      laborCost: totalLaborCost,
+      totalRegularPlusOT: regularCost + otCost,
+      totalAllInPlusOT: allInCost + otCost,
+      totalOT: otCost,
       openProjects: openProjectsCount,
     };
   }, [filteredEntries, projects]);
@@ -485,80 +495,88 @@ export default function AdminDashboard() {
         </Card>
 
         {/* KPI Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           <Card className="card-elevated">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                {language === 'el' ? 'Συνολικές Ώρες' : 'Total Work Hours'}
+                {t('reports.regularHours')}
               </CardTitle>
               <Clock className="h-5 w-5 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">
-                {loading ? '-' : formatHours(kpis.totalWorkHours)}
+              <div className="text-2xl font-bold">
+                {loading ? '-' : formatHours(kpis.regularHours)}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {dateRangeType === 'today' ? t('common.today') : 
-                 dateRangeType === 'thisWeek' ? t('common.thisWeek') : 
-                 `${format(dateRange.from, 'dd/MM')} - ${format(dateRange.to, 'dd/MM')}`}
-              </p>
             </CardContent>
           </Card>
 
           <Card className="card-elevated">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                {language === 'el' ? 'Ώρες Υπερωρίας' : 'Overtime Hours'}
+                {t('reports.overtimeHours')}
               </CardTitle>
-              <Timer className="h-5 w-5 text-muted-foreground" />
+              <Timer className="h-5 w-5 text-warning" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">
+              <div className="text-2xl font-bold">
                 {loading ? '-' : formatHours(kpis.overtimeHours)}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {kpis.totalWorkHours > 0 
-                  ? `${((kpis.overtimeHours / kpis.totalWorkHours) * 100).toFixed(0)}% ${language === 'el' ? 'του συνόλου' : 'of total'}`
-                  : '-'}
-              </p>
             </CardContent>
           </Card>
 
           <Card className="card-elevated">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                {language === 'el' ? 'Κόστος Εργασίας' : 'Labor Cost'}
+                {t('reports.totalRegularPlusOT')}
               </CardTitle>
               <DollarSign className="h-5 w-5 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">
-                {loading ? '-' : formatCurrency(kpis.laborCost)}
+              <div className="text-2xl font-bold">
+                {loading ? '-' : formatCurrency(kpis.totalRegularPlusOT)}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {dateRangeType === 'thisWeek' 
-                  ? (language === 'el' ? 'Τρέχουσα εβδομάδα' : 'Current week')
-                  : dateRangeType === 'today'
-                  ? t('common.today')
-                  : (language === 'el' ? 'Επιλεγμένη περίοδος' : 'Selected period')}
-              </p>
             </CardContent>
           </Card>
 
           <Card className="card-elevated">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                {language === 'el' ? 'Ανοιχτά Έργα' : 'Open Projects'}
+                {t('reports.totalAllInPlusOT')}
+              </CardTitle>
+              <DollarSign className="h-5 w-5 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {loading ? '-' : formatCurrency(kpis.totalAllInPlusOT)}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="card-elevated">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                {t('reports.totalOT')}
+              </CardTitle>
+              <DollarSign className="h-5 w-5 text-warning" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {loading ? '-' : formatCurrency(kpis.totalOT)}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="card-elevated">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                {t('dashboard.openProjects')}
               </CardTitle>
               <FolderOpen className="h-5 w-5 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">
+              <div className="text-2xl font-bold">
                 {loading ? '-' : kpis.openProjects}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {language === 'el' ? 'Ενεργά έργα' : 'Active projects'}
-              </p>
             </CardContent>
           </Card>
         </div>
