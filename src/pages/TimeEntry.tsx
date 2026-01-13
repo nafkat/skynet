@@ -15,7 +15,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Clock, Plus, Edit2, AlertCircle, X, Save, FileEdit } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Clock, Plus, Edit2, AlertCircle, X, Save, FileEdit, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, subHours } from 'date-fns';
 
@@ -48,11 +56,24 @@ interface TimeEntryData {
   overtime_minutes: number;
   created_at: string;
   created_by: string;
+  is_deleted?: boolean;
   employees: Employee;
   projects: Project;
 }
 
 type FormMode = 'create' | 'edit';
+
+// Helper to get today's date in Europe/Athens timezone
+const getTodayAthens = (): string => {
+  const now = new Date();
+  const athensTime = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Athens',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now);
+  return athensTime; // Returns YYYY-MM-DD format
+};
 
 export default function TimeEntry() {
   const { t, language } = useLanguage();
@@ -69,6 +90,13 @@ export default function TimeEntry() {
   const [editingEntry, setEditingEntry] = useState<TimeEntryData | null>(null);
   const [correctionReason, setCorrectionReason] = useState('');
   const formRef = useRef<HTMLDivElement>(null);
+
+  // Delete state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletingEntry, setDeletingEntry] = useState<TimeEntryData | null>(null);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [isDeleteRequest, setIsDeleteRequest] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Timekeeper only flag
   const isTimekeeperOnly = role === 'timekeeper' && !hasElevatedRole;
@@ -103,6 +131,7 @@ export default function TimeEntry() {
         .order('project_code');
 
       // Fetch recent entries - RLS restricts to own entries for Timekeeper
+      // Filter out soft-deleted entries
       const sevenDaysAgo = format(subHours(new Date(), 168), 'yyyy-MM-dd');
       const { data: entriesData } = await supabase
         .from('time_entries')
@@ -111,6 +140,7 @@ export default function TimeEntry() {
           employees (id, employee_code, first_name, last_name, specialty_id),
           projects (id, project_code, project_name)
         `)
+        .eq('is_deleted', false)
         .gte('entry_date', sevenDaysAgo)
         .order('entry_date', { ascending: false })
         .order('start_time', { ascending: false })
@@ -284,6 +314,93 @@ export default function TimeEntry() {
     const hoursDiff = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
     
     return hoursDiff > 24;
+  };
+
+  // Check if timekeeper can delete directly (same calendar day in Europe/Athens)
+  const canDirectDelete = (entry: TimeEntryData) => {
+    if (!user) return false;
+    if (hasElevatedRole) return true; // Admin/HR can always delete
+    if (entry.created_by !== user.id) return false;
+    
+    const todayAthens = getTodayAthens();
+    return entry.entry_date === todayAthens;
+  };
+
+  // Check if user needs to request deletion (their own entry, not today)
+  const needsDeleteRequest = (entry: TimeEntryData) => {
+    if (!user) return false;
+    if (hasElevatedRole) return false; // Admin/HR delete directly
+    if (entry.created_by !== user.id) return false;
+    
+    const todayAthens = getTodayAthens();
+    return entry.entry_date !== todayAthens;
+  };
+
+  // Handle delete button click
+  const handleDeleteClick = (entry: TimeEntryData) => {
+    setDeletingEntry(entry);
+    setDeleteReason('');
+    
+    if (needsDeleteRequest(entry)) {
+      setIsDeleteRequest(true);
+    } else {
+      setIsDeleteRequest(false);
+    }
+    
+    setDeleteDialogOpen(true);
+  };
+
+  // Perform soft delete
+  const handleDelete = async () => {
+    if (!deletingEntry || !user) return;
+    
+    setDeleting(true);
+    
+    try {
+      if (isDeleteRequest) {
+        // Submit deletion request for approval
+        if (!deleteReason.trim()) {
+          toast.error(t('timeEntry.reasonRequired'));
+          setDeleting(false);
+          return;
+        }
+        
+        const { error } = await supabase.from('correction_requests').insert({
+          time_entry_id: deletingEntry.id,
+          requested_by: user.id,
+          request_reason: deleteReason.trim(),
+          request_type: 'DELETE',
+          status: 'pending',
+        });
+        
+        if (error) throw error;
+        toast.success(t('timeEntry.deletionRequestSubmitted'));
+      } else {
+        // Direct soft delete
+        const { error } = await supabase
+          .from('time_entries')
+          .update({
+            is_deleted: true,
+            deleted_at: new Date().toISOString(),
+            deleted_by: user.id,
+            delete_reason: deleteReason.trim() || null,
+          })
+          .eq('id', deletingEntry.id);
+        
+        if (error) throw error;
+        toast.success(t('timeEntry.deleteSuccess'));
+      }
+      
+      setDeleteDialogOpen(false);
+      setDeletingEntry(null);
+      setDeleteReason('');
+      fetchData();
+    } catch (error: any) {
+      console.error('Error:', error);
+      toast.error(error.message || t('common.error'));
+    } finally {
+      setDeleting(false);
+    }
   };
 
   if (loading) {
@@ -519,25 +636,48 @@ export default function TimeEntry() {
                       )}
                     </div>
                     
-                    {/* Edit button - always show if can edit or request correction */}
-                    {(canDirectEdit(entry) || canRequestCorrection(entry)) && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-8"
-                        onClick={() => handleEdit(entry)}
-                        disabled={editingEntry?.id === entry.id}
-                      >
-                        {canDirectEdit(entry) ? (
-                          <Edit2 className="h-4 w-4" />
-                        ) : (
-                          <>
-                            <AlertCircle className="h-4 w-4 mr-1" />
-                            <span className="text-xs">{t('timeEntry.requestCorrection')}</span>
-                          </>
-                        )}
-                      </Button>
-                    )}
+                    {/* Action buttons */}
+                    <div className="flex gap-1">
+                      {/* Edit button - show if can edit or request correction */}
+                      {(canDirectEdit(entry) || canRequestCorrection(entry)) && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8"
+                          onClick={() => handleEdit(entry)}
+                          disabled={editingEntry?.id === entry.id}
+                        >
+                          {canDirectEdit(entry) ? (
+                            <Edit2 className="h-4 w-4" />
+                          ) : (
+                            <>
+                              <AlertCircle className="h-4 w-4 mr-1" />
+                              <span className="text-xs">{t('timeEntry.requestCorrection')}</span>
+                            </>
+                          )}
+                        </Button>
+                      )}
+                      
+                      {/* Delete button - show if can delete or request deletion */}
+                      {(canDirectDelete(entry) || needsDeleteRequest(entry)) && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => handleDeleteClick(entry)}
+                          disabled={editingEntry?.id === entry.id}
+                        >
+                          {canDirectDelete(entry) ? (
+                            <Trash2 className="h-4 w-4" />
+                          ) : (
+                            <>
+                              <Trash2 className="h-4 w-4 mr-1" />
+                              <span className="text-xs">{t('timeEntry.requestDeletion')}</span>
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -545,6 +685,79 @@ export default function TimeEntry() {
           )}
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setDeleteDialogOpen(false);
+          setDeletingEntry(null);
+          setDeleteReason('');
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {isDeleteRequest ? t('timeEntry.requestDeletion') : t('timeEntry.delete')}
+            </DialogTitle>
+            <DialogDescription>
+              {isDeleteRequest 
+                ? t('timeEntry.cannotDeleteOldEntry')
+                : t('timeEntry.deleteConfirm')
+              }
+            </DialogDescription>
+          </DialogHeader>
+          
+          {deletingEntry && (
+            <div className="py-4 space-y-4">
+              <div className="bg-muted/50 rounded-lg p-3">
+                <p className="font-medium">
+                  {deletingEntry.employees.first_name} {deletingEntry.employees.last_name}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {deletingEntry.projects.project_code} - {format(new Date(deletingEntry.entry_date), 'MMM d, yyyy')}
+                </p>
+                <p className="text-sm font-mono">
+                  {deletingEntry.start_time.slice(0, 5)} - {deletingEntry.end_time.slice(0, 5)}
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">
+                  {t('timeEntry.deleteReason')} {isDeleteRequest ? '*' : `(${t('timeEntry.optional')})`}
+                </Label>
+                <Textarea
+                  value={deleteReason}
+                  onChange={(e) => setDeleteReason(e.target.value)}
+                  placeholder={t('timeEntry.deleteReasonPlaceholder')}
+                  className="min-h-[80px]"
+                  required={isDeleteRequest}
+                />
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteDialogOpen(false);
+                setDeletingEntry(null);
+                setDeleteReason('');
+              }}
+              disabled={deleting}
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={deleting || (isDeleteRequest && !deleteReason.trim())}
+            >
+              {deleting ? t('common.loading') : (isDeleteRequest ? t('timeEntry.requestDeletion') : t('common.delete'))}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 }
