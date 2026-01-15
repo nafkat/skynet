@@ -66,8 +66,8 @@ export default function Login() {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary text-primary-foreground mb-4">
             <Anchor className="h-8 w-8" />
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {t('auth.shipyardSystem')}
+          <h1 className="text-3xl font-bold tracking-tight">
+            SKYNET
           </h1>
           <p className="text-muted-foreground mt-2">
             {language === 'el' ? 'Σύνδεση Admin / HR / Timekeeper' : 'Admin / HR / Timekeeper Sign In'}

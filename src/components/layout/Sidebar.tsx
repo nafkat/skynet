@@ -102,8 +102,8 @@ export function Sidebar() {
     <aside className="fixed left-0 top-0 z-40 h-screen w-72 bg-sidebar border-r border-sidebar-border flex flex-col">
       {/* Header */}
       <div className="p-6 border-b border-sidebar-border">
-        <h1 className="text-xl font-semibold tracking-tight text-sidebar-foreground">
-          {t('auth.shipyardSystem')}
+        <h1 className="text-xl font-bold tracking-tight text-sidebar-foreground">
+          SKYNET
         </h1>
         <p className="text-sm text-muted-foreground mt-1">{getRoleLabel()}</p>
       </div>
