@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -23,9 +23,11 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Clock, Plus, Edit2, AlertCircle, X, Save, FileEdit, Trash2 } from 'lucide-react';
+import { Clock, Plus, Edit2, AlertCircle, X, Save, FileEdit, Trash2, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, subHours } from 'date-fns';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 
 interface Employee {
   id: string;
@@ -130,9 +132,9 @@ export default function TimeEntry() {
         .select('id, project_code, project_name')
         .order('project_code');
 
-      // Fetch recent entries - RLS restricts to own entries for Timekeeper
-      // Filter out soft-deleted entries
-      const sevenDaysAgo = format(subHours(new Date(), 168), 'yyyy-MM-dd');
+      // Fetch today's entries only (Europe/Athens timezone)
+      // This is the "Today's Entries" panel - shows same day only
+      const todayAthens = getTodayAthens();
       const { data: entriesData } = await supabase
         .from('time_entries')
         .select(`
@@ -141,10 +143,9 @@ export default function TimeEntry() {
           projects (id, project_code, project_name)
         `)
         .eq('is_deleted', false)
-        .gte('entry_date', sevenDaysAgo)
-        .order('entry_date', { ascending: false })
+        .eq('entry_date', todayAthens)
         .order('start_time', { ascending: false })
-        .limit(20);
+        .limit(50);
 
       setEmployees(employeesData || []);
       setProjects(projectsData || []);
@@ -194,6 +195,35 @@ export default function TimeEntry() {
     (selectedEmployeeData.regular_hourly_rate && selectedEmployeeData.regular_hourly_rate > 0) &&
     (selectedEmployeeData.regular_rate_all_in && selectedEmployeeData.regular_rate_all_in > 0) &&
     (selectedEmployeeData.overtime_hourly_rate && selectedEmployeeData.overtime_hourly_rate > 0) : true;
+
+  // Calculate entry counts per employee for today
+  const employeeEntryCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    recentEntries.forEach(entry => {
+      const current = counts.get(entry.employee_id) || 0;
+      counts.set(entry.employee_id, current + 1);
+    });
+    return counts;
+  }, [recentEntries]);
+
+  // Get recently used employees today (last 5 unique, most recent first)
+  const recentlyUsedEmployees = useMemo(() => {
+    const seenIds = new Set<string>();
+    const recent: Employee[] = [];
+    
+    for (const entry of recentEntries) {
+      if (!seenIds.has(entry.employee_id)) {
+        seenIds.add(entry.employee_id);
+        const emp = employees.find(e => e.id === entry.employee_id);
+        if (emp) {
+          recent.push(emp);
+        }
+        if (recent.length >= 5) break;
+      }
+    }
+    
+    return recent;
+  }, [recentEntries, employees]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -470,12 +500,47 @@ export default function TimeEntry() {
                 <SelectTrigger className="input-tablet">
                   <SelectValue placeholder={t('timeEntry.selectEmployee')} />
                 </SelectTrigger>
-                <SelectContent>
-                  {employees.map((emp) => (
-                    <SelectItem key={emp.id} value={emp.id}>
-                      {emp.first_name} {emp.last_name} ({emp.employee_code})
-                    </SelectItem>
-                  ))}
+                <SelectContent className="max-h-[300px]">
+                  {/* Recently used today section */}
+                  {recentlyUsedEmployees.length > 0 && (
+                    <>
+                      <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                        <Users className="h-3 w-3" />
+                        {t('timeEntry.recentlyUsedToday')}
+                      </div>
+                      {recentlyUsedEmployees.map((emp) => {
+                        const count = employeeEntryCounts.get(emp.id) || 0;
+                        return (
+                          <SelectItem key={`recent-${emp.id}`} value={emp.id}>
+                            <div className="flex items-center justify-between w-full gap-3">
+                              <span>{emp.first_name} {emp.last_name} ({emp.employee_code})</span>
+                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 font-normal shrink-0">
+                                {count} {t('timeEntry.entriesToday')}
+                              </Badge>
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
+                      <Separator className="my-1" />
+                      <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                        {language === 'el' ? 'Όλοι οι εργαζόμενοι' : 'All employees'}
+                      </div>
+                    </>
+                  )}
+                  {/* All employees */}
+                  {employees.map((emp) => {
+                    const count = employeeEntryCounts.get(emp.id) || 0;
+                    return (
+                      <SelectItem key={emp.id} value={emp.id}>
+                        <div className="flex items-center justify-between w-full gap-3">
+                          <span>{emp.first_name} {emp.last_name} ({emp.employee_code})</span>
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 font-normal shrink-0">
+                            {count} {t('timeEntry.entriesToday')}
+                          </Badge>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
               {formMode === 'edit' && (
@@ -584,13 +649,18 @@ export default function TimeEntry() {
         {/* Recent Entries */}
         <div className="card-elevated p-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-            <h2 className="text-lg font-semibold">{t('timeEntry.recentEntries')}</h2>
+            <div>
+              <h2 className="text-lg font-semibold">{t('timeEntry.recentEntries')}</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {format(new Date(), 'EEEE, MMMM d, yyyy')}
+              </p>
+            </div>
             <RefreshButton onRefresh={fetchData} lastRefresh={lastRefresh} />
           </div>
           
           {recentEntries.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              {t('common.noData')}
+              {t('timeEntry.noEntriesToday')}
             </div>
           ) : (
             <div className="space-y-3">

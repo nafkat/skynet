@@ -21,7 +21,7 @@ export const translations: Translations = {
   'auth.invalidCredentials': { en: 'Invalid credentials', el: 'Λάθος στοιχεία' },
   'auth.welcome': { en: 'Welcome back', el: 'Καλώς ήρθατε' },
   'auth.accountCreated': { en: 'Account created! You can now sign in.', el: 'Ο λογαριασμός δημιουργήθηκε! Μπορείτε να συνδεθείτε.' },
-  'auth.shipyardSystem': { en: 'Shipyard Time Tracking', el: 'Ναυπηγείο - Καταγραφή Χρόνου' },
+  'auth.shipyardSystem': { en: 'SKYNET', el: 'SKYNET' },
   
   // Navigation
   'nav.dashboard': { en: 'Dashboard', el: 'Πίνακας' },
@@ -75,7 +75,10 @@ export const translations: Translations = {
   'timeEntry.endTime': { en: 'End Time', el: 'Ώρα Λήξης' },
   'timeEntry.register': { en: 'Register Time', el: 'Καταχώρηση' },
   'timeEntry.success': { en: 'Time registered successfully', el: 'Επιτυχής καταχώρηση' },
-  'timeEntry.recentEntries': { en: 'Recent Entries', el: 'Πρόσφατες Καταχωρήσεις' },
+  'timeEntry.recentEntries': { en: "Today's Entries", el: 'Σημερινές Καταχωρήσεις' },
+  'timeEntry.noEntriesToday': { en: 'No entries for today yet.', el: 'Δεν υπάρχουν καταχωρήσεις για σήμερα.' },
+  'timeEntry.recentlyUsedToday': { en: 'Recently used today', el: 'Πρόσφατα χρησιμοποιήθηκαν σήμερα' },
+  'timeEntry.entriesToday': { en: 'today', el: 'σήμερα' },
   'timeEntry.regular': { en: 'Regular', el: 'Κανονικές' },
   'timeEntry.overtime': { en: 'Overtime', el: 'Υπερωρίες' },
   'timeEntry.requestCorrection': { en: 'Request Correction', el: 'Αίτηση Διόρθωσης' },

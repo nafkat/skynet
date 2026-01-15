@@ -315,10 +315,10 @@ export default function PayrollExport() {
 
       XLSX.utils.book_append_sheet(wb, ws, 'Payroll');
 
-      // Generate filename: payroll_YYYYMMDD_YYYYMMDD.xlsx
+      // Generate filename: SKYNET_payroll_YYYYMMDD_YYYYMMDD.xlsx
       const fromStr = format(dateFrom, 'yyyyMMdd');
       const toStr = format(dateTo, 'yyyyMMdd');
-      const filename = `payroll_${fromStr}_${toStr}.xlsx`;
+      const filename = `SKYNET_payroll_${fromStr}_${toStr}.xlsx`;
 
       // Download
       XLSX.writeFile(wb, filename);
