@@ -94,6 +94,12 @@ export const translations: Translations = {
   'timeEntry.reasonRequired': { en: 'Please provide a reason for the correction', el: 'Παρακαλώ δώστε αιτιολογία για τη διόρθωση' },
   'timeEntry.employeeReadOnly': { en: 'Employee cannot be changed when editing', el: 'Ο εργαζόμενος δεν μπορεί να αλλάξει κατά την επεξεργασία' },
   'timeEntry.endAfterStart': { en: 'End time must be after start time', el: 'Η ώρα λήξης πρέπει να είναι μετά την ώρα έναρξης' },
+  'timeEntry.incompletePayRates': { en: 'Employee has incomplete pay rates. Contact HR/Admin to fix.', el: 'Ο εργαζόμενος έχει ελλιπείς αμοιβές. Επικοινωνήστε με HR/Admin.' },
+  'timeEntry.incompletePayRatesTitle': { en: 'Incomplete Pay Rates', el: 'Ελλιπείς Αμοιβές' },
+  'timeEntry.incompletePayRatesDesc': { en: 'This employee cannot have time entries until pay rates are configured.', el: 'Αυτός ο εργαζόμενος δεν μπορεί να έχει καταχωρήσεις χωρίς αμοιβές.' },
+  'employees.payRatesRequired': { en: 'Pay rates are required and must be greater than zero', el: 'Οι αμοιβές είναι υποχρεωτικές και πρέπει να είναι μεγαλύτερες του μηδενός' },
+  'employees.payRatesInvalid': { en: 'All pay rates must be greater than zero', el: 'Όλες οι αμοιβές πρέπει να είναι μεγαλύτερες του μηδενός' },
+  'employees.allRatesRequired': { en: 'All rates are required for time entry creation', el: 'Όλες οι αμοιβές είναι απαραίτητες για καταχώρηση χρόνου' },
   
   // Employees
   'employees.title': { en: 'Employees', el: 'Εργαζόμενοι' },
@@ -219,6 +225,14 @@ export const translations: Translations = {
   'timeEntry.deletionRequestSubmitted': { en: 'Deletion request submitted for approval', el: 'Η αίτηση διαγραφής υποβλήθηκε προς έγκριση' },
   'timeEntry.cannotDeleteOldEntry': { en: 'This entry is from a previous day. Submit a deletion request for HR/Admin approval.', el: 'Αυτή η καταχώρηση είναι από προηγούμενη ημέρα. Υποβάλετε αίτηση διαγραφής για έγκριση.' },
   'timeEntry.optional': { en: 'Optional', el: 'Προαιρετικό' },
+  'timeEntry.overlapError': { en: 'Cannot save: this employee already has a time entry that overlaps these hours.', el: 'Δεν είναι δυνατή η αποθήκευση: ο εργαζόμενος έχει ήδη καταχώρηση που επικαλύπτεται με αυτές τις ώρες.' },
+  'timeEntry.overlapDetected': { en: 'Overlap detected', el: 'Ανιχνεύθηκε επικάλυψη' },
+  
+  // Assigned Recorder
+  'employees.assignedRecorder': { en: 'Daily Recorder', el: 'Υπεύθυνος Καταγραφής' },
+  'employees.selectRecorder': { en: 'Select recorder', el: 'Επιλέξτε υπεύθυνο' },
+  'employees.recorderRequired': { en: 'Daily recorder is required', el: 'Ο υπεύθυνος καταγραφής είναι υποχρεωτικός' },
+  'employees.noRecordersAvailable': { en: 'No recorders available', el: 'Δεν υπάρχουν διαθέσιμοι υπεύθυνοι' },
 };
 
 interface LanguageContextType {
