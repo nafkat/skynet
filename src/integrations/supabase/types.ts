@@ -126,6 +126,7 @@ export type Database = {
       employees: {
         Row: {
           afm: string | null
+          assigned_user_id: string | null
           bank_name: string | null
           created_at: string
           employee_code: string
@@ -149,6 +150,7 @@ export type Database = {
         }
         Insert: {
           afm?: string | null
+          assigned_user_id?: string | null
           bank_name?: string | null
           created_at?: string
           employee_code: string
@@ -172,6 +174,7 @@ export type Database = {
         }
         Update: {
           afm?: string | null
+          assigned_user_id?: string | null
           bank_name?: string | null
           created_at?: string
           employee_code?: string
@@ -500,6 +503,10 @@ export type Database = {
       }
     }
     Functions: {
+      can_access_employee: {
+        Args: { _employee_id: string; _user_id: string }
+        Returns: boolean
+      }
       has_elevated_role: { Args: { _user_id: string }; Returns: boolean }
       has_role: {
         Args: {

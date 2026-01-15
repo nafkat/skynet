@@ -81,12 +81,19 @@ interface Employee {
   id_number: string | null;
   iban: string | null;
   bank_name: string | null;
+  assigned_user_id: string | null;
   specialties?: Specialty;
 }
 
 interface EmployeeAllowedProject {
   employee_id: string;
   project_id: string;
+}
+
+interface AppUser {
+  user_id: string;
+  full_name: string | null;
+  role: string;
 }
 
 export default function Employees() {
@@ -96,6 +103,7 @@ const { t, language } = useLanguage();
   const [specialties, setSpecialties] = useState<Specialty[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [employeeProjects, setEmployeeProjects] = useState<EmployeeAllowedProject[]>([]);
+  const [appUsers, setAppUsers] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(true);
 const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('active');
@@ -139,6 +147,7 @@ const [searchQuery, setSearchQuery] = useState('');
   const [idNumber, setIdNumber] = useState('');
   const [iban, setIban] = useState('');
   const [bankName, setBankName] = useState('');
+  const [assignedUserId, setAssignedUserId] = useState('');
 
   useEffect(() => {
     fetchData();
@@ -146,17 +155,41 @@ const [searchQuery, setSearchQuery] = useState('');
 
   const fetchData = async () => {
     try {
-      const [specialtiesRes, employeesRes, projectsRes, employeeProjectsRes] = await Promise.all([
+      const [specialtiesRes, employeesRes, projectsRes, employeeProjectsRes, usersRes] = await Promise.all([
         supabase.from('specialties').select('*').order('code'),
         supabase.from('employees').select(`*, specialties (id, name_en, name_el, code)`).order('employee_code'),
         supabase.from('projects').select('*').order('project_code'),
         supabase.from('employee_allowed_projects').select('employee_id, project_id'),
+        // Fetch users with roles (admin, hr, timekeeper)
+        supabase.from('user_roles').select('user_id, role').in('role', ['admin', 'hr', 'timekeeper']),
       ]);
+
+      // Fetch profiles for users with roles
+      const userIds = (usersRes.data || []).map(u => u.user_id);
+      let profilesData: { user_id: string; full_name: string | null }[] = [];
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, full_name')
+          .in('user_id', userIds);
+        profilesData = profiles || [];
+      }
+
+      // Combine user roles with profile names
+      const usersWithNames: AppUser[] = (usersRes.data || []).map(ur => {
+        const profile = profilesData.find(p => p.user_id === ur.user_id);
+        return {
+          user_id: ur.user_id,
+          full_name: profile?.full_name || null,
+          role: ur.role,
+        };
+      });
 
       setSpecialties(specialtiesRes.data || []);
       setEmployees((employeesRes.data as Employee[]) || []);
       setProjects(projectsRes.data || []);
       setEmployeeProjects(employeeProjectsRes.data || []);
+      setAppUsers(usersWithNames);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -183,6 +216,7 @@ const [searchQuery, setSearchQuery] = useState('');
     setIdNumber('');
     setIban('');
     setBankName('');
+    setAssignedUserId('');
     setEditingEmployee(null);
     setPayrollSectionOpen(false);
   };
@@ -206,6 +240,7 @@ const [searchQuery, setSearchQuery] = useState('');
     setIdNumber(employee.id_number || '');
     setIban(employee.iban || '');
     setBankName(employee.bank_name || '');
+    setAssignedUserId(employee.assigned_user_id || '');
     
     // Load allowed projects for this employee
     const empProjects = employeeProjects
@@ -239,6 +274,12 @@ const [searchQuery, setSearchQuery] = useState('');
       return;
     }
 
+    // Validate assigned recorder
+    if (!assignedUserId) {
+      toast.error(t('employees.recorderRequired'));
+      return;
+    }
+
     // Validate pay rates for Admin/HR
     if (hasElevatedRole && !payRatesValid()) {
       toast.error(t('employees.payRatesRequired'));
@@ -257,6 +298,7 @@ const [searchQuery, setSearchQuery] = useState('');
         phone: phone || null,
         hire_date: hireDate || null,
         notes: notes || null,
+        assigned_user_id: assignedUserId,
       };
 
       // Only include sensitive fields if user has elevated role
@@ -343,9 +385,16 @@ const [searchQuery, setSearchQuery] = useState('');
     return matchesSearch && matchesStatus;
   });
 
-const getSpecialtyName = (specialty: Specialty | undefined) => {
+  const getSpecialtyName = (specialty: Specialty | undefined) => {
     if (!specialty) return '';
     return language === 'el' ? specialty.name_el : specialty.name_en;
+  };
+
+  const getRecorderName = (userId: string | null): string => {
+    if (!userId) return '-';
+    const user = appUsers.find(u => u.user_id === userId);
+    if (!user) return '-';
+    return user.full_name || user.user_id.slice(0, 8);
   };
 
   const checkCanDelete = async (employeeId: string): Promise<boolean> => {
@@ -550,6 +599,29 @@ const getSpecialtyName = (specialty: Specialty | undefined) => {
                         </SelectContent>
                       </Select>
                     </div>
+                  </div>
+
+                  {/* Assigned Recorder */}
+                  <div className="space-y-2">
+                    <Label>{t('employees.assignedRecorder')} *</Label>
+                    <Select value={assignedUserId} onValueChange={setAssignedUserId}>
+                      <SelectTrigger className="input-tablet">
+                        <SelectValue placeholder={t('employees.selectRecorder')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {appUsers.length === 0 ? (
+                          <SelectItem value="" disabled>
+                            {t('employees.noRecordersAvailable')}
+                          </SelectItem>
+                        ) : (
+                          appUsers.map((user) => (
+                            <SelectItem key={user.user_id} value={user.user_id}>
+                              {user.full_name || user.user_id.slice(0, 8)} ({t(`role.${user.role}`)})
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
@@ -841,6 +913,7 @@ const getSpecialtyName = (specialty: Specialty | undefined) => {
                 <th className="table-cell text-left">{t('employees.lastName')}</th>
                 <th className="table-cell text-left">{t('employees.specialty')}</th>
                 <th className="table-cell text-left">{t('employees.workSchedule')}</th>
+                <th className="table-cell text-left">{t('employees.assignedRecorder')}</th>
                 <th className="table-cell text-left">{t('common.status')}</th>
                 <th className="table-cell text-right">{t('common.actions')}</th>
               </tr>
@@ -855,6 +928,7 @@ const getSpecialtyName = (specialty: Specialty | undefined) => {
                   <td className="table-cell font-mono text-sm">
                     {employee.regular_start_time.slice(0, 5)} - {employee.regular_end_time.slice(0, 5)}
                   </td>
+                  <td className="table-cell text-sm">{getRecorderName(employee.assigned_user_id)}</td>
                   <td className="table-cell">
                     <span className={cn(
                       'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border',

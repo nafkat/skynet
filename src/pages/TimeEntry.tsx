@@ -245,6 +245,27 @@ export default function TimeEntry() {
       return;
     }
 
+    // Client-side overlap check before submitting
+    const overlappingEntry = recentEntries.find(entry => {
+      // Only check entries for the same employee and date
+      if (entry.employee_id !== selectedEmployee || entry.entry_date !== entryDate) {
+        return false;
+      }
+      // Exclude current entry when editing
+      if (formMode === 'edit' && editingEntry && entry.id === editingEntry.id) {
+        return false;
+      }
+      // Check overlap: new_start < existing_end AND new_end > existing_start
+      const existingStart = entry.start_time.slice(0, 5);
+      const existingEnd = entry.end_time.slice(0, 5);
+      return startTime < existingEnd && endTime > existingStart;
+    });
+
+    if (overlappingEntry) {
+      toast.error(t('timeEntry.overlapError'));
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -259,7 +280,15 @@ export default function TimeEntry() {
           created_by: user?.id,
         });
 
-        if (error) throw error;
+        if (error) {
+          // Check for overlap error from trigger
+          if (error.message?.includes('Overlap detected')) {
+            toast.error(t('timeEntry.overlapError'));
+          } else {
+            throw error;
+          }
+          return;
+        }
         toast.success(t('timeEntry.success'));
       } else {
         // Edit mode
@@ -277,7 +306,14 @@ export default function TimeEntry() {
             })
             .eq('id', editingEntry.id);
 
-          if (error) throw error;
+          if (error) {
+            if (error.message?.includes('Overlap detected')) {
+              toast.error(t('timeEntry.overlapError'));
+            } else {
+              throw error;
+            }
+            return;
+          }
           toast.success(t('timeEntry.changesSaved'));
         } else {
           // Timekeeper must submit correction request
