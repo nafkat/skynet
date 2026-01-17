@@ -110,11 +110,22 @@ const modules: ModuleTile[] = [
     route: '/hse',
     visibleTo: ['admin', 'hr'],
   },
+  {
+    id: 'admin_console',
+    title: 'Admin Console',
+    titleEl: 'Κονσόλα Διαχειριστή',
+    description: 'Manage users, roles, and permissions.',
+    descriptionEl: 'Διαχείριση χρηστών, ρόλων και δικαιωμάτων.',
+    icon: Shield,
+    status: 'active',
+    route: '/admin',
+    visibleTo: ['admin'],
+  },
 ];
 
 export default function Home() {
   const navigate = useNavigate();
-  const { user, role, signOut, isAdmin, isHR, loading } = useAuth();
+  const { user, role, signOut, isAdmin, isHR, loading, isActive } = useAuth();
   const { language, setLanguage } = useLanguage();
 
   const toggleLanguage = () => {
@@ -152,6 +163,30 @@ export default function Home() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-pulse text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  // User is inactive
+  if (!isActive) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <div className="text-center space-y-4 p-8 max-w-md">
+          <div className="text-destructive text-lg font-medium">
+            {language === 'el' 
+              ? 'Ο λογαριασμός σας είναι ανενεργός.' 
+              : 'Your account is inactive.'}
+          </div>
+          <p className="text-muted-foreground">
+            {language === 'el' 
+              ? 'Επικοινωνήστε με τον Διαχειριστή.' 
+              : 'Contact Administrator.'}
+          </p>
+          <Button variant="outline" onClick={signOut}>
+            <LogOut className="h-4 w-4 mr-2" />
+            {language === 'el' ? 'Αποσύνδεση' : 'Logout'}
+          </Button>
+        </div>
       </div>
     );
   }
