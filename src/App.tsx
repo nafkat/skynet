@@ -231,6 +231,24 @@ function AppRoutes() {
         } 
       />
       
+      {/* Procurement Module - Admin only */}
+      <Route 
+        path="/procurement" 
+        element={
+          <ProtectedRoute requiredRoles={['admin']}>
+            <ProcurementLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<ProcurementDashboard />} />
+        <Route path="purchase-requests" element={<PurchaseRequests />} />
+        <Route path="rfqs" element={<RFQs />} />
+        <Route path="purchase-orders" element={<PurchaseOrders />} />
+        <Route path="receiving" element={<Receiving />} />
+        <Route path="suppliers" element={<Suppliers />} />
+        <Route path="reports" element={<ProcurementReports />} />
+      </Route>
+      
       <Route 
         path="/settings" 
         element={

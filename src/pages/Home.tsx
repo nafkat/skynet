@@ -11,7 +11,8 @@ import {
   Shield,
   LogOut,
   Globe,
-  Home as HomeIcon
+  Home as HomeIcon,
+  Settings
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 type ModuleStatus = 'active' | 'coming_soon';
+type ModuleSection = 'operations' | 'system';
 
 interface ModuleTile {
   id: string;
@@ -30,9 +32,11 @@ interface ModuleTile {
   status: ModuleStatus;
   route: string;
   visibleTo: ('admin' | 'hr' | 'timekeeper')[];
+  section: ModuleSection;
 }
 
 const modules: ModuleTile[] = [
+  // ===== OPERATIONS SECTION =====
   {
     id: 'timekeeping',
     title: 'Timekeeping',
@@ -43,6 +47,19 @@ const modules: ModuleTile[] = [
     status: 'active',
     route: '/time-entry',
     visibleTo: ['admin', 'hr', 'timekeeper'],
+    section: 'operations',
+  },
+  {
+    id: 'procurement',
+    title: 'Procurement',
+    titleEl: 'Προμήθειες',
+    description: 'Purchase requests, RFQs, offers & supplier tracking.',
+    descriptionEl: 'Αιτήματα αγορών, RFQs, προσφορές & παρακολούθηση προμηθευτών.',
+    icon: ShoppingCart,
+    status: 'active',
+    route: '/procurement',
+    visibleTo: ['admin'],
+    section: 'operations',
   },
   {
     id: 'audit',
@@ -54,17 +71,19 @@ const modules: ModuleTile[] = [
     status: 'active',
     route: '/admin/audit-log',
     visibleTo: ['admin', 'hr'],
+    section: 'operations',
   },
   {
     id: 'announcements',
     title: 'Announcements',
     titleEl: 'Ανακοινώσεις',
-    description: 'Internal announcements to employees via Viber (Phase 1).',
-    descriptionEl: 'Εσωτερικές ανακοινώσεις σε εργαζόμενους μέσω Viber (Φάση 1).',
+    description: 'Internal announcements to employees via Viber.',
+    descriptionEl: 'Εσωτερικές ανακοινώσεις σε εργαζόμενους μέσω Viber.',
     icon: Megaphone,
     status: 'active',
     route: '/announcements',
     visibleTo: ['admin', 'hr'],
+    section: 'operations',
   },
   {
     id: 'costing',
@@ -76,6 +95,7 @@ const modules: ModuleTile[] = [
     status: 'coming_soon',
     route: '/costing',
     visibleTo: ['admin', 'hr'],
+    section: 'operations',
   },
   {
     id: 'projects-hub',
@@ -87,17 +107,7 @@ const modules: ModuleTile[] = [
     status: 'coming_soon',
     route: '/projects-hub',
     visibleTo: ['admin', 'hr'],
-  },
-  {
-    id: 'procurement',
-    title: 'Procurement',
-    titleEl: 'Προμήθειες',
-    description: 'Purchase requests, approvals & supplier tracking.',
-    descriptionEl: 'Αιτήματα αγορών, εγκρίσεις & παρακολούθηση προμηθευτών.',
-    icon: ShoppingCart,
-    status: 'coming_soon',
-    route: '/procurement',
-    visibleTo: ['admin', 'hr'],
+    section: 'operations',
   },
   {
     id: 'hse',
@@ -109,17 +119,20 @@ const modules: ModuleTile[] = [
     status: 'coming_soon',
     route: '/hse',
     visibleTo: ['admin', 'hr'],
+    section: 'operations',
   },
+  // ===== SYSTEM SECTION (ADMIN ONLY) =====
   {
     id: 'admin_console',
     title: 'Admin Console',
     titleEl: 'Κονσόλα Διαχειριστή',
-    description: 'Manage users, roles, and permissions.',
-    descriptionEl: 'Διαχείριση χρηστών, ρόλων και δικαιωμάτων.',
-    icon: Shield,
+    description: 'Users, permissions, templates, audit.',
+    descriptionEl: 'Χρήστες, δικαιώματα, πρότυπα, έλεγχος.',
+    icon: Settings,
     status: 'active',
     route: '/admin',
     visibleTo: ['admin'],
+    section: 'system',
   },
 ];
 
@@ -157,6 +170,10 @@ export default function Home() {
     if (!role) return false;
     return module.visibleTo.includes(role);
   });
+
+  // Group by section
+  const operationsModules = visibleModules.filter(m => m.section === 'operations');
+  const systemModules = visibleModules.filter(m => m.section === 'system');
 
   // Loading state
   if (loading) {
@@ -214,6 +231,68 @@ export default function Home() {
       </div>
     );
   }
+
+  const renderTile = (tile: ModuleTile) => {
+    const isActive = tile.status === 'active';
+    const Icon = tile.icon;
+
+    return (
+      <button
+        key={tile.id}
+        onClick={() => handleTileClick(tile)}
+        disabled={!isActive}
+        className={cn(
+          'group relative flex flex-col items-start p-6 rounded-xl border text-left transition-all duration-200',
+          isActive
+            ? 'bg-card border-border hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 cursor-pointer'
+            : 'bg-muted/30 border-border/50 cursor-not-allowed opacity-60'
+        )}
+      >
+        {/* Status Badge */}
+        <Badge
+          variant={isActive ? 'default' : 'secondary'}
+          className={cn(
+            'absolute top-4 right-4 text-xs',
+            isActive ? 'bg-green-500/10 text-green-600 border-green-500/20' : ''
+          )}
+        >
+          {isActive 
+            ? (language === 'el' ? 'Ενεργό' : 'Active')
+            : (language === 'el' ? 'Σύντομα' : 'Coming soon')}
+        </Badge>
+
+        {/* Icon */}
+        <div
+          className={cn(
+            'flex items-center justify-center w-12 h-12 rounded-lg mb-4 transition-colors',
+            isActive
+              ? 'bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground'
+              : 'bg-muted text-muted-foreground'
+          )}
+        >
+          <Icon className="h-6 w-6" />
+        </div>
+
+        {/* Title */}
+        <h3 className={cn(
+          'text-lg font-semibold mb-2',
+          isActive ? 'text-foreground' : 'text-muted-foreground'
+        )}>
+          {language === 'el' ? tile.titleEl : tile.title}
+        </h3>
+
+        {/* Description */}
+        <p className="text-sm text-muted-foreground line-clamp-2">
+          {language === 'el' ? tile.descriptionEl : tile.description}
+        </p>
+
+        {/* Hover indicator for active tiles */}
+        {isActive && (
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-primary/0 via-primary to-primary/0 opacity-0 group-hover:opacity-100 transition-opacity rounded-b-xl" />
+        )}
+      </button>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -293,70 +372,31 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Module Tiles Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {visibleModules.map((tile) => {
-            const isActive = tile.status === 'active';
-            const Icon = tile.icon;
+        {/* Operations Section */}
+        {operationsModules.length > 0 && (
+          <section className="mb-12">
+            <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+              <FolderKanban className="h-5 w-5 text-primary" />
+              {language === 'el' ? 'Λειτουργίες' : 'Operations'}
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {operationsModules.map(renderTile)}
+            </div>
+          </section>
+        )}
 
-            return (
-              <button
-                key={tile.id}
-                onClick={() => handleTileClick(tile)}
-                disabled={!isActive}
-                className={cn(
-                  'group relative flex flex-col items-start p-6 rounded-xl border text-left transition-all duration-200',
-                  isActive
-                    ? 'bg-card border-border hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 cursor-pointer'
-                    : 'bg-muted/30 border-border/50 cursor-not-allowed opacity-60'
-                )}
-              >
-                {/* Status Badge */}
-                <Badge
-                  variant={isActive ? 'default' : 'secondary'}
-                  className={cn(
-                    'absolute top-4 right-4 text-xs',
-                    isActive ? 'bg-green-500/10 text-green-600 border-green-500/20' : ''
-                  )}
-                >
-                  {isActive 
-                    ? (language === 'el' ? 'Ενεργό' : 'Active')
-                    : (language === 'el' ? 'Σύντομα' : 'Coming soon')}
-                </Badge>
-
-                {/* Icon */}
-                <div
-                  className={cn(
-                    'flex items-center justify-center w-12 h-12 rounded-lg mb-4 transition-colors',
-                    isActive
-                      ? 'bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground'
-                      : 'bg-muted text-muted-foreground'
-                  )}
-                >
-                  <Icon className="h-6 w-6" />
-                </div>
-
-                {/* Title */}
-                <h3 className={cn(
-                  'text-lg font-semibold mb-2',
-                  isActive ? 'text-foreground' : 'text-muted-foreground'
-                )}>
-                  {language === 'el' ? tile.titleEl : tile.title}
-                </h3>
-
-                {/* Description */}
-                <p className="text-sm text-muted-foreground line-clamp-2">
-                  {language === 'el' ? tile.descriptionEl : tile.description}
-                </p>
-
-                {/* Hover indicator for active tiles */}
-                {isActive && (
-                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-primary/0 via-primary to-primary/0 opacity-0 group-hover:opacity-100 transition-opacity rounded-b-xl" />
-                )}
-              </button>
-            );
-          })}
-        </div>
+        {/* System Section (Admin Only) */}
+        {systemModules.length > 0 && (
+          <section className="mb-12">
+            <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+              <Settings className="h-5 w-5 text-primary" />
+              {language === 'el' ? 'Σύστημα' : 'System'}
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {systemModules.map(renderTile)}
+            </div>
+          </section>
+        )}
       </main>
 
       {/* Footer */}
