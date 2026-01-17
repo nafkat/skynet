@@ -29,7 +29,8 @@ import {
   UserPlus,
   Power,
   FileStack,
-  Check
+  Check,
+  Trash2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -115,6 +116,10 @@ export default function AdminUsers() {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [overwritePermissions, setOverwritePermissions] = useState(true);
   const [applyingTemplate, setApplyingTemplate] = useState(false);
+
+  // Delete user modal state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Fetch all users with roles
   const fetchUsers = useCallback(async () => {
@@ -604,6 +609,38 @@ export default function AdminUsers() {
     }
   };
 
+  // Handle delete user
+  const handleDeleteUser = async () => {
+    if (!selectedUser || !user) return;
+    
+    if (selectedUser.user_id === user.id) {
+      toast.error(language === 'el' ? 'Δεν μπορείτε να διαγράψετε τον εαυτό σας' : 'You cannot delete yourself');
+      return;
+    }
+
+    try {
+      setDeleting(true);
+
+      const { data, error } = await supabase.functions.invoke('delete_user', {
+        body: { user_id: selectedUser.user_id },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast.success(language === 'el' ? 'Ο χρήστης διαγράφηκε επιτυχώς' : 'User deleted successfully');
+      setShowDeleteModal(false);
+      setSelectedUser(null);
+      
+      await fetchUsers();
+    } catch (error: any) {
+      console.error('Error deleting user:', error);
+      toast.error(error.message || (language === 'el' ? 'Αποτυχία διαγραφής χρήστη' : 'Failed to delete user'));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const getRoleBadgeVariant = (role: AppRole) => {
     switch (role) {
       case 'admin': return 'default';
@@ -840,6 +877,33 @@ export default function AdminUsers() {
                             ? (language === 'el' ? 'Απενεργοποίηση' : 'Deactivate')
                             : (language === 'el' ? 'Ενεργοποίηση' : 'Activate')
                           }
+                        </Button>
+                      </div>
+
+                      {/* Delete User Section */}
+                      <Separator />
+                      <div className="flex items-center justify-between p-4 rounded-lg border border-destructive/30 bg-destructive/5">
+                        <div className="flex items-center gap-3">
+                          <Trash2 className="h-5 w-5 text-destructive" />
+                          <div>
+                            <p className="font-medium text-destructive">
+                              {language === 'el' ? 'Διαγραφή Χρήστη' : 'Delete User'}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {language === 'el' 
+                                ? 'Μόνιμη διαγραφή του χρήστη από το σύστημα' 
+                                : 'Permanently remove user from the system'}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => setShowDeleteModal(true)}
+                          disabled={saving || selectedUser.user_id === user?.id}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          {language === 'el' ? 'Διαγραφή' : 'Delete'}
                         </Button>
                       </div>
                     </div>
@@ -1211,6 +1275,56 @@ export default function AdminUsers() {
                 <>
                   <Check className="h-4 w-4 mr-2" />
                   {language === 'el' ? 'Εφαρμογή' : 'Apply'}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete User Confirmation Modal */}
+      <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="h-5 w-5" />
+              {language === 'el' ? 'Διαγραφή Χρήστη' : 'Delete User'}
+            </DialogTitle>
+            <DialogDescription>
+              {language === 'el'
+                ? `Είστε βέβαιοι ότι θέλετε να διαγράψετε τον χρήστη "${selectedUser?.full_name || selectedUser?.email}"; Αυτή η ενέργεια δεν μπορεί να αναιρεθεί.`
+                : `Are you sure you want to delete "${selectedUser?.full_name || selectedUser?.email}"? This action cannot be undone.`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+              <Info className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+              <p className="text-xs text-destructive">
+                {language === 'el'
+                  ? 'Όλα τα δεδομένα του χρήστη, συμπεριλαμβανομένων των δικαιωμάτων και του προφίλ, θα διαγραφούν οριστικά.'
+                  : 'All user data, including permissions and profile, will be permanently deleted.'}
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteModal(false)}
+              disabled={deleting}
+            >
+              {language === 'el' ? 'Ακύρωση' : 'Cancel'}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteUser}
+              disabled={deleting}
+            >
+              {deleting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  {language === 'el' ? 'Διαγραφή' : 'Delete'}
                 </>
               )}
             </Button>
