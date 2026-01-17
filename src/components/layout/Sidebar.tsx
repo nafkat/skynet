@@ -13,7 +13,8 @@ import {
   FileSpreadsheet,
   ClipboardList,
   Home,
-  Megaphone
+  Megaphone,
+  Shield
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -100,6 +101,12 @@ export function Sidebar() {
       icon: Megaphone, 
       label: language === 'el' ? 'Ανακοινώσεις' : 'Announcements',
       show: hasElevatedRole 
+    },
+    { 
+      path: '/admin', 
+      icon: Shield, 
+      label: language === 'el' ? 'Κονσόλα Διαχειριστή' : 'Admin Console',
+      show: isAdmin 
     },
     { 
       path: '/settings', 

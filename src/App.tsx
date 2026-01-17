@@ -13,6 +13,7 @@ import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminConsole from "./pages/AdminConsole";
 import PayrollExport from "./pages/PayrollExport";
 import AuditLog from "./pages/AuditLog";
 import TimeEntry from "./pages/TimeEntry";
@@ -93,6 +94,16 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Home />
+          </ProtectedRoute>
+        } 
+      />
+      
+      {/* Admin Console - Admin only */}
+      <Route 
+        path="/admin" 
+        element={
+          <ProtectedRoute requiredRoles={['admin']}>
+            <AdminConsole />
           </ProtectedRoute>
         } 
       />
