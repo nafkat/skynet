@@ -530,6 +530,83 @@ export type Database = {
         }
         Relationships: []
       }
+      module_actions: {
+        Row: {
+          action_key: string
+          created_at: string
+          description: string | null
+          id: string
+          module_key: string
+        }
+        Insert: {
+          action_key: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          module_key: string
+        }
+        Update: {
+          action_key?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          module_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "module_actions_module_key_fkey"
+            columns: ["module_key"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
+      modules: {
+        Row: {
+          is_active: boolean
+          key: string
+          name: string
+        }
+        Insert: {
+          is_active?: boolean
+          key: string
+          name: string
+        }
+        Update: {
+          is_active?: boolean
+          key?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      permission_audit_logs: {
+        Row: {
+          actor_user_id: string
+          change_type: string
+          created_at: string
+          details: Json
+          id: string
+          target_user_id: string
+        }
+        Insert: {
+          actor_user_id: string
+          change_type: string
+          created_at?: string
+          details: Json
+          id?: string
+          target_user_id: string
+        }
+        Update: {
+          actor_user_id?: string
+          change_type?: string
+          created_at?: string
+          details?: Json
+          id?: string
+          target_user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -722,6 +799,70 @@ export type Database = {
           },
         ]
       }
+      user_module_access: {
+        Row: {
+          can_access: boolean
+          created_at: string
+          granted_by: string | null
+          module_key: string
+          user_id: string
+        }
+        Insert: {
+          can_access?: boolean
+          created_at?: string
+          granted_by?: string | null
+          module_key: string
+          user_id: string
+        }
+        Update: {
+          can_access?: boolean
+          created_at?: string
+          granted_by?: string | null
+          module_key?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_module_access_module_key_fkey"
+            columns: ["module_key"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
+      user_module_actions: {
+        Row: {
+          action_key: string
+          allowed: boolean
+          created_at: string
+          granted_by: string | null
+          user_id: string
+        }
+        Insert: {
+          action_key: string
+          allowed?: boolean
+          created_at?: string
+          granted_by?: string | null
+          user_id: string
+        }
+        Update: {
+          action_key?: string
+          allowed?: boolean
+          created_at?: string
+          granted_by?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_module_actions_action_key_fkey"
+            columns: ["action_key"]
+            isOneToOne: false
+            referencedRelation: "module_actions"
+            referencedColumns: ["action_key"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
@@ -846,13 +987,29 @@ export type Database = {
         Args: { _employee_id: string; _user_id: string }
         Returns: boolean
       }
+      has_action_permission: {
+        Args: { _action_key: string; _user_id: string }
+        Returns: boolean
+      }
       has_elevated_role: { Args: { _user_id: string }; Returns: boolean }
+      has_module_access: {
+        Args: { _module_key: string; _user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
+      }
+      initialize_user_permissions: {
+        Args: {
+          _granted_by: string
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: undefined
       }
       is_timekeeper_only: { Args: { _user_id: string }; Returns: boolean }
       is_today_athens: { Args: { _date: string }; Returns: boolean }
