@@ -23,6 +23,7 @@ import Reports from "./pages/Reports";
 import Corrections from "./pages/Corrections";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import Home from "./pages/Home";
 
 const queryClient = new QueryClient();
 
@@ -48,11 +49,8 @@ function ProtectedRoute({
   }
 
   if (requiredRoles && role && !requiredRoles.includes(role)) {
-    // Redirect based on role
-    if (role === 'admin' || role === 'hr') {
-      return <Navigate to="/admin/dashboard" replace />;
-    }
-    return <Navigate to="/dashboard" replace />;
+    // Redirect to home launcher for unauthorized roles
+    return <Navigate to="/home" replace />;
   }
 
   return <>{children}</>;
@@ -60,7 +58,7 @@ function ProtectedRoute({
 
 // Smart redirect based on user role
 function RoleBasedRedirect() {
-  const { user, role, loading } = useAuth();
+  const { user, loading } = useAuth();
 
   if (loading) {
     return (
@@ -74,12 +72,8 @@ function RoleBasedRedirect() {
     return <Navigate to="/login" replace />;
   }
 
-  // Admin and HR go to admin dashboard, timekeepers go to regular dashboard
-  if (role === 'admin' || role === 'hr') {
-    return <Navigate to="/admin/dashboard" replace />;
-  }
-
-  return <Navigate to="/dashboard" replace />;
+  // All authenticated users go to /home launcher
+  return <Navigate to="/home" replace />;
 }
 
 function AppRoutes() {
@@ -89,6 +83,16 @@ function AppRoutes() {
       <Route path="/reset-password" element={<ResetPassword />} />
       
       <Route path="/" element={<RoleBasedRedirect />} />
+      
+      {/* Home Launcher - All authenticated users */}
+      <Route 
+        path="/home" 
+        element={
+          <ProtectedRoute>
+            <Home />
+          </ProtectedRoute>
+        } 
+      />
       
       {/* Admin Dashboard - Admin and HR only */}
       <Route 
