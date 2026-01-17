@@ -11,17 +11,18 @@ import {
   ShoppingCart, 
   AlertTriangle,
   Clock,
-  CheckCircle,
   Plus,
   ArrowRight,
-  Loader2
+  Loader2,
+  Plane
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface DashboardStats {
-  prPendingApproval: number;
+  draftPRs: number;
+  rfqSentPRs: number;
   rfqsAwaitingOffers: number;
-  posOverdue: number;
+  posPendingDelivery: number;
   posPartial: number;
 }
 
@@ -29,9 +30,10 @@ export default function ProcurementDashboard() {
   const navigate = useNavigate();
   const { language } = useLanguage();
   const [stats, setStats] = useState<DashboardStats>({
-    prPendingApproval: 0,
+    draftPRs: 0,
+    rfqSentPRs: 0,
     rfqsAwaitingOffers: 0,
-    posOverdue: 0,
+    posPendingDelivery: 0,
     posPartial: 0,
   });
   const [loading, setLoading] = useState(true);
@@ -44,17 +46,23 @@ export default function ProcurementDashboard() {
     try {
       setLoading(true);
       
-      // Count PRs pending approval
-      const { count: prCount } = await supabase
+      // Count Draft PRs
+      const { count: draftCount } = await supabase
         .from('purchase_requests')
         .select('*', { count: 'exact', head: true })
-        .eq('status', 'submitted');
+        .eq('status', 'draft');
+
+      // Count PRs with RFQ sent
+      const { count: rfqSentCount } = await supabase
+        .from('purchase_requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'rfq_sent');
 
       // Count RFQs awaiting offers
       const { count: rfqCount } = await supabase
         .from('rfqs')
         .select('*', { count: 'exact', head: true })
-        .in('status', ['sent', 'partially_received']);
+        .in('status', ['draft', 'sent', 'partially_received']);
 
       // Count POs that are partially received
       const { count: posPartialCount } = await supabase
@@ -62,16 +70,17 @@ export default function ProcurementDashboard() {
         .select('*', { count: 'exact', head: true })
         .eq('status', 'partially_received');
 
-      // Count issued POs (could be overdue)
+      // Count issued POs (pending delivery)
       const { count: posIssuedCount } = await supabase
         .from('purchase_orders')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'issued');
 
       setStats({
-        prPendingApproval: prCount || 0,
+        draftPRs: draftCount || 0,
+        rfqSentPRs: rfqSentCount || 0,
         rfqsAwaitingOffers: rfqCount || 0,
-        posOverdue: posIssuedCount || 0,
+        posPendingDelivery: posIssuedCount || 0,
         posPartial: posPartialCount || 0,
       });
     } catch (error) {
@@ -83,12 +92,20 @@ export default function ProcurementDashboard() {
 
   const statCards = [
     {
-      title: language === 'el' ? 'Αιτήματα προς Έγκριση' : 'PRs Pending Approval',
-      value: stats.prPendingApproval,
+      title: language === 'el' ? 'Πρόχειρα Αιτήματα' : 'Draft PRs',
+      value: stats.draftPRs,
       icon: FileText,
-      color: 'text-orange-500',
-      bgColor: 'bg-orange-500/10',
-      route: '/procurement/purchase-requests?status=submitted',
+      color: 'text-gray-500',
+      bgColor: 'bg-gray-500/10',
+      route: '/procurement/purchase-requests?status=draft',
+    },
+    {
+      title: language === 'el' ? 'RFQ Εστάλη' : 'RFQ Sent',
+      value: stats.rfqSentPRs,
+      icon: Plane,
+      color: 'text-purple-500',
+      bgColor: 'bg-purple-500/10',
+      route: '/procurement/purchase-requests?status=rfq_sent',
     },
     {
       title: language === 'el' ? 'RFQs σε Αναμονή' : 'RFQs Awaiting Offers',
@@ -96,14 +113,14 @@ export default function ProcurementDashboard() {
       icon: Send,
       color: 'text-blue-500',
       bgColor: 'bg-blue-500/10',
-      route: '/procurement/rfqs?status=sent',
+      route: '/procurement/rfqs',
     },
     {
       title: language === 'el' ? 'POs σε Εκκρεμότητα' : 'POs Pending Delivery',
-      value: stats.posOverdue,
+      value: stats.posPendingDelivery,
       icon: Clock,
-      color: 'text-red-500',
-      bgColor: 'bg-red-500/10',
+      color: 'text-orange-500',
+      bgColor: 'bg-orange-500/10',
       route: '/procurement/purchase-orders?status=issued',
     },
     {
@@ -121,7 +138,7 @@ export default function ProcurementDashboard() {
       title: language === 'el' ? 'Νέο Αίτημα Αγοράς' : 'New Purchase Request',
       description: language === 'el' ? 'Δημιουργία αιτήματος υλικών ή υπηρεσιών' : 'Create a material or service request',
       icon: Plus,
-      route: '/procurement/purchase-requests/new',
+      route: '/procurement/purchase-requests',
     },
     {
       title: language === 'el' ? 'Διαχείριση Προμηθευτών' : 'Manage Suppliers',
@@ -154,7 +171,7 @@ export default function ProcurementDashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         {statCards.map((stat) => (
           <Card 
             key={stat.title} 
@@ -200,7 +217,7 @@ export default function ProcurementDashboard() {
         ))}
       </div>
 
-      {/* Workflow Overview */}
+      {/* Workflow Overview - Updated without Approval */}
       <Card>
         <CardHeader>
           <CardTitle>
@@ -217,27 +234,20 @@ export default function ProcurementDashboard() {
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="flex items-center gap-1">
                 <FileText className="h-3 w-3" />
-                PR
+                {language === 'el' ? 'Πρόχειρο PR' : 'Draft PR'}
               </Badge>
               <span className="text-muted-foreground">→</span>
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="flex items-center gap-1">
-                <CheckCircle className="h-3 w-3" />
-                {language === 'el' ? 'Έγκριση' : 'Approval'}
-              </Badge>
-              <span className="text-muted-foreground">→</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="flex items-center gap-1">
-                <Send className="h-3 w-3" />
+                <Plane className="h-3 w-3" />
                 RFQ
               </Badge>
               <span className="text-muted-foreground">→</span>
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="flex items-center gap-1">
-                <FileText className="h-3 w-3" />
+                <Send className="h-3 w-3" />
                 {language === 'el' ? 'Προσφορές' : 'Offers'}
               </Badge>
               <span className="text-muted-foreground">→</span>
