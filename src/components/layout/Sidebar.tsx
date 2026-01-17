@@ -10,7 +10,8 @@ import {
   LogOut,
   GitPullRequest,
   Globe,
-  FileSpreadsheet
+  FileSpreadsheet,
+  ClipboardList
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -78,6 +79,12 @@ export function Sidebar() {
       path: '/admin/payroll-export', 
       icon: FileSpreadsheet, 
       label: language === 'el' ? 'Εξαγωγή Μισθοδοσίας' : 'Payroll Export',
+      show: hasElevatedRole 
+    },
+    { 
+      path: '/admin/audit-log', 
+      icon: ClipboardList, 
+      label: language === 'el' ? 'Ημερολόγιο Ελέγχου' : 'Audit Log',
       show: hasElevatedRole 
     },
     { 
