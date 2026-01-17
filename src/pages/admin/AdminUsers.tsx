@@ -494,12 +494,12 @@ export default function AdminUsers() {
           details: { template_id: selectedTemplateId, template_name: template?.name },
         });
 
-      toast.success(language === 'el' ? 'Το πρότυπο εφαρμόστηκε' : 'Template applied');
+      toast.success(language === 'el' ? 'Ο ρόλος εφαρμόστηκε' : 'Role applied');
       setShowTemplateModal(false);
       await fetchUserPermissions(selectedUser.user_id);
     } catch (error) {
       console.error('Error applying template:', error);
-      toast.error(language === 'el' ? 'Αποτυχία εφαρμογής' : 'Failed to apply template');
+      toast.error(language === 'el' ? 'Αποτυχία εφαρμογής' : 'Failed to apply role');
     } finally {
       setApplyingTemplate(false);
     }
@@ -625,7 +625,7 @@ export default function AdminUsers() {
       case 'ROLE_CHANGE': return language === 'el' ? 'Αλλαγή Ρόλου' : 'Role Change';
       case 'MODULE_ACCESS': return language === 'el' ? 'Πρόσβαση Module' : 'Module Access';
       case 'ACTION_PERMISSION': return language === 'el' ? 'Δικαίωμα Ενέργειας' : 'Action Permission';
-      case 'TEMPLATE_APPLIED': return language === 'el' ? 'Εφαρμογή Προτύπου' : 'Template Applied';
+      case 'TEMPLATE_APPLIED': return language === 'el' ? 'Εφαρμογή Ρόλου' : 'Role Applied';
       default: return type;
     }
   };
@@ -861,7 +861,7 @@ export default function AdminUsers() {
                             disabled={templates.length === 0}
                           >
                             <FileStack className="h-4 w-4 mr-2" />
-                            {language === 'el' ? 'Εφαρμογή Προτύπου' : 'Apply Template'}
+                            {language === 'el' ? 'Εφαρμογή Ρόλου' : 'Apply Role'}
                           </Button>
                         </div>
 
@@ -1139,24 +1139,24 @@ export default function AdminUsers() {
         </DialogContent>
       </Dialog>
 
-      {/* Apply Template Modal */}
+      {/* Apply Role Modal */}
       <Dialog open={showTemplateModal} onOpenChange={setShowTemplateModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileStack className="h-5 w-5" />
-              {language === 'el' ? 'Εφαρμογή Προτύπου' : 'Apply Template'}
+              {language === 'el' ? 'Εφαρμογή Ρόλου' : 'Apply Role'}
             </DialogTitle>
             <DialogDescription>
               {language === 'el'
-                ? `Εφαρμόστε ένα πρότυπο δικαιωμάτων στον χρήστη ${selectedUser?.full_name || selectedUser?.email}.`
-                : `Apply a permission template to ${selectedUser?.full_name || selectedUser?.email}.`}
+                ? `Εφαρμόστε έναν ρόλο δικαιωμάτων στον χρήστη ${selectedUser?.full_name || selectedUser?.email}.`
+                : `Apply a permission role to ${selectedUser?.full_name || selectedUser?.email}.`}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="template-select">
-                {language === 'el' ? 'Επιλέξτε Πρότυπο' : 'Select Template'}
+                {language === 'el' ? 'Επιλέξτε Ρόλο' : 'Select Role'}
               </Label>
               <Select
                 value={selectedTemplateId}

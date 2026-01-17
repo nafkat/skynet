@@ -115,7 +115,7 @@ export default function AdminAudit() {
       case 'ROLE_CHANGE': return language === 'el' ? 'Αλλαγή Ρόλου' : 'Role Change';
       case 'MODULE_ACCESS': return language === 'el' ? 'Πρόσβαση Module' : 'Module Access';
       case 'ACTION_PERMISSION': return language === 'el' ? 'Δικαίωμα Ενέργειας' : 'Action Permission';
-      case 'TEMPLATE_APPLIED': return language === 'el' ? 'Εφαρμογή Προτύπου' : 'Template Applied';
+      case 'TEMPLATE_APPLIED': return language === 'el' ? 'Εφαρμογή Ρόλου' : 'Role Applied';
       default: return type;
     }
   };
@@ -219,7 +219,7 @@ export default function AdminAudit() {
                   {language === 'el' ? 'Δικαίωμα Ενέργειας' : 'Action Permission'}
                 </SelectItem>
                 <SelectItem value="TEMPLATE_APPLIED">
-                  {language === 'el' ? 'Εφαρμογή Προτύπου' : 'Template Applied'}
+                  {language === 'el' ? 'Εφαρμογή Ρόλου' : 'Role Applied'}
                 </SelectItem>
               </SelectContent>
             </Select>

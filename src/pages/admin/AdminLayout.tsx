@@ -25,8 +25,8 @@ const navigationItems = [
   { 
     path: '/admin/templates', 
     icon: FileStack, 
-    labelEn: 'Templates', 
-    labelEl: 'Πρότυπα' 
+    labelEn: 'Roles', 
+    labelEl: 'Ρόλοι' 
   },
   { 
     path: '/admin/audit', 
