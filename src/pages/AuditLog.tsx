@@ -77,10 +77,10 @@ export default function AuditLog() {
     const today = getTodayAthens();
     return new Date(today);
   });
-  const [selectedUserId, setSelectedUserId] = useState<string>('');
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
-  const [selectedActionType, setSelectedActionType] = useState<string>('');
-  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+  const [selectedUserId, setSelectedUserId] = useState<string>('__ALL__');
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('__ALL__');
+  const [selectedActionType, setSelectedActionType] = useState<string>('__ALL__');
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('__ALL__');
   
   // Data state
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
@@ -132,17 +132,17 @@ export default function AuditLog() {
         query = query.lte('created_at', `${toStr}T23:59:59+00:00`);
       }
       
-      // Optional filters
-      if (selectedUserId) {
+      // Optional filters (check for __ALL__ value which means no filter)
+      if (selectedUserId && selectedUserId !== '__ALL__') {
         query = query.eq('actor_user_id', selectedUserId);
       }
-      if (selectedEmployeeId) {
+      if (selectedEmployeeId && selectedEmployeeId !== '__ALL__') {
         query = query.eq('employee_id', selectedEmployeeId);
       }
-      if (selectedActionType) {
+      if (selectedActionType && selectedActionType !== '__ALL__') {
         query = query.eq('action_type', selectedActionType);
       }
-      if (selectedProjectId) {
+      if (selectedProjectId && selectedProjectId !== '__ALL__') {
         query = query.eq('project_id', selectedProjectId);
       }
       
@@ -173,10 +173,10 @@ export default function AuditLog() {
     const today = new Date(getTodayAthens());
     setDateFrom(today);
     setDateTo(today);
-    setSelectedUserId('');
-    setSelectedEmployeeId('');
-    setSelectedActionType('');
-    setSelectedProjectId('');
+    setSelectedUserId('__ALL__');
+    setSelectedEmployeeId('__ALL__');
+    setSelectedActionType('__ALL__');
+    setSelectedProjectId('__ALL__');
     setCurrentPage(1);
   }
 
@@ -341,7 +341,7 @@ export default function AuditLog() {
                     <SelectValue placeholder={t('common.all')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">{t('common.all')}</SelectItem>
+                    <SelectItem value="__ALL__">{t('common.all')}</SelectItem>
                     {users.map(user => (
                       <SelectItem key={user.user_id} value={user.user_id}>
                         {user.full_name || user.user_id.substring(0, 8)}
@@ -359,7 +359,7 @@ export default function AuditLog() {
                     <SelectValue placeholder={t('common.all')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">{t('common.all')}</SelectItem>
+                    <SelectItem value="__ALL__">{t('common.all')}</SelectItem>
                     {employees.map(emp => (
                       <SelectItem key={emp.id} value={emp.id}>
                         {emp.first_name} {emp.last_name} ({emp.employee_code})
@@ -377,7 +377,7 @@ export default function AuditLog() {
                     <SelectValue placeholder={t('common.all')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">{t('common.all')}</SelectItem>
+                    <SelectItem value="__ALL__">{t('common.all')}</SelectItem>
                     {ACTION_TYPES.map(action => (
                       <SelectItem key={action} value={action}>
                         {getActionLabel(action)}
@@ -395,7 +395,7 @@ export default function AuditLog() {
                     <SelectValue placeholder={t('common.all')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">{t('common.all')}</SelectItem>
+                    <SelectItem value="__ALL__">{t('common.all')}</SelectItem>
                     {projects.map(proj => (
                       <SelectItem key={proj.id} value={proj.id}>
                         {proj.project_name} ({proj.project_code})
