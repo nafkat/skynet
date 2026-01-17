@@ -29,6 +29,16 @@ import AnnouncementsList from "./pages/AnnouncementsList";
 import AnnouncementCreate from "./pages/AnnouncementCreate";
 import AnnouncementDetails from "./pages/AnnouncementDetails";
 
+// Procurement Pages
+import ProcurementLayout from "./pages/procurement/ProcurementLayout";
+import ProcurementDashboard from "./pages/procurement/ProcurementDashboard";
+import PurchaseRequests from "./pages/procurement/PurchaseRequests";
+import RFQs from "./pages/procurement/RFQs";
+import PurchaseOrders from "./pages/procurement/PurchaseOrders";
+import Receiving from "./pages/procurement/Receiving";
+import Suppliers from "./pages/procurement/Suppliers";
+import ProcurementReports from "./pages/procurement/ProcurementReports";
+
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ 

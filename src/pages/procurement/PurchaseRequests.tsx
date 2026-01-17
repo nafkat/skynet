@@ -121,7 +121,7 @@ export default function PurchaseRequests() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setRequests(data || []);
+      setRequests((data || []) as PurchaseRequest[]);
     } catch (error) {
       console.error('Error fetching PRs:', error);
       toast.error(language === 'el' ? 'Αποτυχία φόρτωσης αιτημάτων' : 'Failed to load requests');

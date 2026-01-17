@@ -99,7 +99,7 @@ export default function Suppliers() {
       email: supplier.email || '',
       phone: supplier.phone || '',
       country: supplier.country || '',
-      category: supplier.category,
+      category: supplier.category as 'materials' | 'services' | 'both',
       notes: supplier.notes || '',
     });
     setShowModal(true);
