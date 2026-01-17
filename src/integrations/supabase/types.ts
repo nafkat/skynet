@@ -580,6 +580,57 @@ export type Database = {
         }
         Relationships: []
       }
+      offers: {
+        Row: {
+          created_at: string
+          id: string
+          is_winner: boolean | null
+          lead_time: string | null
+          notes: string | null
+          price: number | null
+          rfq_id: string
+          supplier_id: string
+          validity_date: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_winner?: boolean | null
+          lead_time?: string | null
+          notes?: string | null
+          price?: number | null
+          rfq_id: string
+          supplier_id: string
+          validity_date?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_winner?: boolean | null
+          lead_time?: string | null
+          notes?: string | null
+          price?: number | null
+          rfq_id?: string
+          supplier_id?: string
+          validity_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offers_rfq_id_fkey"
+            columns: ["rfq_id"]
+            isOneToOne: false
+            referencedRelation: "rfqs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offers_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       permission_audit_logs: {
         Row: {
           actor_user_id: string
@@ -606,6 +657,149 @@ export type Database = {
           target_user_id?: string
         }
         Relationships: []
+      }
+      permission_template_actions: {
+        Row: {
+          action_key: string
+          allowed: boolean
+          template_id: string
+        }
+        Insert: {
+          action_key: string
+          allowed?: boolean
+          template_id: string
+        }
+        Update: {
+          action_key?: string
+          allowed?: boolean
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "permission_template_actions_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "permission_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      permission_template_modules: {
+        Row: {
+          can_access: boolean
+          module_key: string
+          template_id: string
+        }
+        Insert: {
+          can_access?: boolean
+          module_key: string
+          template_id: string
+        }
+        Update: {
+          can_access?: boolean
+          module_key?: string
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "permission_template_modules_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "permission_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      permission_templates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      po_lines: {
+        Row: {
+          description: string
+          id: string
+          po_id: string
+          qty: number | null
+          uom: string | null
+        }
+        Insert: {
+          description: string
+          id?: string
+          po_id: string
+          qty?: number | null
+          uom?: string | null
+        }
+        Update: {
+          description?: string
+          id?: string
+          po_id?: string
+          qty?: number | null
+          uom?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "po_lines_po_id_fkey"
+            columns: ["po_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pr_attachments: {
+        Row: {
+          created_at: string
+          file_path: string
+          filename: string
+          id: string
+          pr_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_path: string
+          filename: string
+          id?: string
+          pr_id: string
+        }
+        Update: {
+          created_at?: string
+          file_path?: string
+          filename?: string
+          id?: string
+          pr_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pr_attachments_pr_id_fkey"
+            columns: ["pr_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_requests"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -676,6 +870,248 @@ export type Database = {
         }
         Relationships: []
       }
+      purchase_orders: {
+        Row: {
+          created_at: string
+          id: string
+          po_number: string
+          pr_id: string
+          status: string
+          supplier_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          po_number: string
+          pr_id: string
+          status?: string
+          supplier_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          po_number?: string
+          pr_id?: string
+          status?: string
+          supplier_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_orders_pr_id_fkey"
+            columns: ["pr_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_orders_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_requests: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string
+          id: string
+          needed_by: string | null
+          pr_number: string
+          pricing_model: string | null
+          priority: string | null
+          project_id: string
+          qty: number | null
+          scope_of_work: string | null
+          status: string
+          type: string
+          uom: string | null
+          vessel_or_job: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description: string
+          id?: string
+          needed_by?: string | null
+          pr_number: string
+          pricing_model?: string | null
+          priority?: string | null
+          project_id: string
+          qty?: number | null
+          scope_of_work?: string | null
+          status?: string
+          type: string
+          uom?: string | null
+          vessel_or_job?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string
+          id?: string
+          needed_by?: string | null
+          pr_number?: string
+          pricing_model?: string | null
+          priority?: string | null
+          project_id?: string
+          qty?: number | null
+          scope_of_work?: string | null
+          status?: string
+          type?: string
+          uom?: string | null
+          vessel_or_job?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_requests_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      receiving: {
+        Row: {
+          id: string
+          notes: string | null
+          po_line_id: string
+          received_at: string
+          received_by: string
+          received_qty: number | null
+        }
+        Insert: {
+          id?: string
+          notes?: string | null
+          po_line_id: string
+          received_at?: string
+          received_by: string
+          received_qty?: number | null
+        }
+        Update: {
+          id?: string
+          notes?: string | null
+          po_line_id?: string
+          received_at?: string
+          received_by?: string
+          received_qty?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receiving_po_line_id_fkey"
+            columns: ["po_line_id"]
+            isOneToOne: false
+            referencedRelation: "po_lines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rfq_suppliers: {
+        Row: {
+          id: string
+          rfq_id: string
+          status: string | null
+          supplier_id: string
+        }
+        Insert: {
+          id?: string
+          rfq_id: string
+          status?: string | null
+          supplier_id: string
+        }
+        Update: {
+          id?: string
+          rfq_id?: string
+          status?: string | null
+          supplier_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rfq_suppliers_rfq_id_fkey"
+            columns: ["rfq_id"]
+            isOneToOne: false
+            referencedRelation: "rfqs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rfq_suppliers_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rfqs: {
+        Row: {
+          created_at: string
+          deadline: string | null
+          id: string
+          pr_id: string
+          rfq_number: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          deadline?: string | null
+          id?: string
+          pr_id: string
+          rfq_number: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          deadline?: string | null
+          id?: string
+          pr_id?: string
+          rfq_number?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rfqs_pr_id_fkey"
+            columns: ["pr_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_acceptance: {
+        Row: {
+          accepted: boolean | null
+          accepted_at: string | null
+          id: string
+          notes: string | null
+          po_id: string
+        }
+        Insert: {
+          accepted?: boolean | null
+          accepted_at?: string | null
+          id?: string
+          notes?: string | null
+          po_id: string
+        }
+        Update: {
+          accepted?: boolean | null
+          accepted_at?: string | null
+          id?: string
+          notes?: string | null
+          po_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_acceptance_po_id_fkey"
+            columns: ["po_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       specialties: {
         Row: {
           code: string
@@ -725,6 +1161,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      suppliers: {
+        Row: {
+          category: string | null
+          contact_name: string | null
+          country: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          notes: string | null
+          phone: string | null
+        }
+        Insert: {
+          category?: string | null
+          contact_name?: string | null
+          country?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          phone?: string | null
+        }
+        Update: {
+          category?: string | null
+          contact_name?: string | null
+          country?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          phone?: string | null
+        }
+        Relationships: []
       }
       time_entries: {
         Row: {
