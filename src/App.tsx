@@ -14,7 +14,6 @@ import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import PayrollExport from "./pages/PayrollExport";
-import AuditLog from "./pages/AuditLog";
 
 // Admin Console Pages
 import AdminLayout from "./pages/admin/AdminLayout";
@@ -148,15 +147,6 @@ function AppRoutes() {
         } 
       />
       
-      {/* Audit Log - Admin and HR only */}
-      <Route 
-        path="/admin/audit-log" 
-        element={
-          <ProtectedRoute requiredRoles={['admin', 'hr']}>
-            <AuditLog />
-          </ProtectedRoute>
-        } 
-      />
       
       {/* Announcements - Admin and HR only */}
       <Route 
