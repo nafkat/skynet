@@ -12,7 +12,8 @@ import {
   Globe,
   FileSpreadsheet,
   ClipboardList,
-  Home
+  Home,
+  Megaphone
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -92,6 +93,12 @@ export function Sidebar() {
       path: '/admin/audit-log', 
       icon: ClipboardList, 
       label: language === 'el' ? 'Ημερολόγιο Ελέγχου' : 'Audit Log',
+      show: hasElevatedRole 
+    },
+    { 
+      path: '/announcements', 
+      icon: Megaphone, 
+      label: language === 'el' ? 'Ανακοινώσεις' : 'Announcements',
       show: hasElevatedRole 
     },
     { 
