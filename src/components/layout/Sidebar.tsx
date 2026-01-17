@@ -29,13 +29,34 @@ export function Sidebar() {
   // Timekeeper has VERY LIMITED access - only Dashboard and Time Entry
   const isTimekeeperOnly = role === 'timekeeper' && !isAdmin && !isHR;
 
-  const navigationItems = [
+  // Determine if we're on the Home/Global context or Timekeeping context
+  const isHomeContext = location.pathname === '/home' || location.pathname === '/';
+  const isTimekeepingContext = !isHomeContext;
+
+  // GLOBAL / SYSTEM NAV (Home context only)
+  const globalNavItems = [
     { 
       path: '/home', 
       icon: Home, 
       label: language === 'el' ? 'Αρχική' : 'Home',
       show: true 
     },
+    { 
+      path: '/admin', 
+      icon: Shield, 
+      label: language === 'el' ? 'Κονσόλα Διαχειριστή' : 'Admin Console',
+      show: isAdmin 
+    },
+    { 
+      path: '/settings', 
+      icon: Settings, 
+      label: t('nav.settings'),
+      show: isAdmin 
+    },
+  ];
+
+  // TIMEKEEPING NAV (Timekeeping module only)
+  const timekeepingNavItems = [
     { 
       path: '/admin/dashboard', 
       icon: LayoutDashboard, 
@@ -102,19 +123,10 @@ export function Sidebar() {
       label: language === 'el' ? 'Ανακοινώσεις' : 'Announcements',
       show: hasElevatedRole 
     },
-    { 
-      path: '/admin', 
-      icon: Shield, 
-      label: language === 'el' ? 'Κονσόλα Διαχειριστή' : 'Admin Console',
-      show: isAdmin 
-    },
-    { 
-      path: '/settings', 
-      icon: Settings, 
-      label: t('nav.settings'),
-      show: isAdmin 
-    },
   ];
+
+  // Select navigation items based on context
+  const navigationItems = isHomeContext ? globalNavItems : timekeepingNavItems;
 
   const getRoleLabel = () => {
     if (isAdmin) return t('role.admin');
