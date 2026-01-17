@@ -1009,6 +1009,137 @@ export type Database = {
           },
         ]
       }
+      request_offer_attachments: {
+        Row: {
+          created_at: string | null
+          file_path: string
+          filename: string
+          id: string
+          request_offer_id: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          file_path: string
+          filename: string
+          id?: string
+          request_offer_id?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          file_path?: string
+          filename?: string
+          id?: string
+          request_offer_id?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "request_offer_attachments_request_offer_id_fkey"
+            columns: ["request_offer_id"]
+            isOneToOne: false
+            referencedRelation: "request_offers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      request_offer_recipients: {
+        Row: {
+          email_used: string | null
+          error_message: string | null
+          id: string
+          request_offer_id: string | null
+          sent_at: string | null
+          status: string | null
+          supplier_id: string | null
+        }
+        Insert: {
+          email_used?: string | null
+          error_message?: string | null
+          id?: string
+          request_offer_id?: string | null
+          sent_at?: string | null
+          status?: string | null
+          supplier_id?: string | null
+        }
+        Update: {
+          email_used?: string | null
+          error_message?: string | null
+          id?: string
+          request_offer_id?: string | null
+          sent_at?: string | null
+          status?: string | null
+          supplier_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "request_offer_recipients_request_offer_id_fkey"
+            columns: ["request_offer_id"]
+            isOneToOne: false
+            referencedRelation: "request_offers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "request_offer_recipients_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      request_offers: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          description: string
+          id: string
+          message_to_recipients: string | null
+          project_name: string | null
+          qty: number | null
+          ro_number: string | null
+          sent_at: string | null
+          status: string | null
+          title: string
+          type: string
+          uom: string | null
+          vessel_or_job: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          description: string
+          id?: string
+          message_to_recipients?: string | null
+          project_name?: string | null
+          qty?: number | null
+          ro_number?: string | null
+          sent_at?: string | null
+          status?: string | null
+          title: string
+          type: string
+          uom?: string | null
+          vessel_or_job?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string
+          id?: string
+          message_to_recipients?: string | null
+          project_name?: string | null
+          qty?: number | null
+          ro_number?: string | null
+          sent_at?: string | null
+          status?: string | null
+          title?: string
+          type?: string
+          uom?: string | null
+          vessel_or_job?: string | null
+        }
+        Relationships: []
+      }
       rfq_attachments: {
         Row: {
           created_at: string | null
@@ -1201,7 +1332,7 @@ export type Database = {
         Row: {
           category: string | null
           contact_name: string | null
-          country: string | null
+          country: string
           created_at: string
           email: string | null
           id: string
@@ -1209,11 +1340,13 @@ export type Database = {
           name: string
           notes: string | null
           phone: string | null
+          supplier_type: string | null
+          vat_number: string
         }
         Insert: {
           category?: string | null
           contact_name?: string | null
-          country?: string | null
+          country?: string
           created_at?: string
           email?: string | null
           id?: string
@@ -1221,11 +1354,13 @@ export type Database = {
           name: string
           notes?: string | null
           phone?: string | null
+          supplier_type?: string | null
+          vat_number?: string
         }
         Update: {
           category?: string | null
           contact_name?: string | null
-          country?: string | null
+          country?: string
           created_at?: string
           email?: string | null
           id?: string
@@ -1233,6 +1368,8 @@ export type Database = {
           name?: string
           notes?: string | null
           phone?: string | null
+          supplier_type?: string | null
+          vat_number?: string
         }
         Relationships: []
       }

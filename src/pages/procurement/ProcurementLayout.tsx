@@ -5,17 +5,12 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
-  LayoutDashboard,
-  FileText,
   Send,
-  ShoppingCart,
-  Package,
   Users,
   FileBarChart,
   Home,
   LogOut,
-  Globe,
-  Plus
+  Globe
 } from 'lucide-react';
 
 export default function ProcurementLayout() {
@@ -73,129 +68,55 @@ export default function ProcurementLayout() {
           {/* Back to Home */}
           <Link
             to="/home"
-            className="nav-item mb-2"
+            className="nav-item mb-4"
           >
             <Home className="h-5 w-5" />
             <span className="font-medium">{language === 'el' ? 'Αρχική' : 'Home'}</span>
           </Link>
-          
-          {/* Dashboard - small link */}
+
+          <div className="border-t border-sidebar-border my-4" />
+
+          {/* Request Offer */}
           <Link
-            to="/procurement"
+            to="/procurement/request-offers"
             className={cn(
-              'nav-item text-sm',
-              isActiveRoute('/procurement', true) && 'active'
+              'nav-item',
+              isActiveRoute('/procurement/request-offers') && 'active'
             )}
           >
-            <LayoutDashboard className="h-4 w-4" />
-            <span>{language === 'el' ? 'Πίνακας Ελέγχου' : 'Dashboard'}</span>
+            <Send className="h-5 w-5" />
+            <span className="font-medium">
+              {language === 'el' ? 'Αίτημα Προσφοράς' : 'Request Offer'}
+            </span>
           </Link>
 
-          <div className="border-t border-sidebar-border my-4" />
+          {/* Suppliers / Subcontractors */}
+          <Link
+            to="/procurement/suppliers"
+            className={cn(
+              'nav-item',
+              isActiveRoute('/procurement/suppliers') && 'active'
+            )}
+          >
+            <Users className="h-5 w-5" />
+            <span className="font-medium">
+              {language === 'el' ? 'Προμηθευτές / Υπεργολάβοι' : 'Suppliers / Subcontractors'}
+            </span>
+          </Link>
 
-          {/* ACTIONS Section */}
-          <div className="mb-3">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">
-              {language === 'el' ? 'Ενέργειες' : 'Actions'}
-            </p>
-            <Link
-              to="/procurement/purchase-requests?action=new"
-              className="nav-item bg-primary/10 hover:bg-primary/20 text-primary mb-1"
-            >
-              <Plus className="h-5 w-5" />
-              <span className="font-medium">
-                {language === 'el' ? 'Νέο Αίτημα Αγοράς' : 'New Purchase Request'}
-              </span>
-            </Link>
-            <Link
-              to="/procurement/purchase-requests"
-              className={cn(
-                'nav-item',
-                isActiveRoute('/procurement/purchase-requests') && 'active'
-              )}
-            >
-              <FileText className="h-5 w-5" />
-              <span className="font-medium">
-                {language === 'el' ? 'Αιτήματα Αγορών' : 'Purchase Requests'}
-              </span>
-            </Link>
-          </div>
-
-          <div className="border-t border-sidebar-border my-4" />
-
-          {/* OPERATIONS Section */}
-          <div className="mb-3">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">
-              {language === 'el' ? 'Λειτουργίες' : 'Operations'}
-            </p>
-            <Link
-              to="/procurement/rfqs"
-              className={cn(
-                'nav-item',
-                isActiveRoute('/procurement/rfqs') && 'active'
-              )}
-            >
-              <Send className="h-5 w-5" />
-              <span className="font-medium">RFQs</span>
-            </Link>
-            <Link
-              to="/procurement/purchase-orders"
-              className={cn(
-                'nav-item',
-                isActiveRoute('/procurement/purchase-orders') && 'active'
-              )}
-            >
-              <ShoppingCart className="h-5 w-5" />
-              <span className="font-medium">
-                {language === 'el' ? 'Εντολές Αγοράς' : 'Purchase Orders'}
-              </span>
-            </Link>
-            <Link
-              to="/procurement/receiving"
-              className={cn(
-                'nav-item',
-                isActiveRoute('/procurement/receiving') && 'active'
-              )}
-            >
-              <Package className="h-5 w-5" />
-              <span className="font-medium">
-                {language === 'el' ? 'Παραλαβή / Αποδοχή' : 'Receiving / Acceptance'}
-              </span>
-            </Link>
-          </div>
-
-          <div className="border-t border-sidebar-border my-4" />
-
-          {/* MANAGEMENT Section */}
-          <div className="mb-3">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">
-              {language === 'el' ? 'Διαχείριση' : 'Management'}
-            </p>
-            <Link
-              to="/procurement/suppliers"
-              className={cn(
-                'nav-item',
-                isActiveRoute('/procurement/suppliers') && 'active'
-              )}
-            >
-              <Users className="h-5 w-5" />
-              <span className="font-medium">
-                {language === 'el' ? 'Προμηθευτές' : 'Suppliers'}
-              </span>
-            </Link>
-            <Link
-              to="/procurement/reports"
-              className={cn(
-                'nav-item',
-                isActiveRoute('/procurement/reports') && 'active'
-              )}
-            >
-              <FileBarChart className="h-5 w-5" />
-              <span className="font-medium">
-                {language === 'el' ? 'Αναφορές' : 'Reports'}
-              </span>
-            </Link>
-          </div>
+          {/* Reports */}
+          <Link
+            to="/procurement/reports"
+            className={cn(
+              'nav-item',
+              isActiveRoute('/procurement/reports') && 'active'
+            )}
+          >
+            <FileBarChart className="h-5 w-5" />
+            <span className="font-medium">
+              {language === 'el' ? 'Αναφορές' : 'Reports'}
+            </span>
+          </Link>
         </nav>
 
         {/* Footer */}

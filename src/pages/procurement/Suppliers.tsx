@@ -22,16 +22,16 @@ import {
   MapPin,
   Star
 } from 'lucide-react';
-import { Switch } from '@/components/ui/switch';
 
 interface Supplier {
   id: string;
   name: string;
+  supplier_type: string;
   contact_name: string | null;
   email: string | null;
   phone: string | null;
-  country: string | null;
-  category: string;
+  country: string;
+  vat_number: string;
   is_preferred: boolean;
   notes: string | null;
   created_at: string;
@@ -50,11 +50,12 @@ export default function Suppliers() {
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [formData, setFormData] = useState({
     name: '',
+    supplier_type: 'supplier' as 'supplier' | 'subcontractor' | 'both',
     contact_name: '',
     email: '',
     phone: '',
     country: '',
-    category: 'materials' as 'materials' | 'services' | 'both',
+    vat_number: '',
     notes: '',
   });
 
@@ -84,11 +85,12 @@ export default function Suppliers() {
     setEditingSupplier(null);
     setFormData({
       name: '',
+      supplier_type: 'supplier',
       contact_name: '',
       email: '',
       phone: '',
       country: '',
-      category: 'materials',
+      vat_number: '',
       notes: '',
     });
     setShowModal(true);
@@ -98,11 +100,12 @@ export default function Suppliers() {
     setEditingSupplier(supplier);
     setFormData({
       name: supplier.name,
+      supplier_type: supplier.supplier_type as 'supplier' | 'subcontractor' | 'both',
       contact_name: supplier.contact_name || '',
       email: supplier.email || '',
       phone: supplier.phone || '',
       country: supplier.country || '',
-      category: supplier.category as 'materials' | 'services' | 'both',
+      vat_number: supplier.vat_number || '',
       notes: supplier.notes || '',
     });
     setShowModal(true);
@@ -113,17 +116,26 @@ export default function Suppliers() {
       toast.error(language === 'el' ? 'Το όνομα είναι υποχρεωτικό' : 'Name is required');
       return;
     }
+    if (!formData.country.trim()) {
+      toast.error(language === 'el' ? 'Η χώρα είναι υποχρεωτική' : 'Country is required');
+      return;
+    }
+    if (!formData.vat_number.trim()) {
+      toast.error(language === 'el' ? 'Ο ΑΦΜ είναι υποχρεωτικός' : 'VAT number is required');
+      return;
+    }
 
     try {
       setSaving(true);
 
       const supplierData = {
         name: formData.name,
+        supplier_type: formData.supplier_type,
         contact_name: formData.contact_name || null,
         email: formData.email || null,
         phone: formData.phone || null,
-        country: formData.country || null,
-        category: formData.category,
+        country: formData.country,
+        vat_number: formData.vat_number,
         notes: formData.notes || null,
       };
 
@@ -138,7 +150,13 @@ export default function Suppliers() {
         const { error } = await supabase
           .from('suppliers')
           .insert(supplierData);
-        if (error) throw error;
+        if (error) {
+          if (error.message.includes('duplicate') || error.message.includes('unique')) {
+            toast.error(language === 'el' ? 'Υπάρχει ήδη προμηθευτής με αυτή τη χώρα και ΑΦΜ' : 'Supplier with this country and VAT already exists');
+            return;
+          }
+          throw error;
+        }
         toast.success(language === 'el' ? 'Προμηθευτής δημιουργήθηκε' : 'Supplier created');
       }
 
@@ -175,15 +193,16 @@ export default function Suppliers() {
   const filteredSuppliers = suppliers.filter(s =>
     s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     s.contact_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.email?.toLowerCase().includes(searchQuery.toLowerCase())
+    s.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    s.vat_number?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const getCategoryLabel = (category: string) => {
-    switch (category) {
-      case 'materials': return language === 'el' ? 'Υλικά' : 'Materials';
-      case 'services': return language === 'el' ? 'Υπηρεσίες' : 'Services';
-      case 'both': return language === 'el' ? 'Υλικά & Υπηρεσίες' : 'Both';
-      default: return category;
+  const getTypeLabel = (type: string) => {
+    switch (type) {
+      case 'supplier': return language === 'el' ? 'Προμηθευτής' : 'Supplier';
+      case 'subcontractor': return language === 'el' ? 'Υπεργολάβος' : 'Subcontractor';
+      case 'both': return language === 'el' ? 'Και τα δύο' : 'Both';
+      default: return type;
     }
   };
 
@@ -224,17 +243,17 @@ export default function Suppliers() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">
-            {language === 'el' ? 'Προμηθευτές' : 'Suppliers'}
+            {language === 'el' ? 'Προμηθευτές / Υπεργολάβοι' : 'Suppliers / Subcontractors'}
           </h1>
           <p className="text-muted-foreground">
             {language === 'el' 
-              ? 'Διαχείριση προμηθευτών υλικών και υπηρεσιών' 
-              : 'Manage material and service suppliers'}
+              ? 'Διαχείριση προμηθευτών υλικών και υπεργολάβων υπηρεσιών' 
+              : 'Manage material suppliers and service subcontractors'}
           </p>
         </div>
         <Button onClick={openCreateModal}>
           <Plus className="h-4 w-4 mr-2" />
-          {language === 'el' ? 'Νέος Προμηθευτής' : 'New Supplier'}
+          {language === 'el' ? 'Νέος' : 'New'}
         </Button>
       </div>
 
@@ -244,7 +263,7 @@ export default function Suppliers() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder={language === 'el' ? 'Αναζήτηση προμηθευτών...' : 'Search suppliers...'}
+              placeholder={language === 'el' ? 'Αναζήτηση (όνομα, email, ΑΦΜ)...' : 'Search (name, email, VAT)...'}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"
@@ -263,18 +282,19 @@ export default function Suppliers() {
                   <Star className="h-4 w-4" />
                 </TableHead>
                 <TableHead>{language === 'el' ? 'Όνομα' : 'Name'}</TableHead>
-                <TableHead>{language === 'el' ? 'Επαφή' : 'Contact'}</TableHead>
-                <TableHead>{language === 'el' ? 'Email' : 'Email'}</TableHead>
-                <TableHead>{language === 'el' ? 'Τηλέφωνο' : 'Phone'}</TableHead>
+                <TableHead>{language === 'el' ? 'Τύπος' : 'Type'}</TableHead>
                 <TableHead>{language === 'el' ? 'Χώρα' : 'Country'}</TableHead>
-                <TableHead>{language === 'el' ? 'Κατηγορία' : 'Category'}</TableHead>
+                <TableHead>{language === 'el' ? 'ΑΦΜ' : 'VAT'}</TableHead>
+                <TableHead>{language === 'el' ? 'Επαφή' : 'Contact'}</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>{language === 'el' ? 'Τηλέφωνο' : 'Phone'}</TableHead>
                 <TableHead className="text-right">{language === 'el' ? 'Ενέργειες' : 'Actions'}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredSuppliers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     {language === 'el' ? 'Δεν βρέθηκαν προμηθευτές' : 'No suppliers found'}
                   </TableCell>
                 </TableRow>
@@ -297,6 +317,18 @@ export default function Suppliers() {
                       </button>
                     </TableCell>
                     <TableCell className="font-medium">{supplier.name}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{getTypeLabel(supplier.supplier_type)}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      {supplier.country ? (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />
+                          {supplier.country}
+                        </span>
+                      ) : '-'}
+                    </TableCell>
+                    <TableCell>{supplier.vat_number || '-'}</TableCell>
                     <TableCell>{supplier.contact_name || '-'}</TableCell>
                     <TableCell>
                       {supplier.email ? (
@@ -313,17 +345,6 @@ export default function Suppliers() {
                           {supplier.phone}
                         </span>
                       ) : '-'}
-                    </TableCell>
-                    <TableCell>
-                      {supplier.country ? (
-                        <span className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          {supplier.country}
-                        </span>
-                      ) : '-'}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{getCategoryLabel(supplier.category)}</Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
@@ -350,12 +371,12 @@ export default function Suppliers() {
 
       {/* Create/Edit Modal */}
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
               {editingSupplier 
-                ? (language === 'el' ? 'Επεξεργασία Προμηθευτή' : 'Edit Supplier')
-                : (language === 'el' ? 'Νέος Προμηθευτής' : 'New Supplier')}
+                ? (language === 'el' ? 'Επεξεργασία' : 'Edit')
+                : (language === 'el' ? 'Νέος Προμηθευτής / Υπεργολάβος' : 'New Supplier / Subcontractor')}
             </DialogTitle>
           </DialogHeader>
           
@@ -366,6 +387,42 @@ export default function Suppliers() {
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label>{language === 'el' ? 'Τύπος' : 'Type'} *</Label>
+              <Select 
+                value={formData.supplier_type} 
+                onValueChange={(v: 'supplier' | 'subcontractor' | 'both') => setFormData({ ...formData, supplier_type: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="supplier">{language === 'el' ? 'Προμηθευτής' : 'Supplier'}</SelectItem>
+                  <SelectItem value="subcontractor">{language === 'el' ? 'Υπεργολάβος' : 'Subcontractor'}</SelectItem>
+                  <SelectItem value="both">{language === 'el' ? 'Και τα δύο' : 'Both'}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{language === 'el' ? 'Χώρα' : 'Country'} *</Label>
+                <Input
+                  value={formData.country}
+                  onChange={(e) => setFormData({ ...formData, country: e.target.value.toUpperCase() })}
+                  placeholder="GR, CY, DE..."
+                  maxLength={3}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{language === 'el' ? 'ΑΦΜ' : 'VAT Number'} *</Label>
+                <Input
+                  value={formData.vat_number}
+                  onChange={(e) => setFormData({ ...formData, vat_number: e.target.value })}
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -386,38 +443,12 @@ export default function Suppliers() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>{language === 'el' ? 'Τηλέφωνο' : 'Phone'}</Label>
-                <Input
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>{language === 'el' ? 'Χώρα' : 'Country'}</Label>
-                <Input
-                  value={formData.country}
-                  onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                />
-              </div>
-            </div>
-
             <div className="space-y-2">
-              <Label>{language === 'el' ? 'Κατηγορία' : 'Category'}</Label>
-              <Select 
-                value={formData.category} 
-                onValueChange={(v: 'materials' | 'services' | 'both') => setFormData({ ...formData, category: v })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="materials">{language === 'el' ? 'Υλικά' : 'Materials'}</SelectItem>
-                  <SelectItem value="services">{language === 'el' ? 'Υπηρεσίες' : 'Services'}</SelectItem>
-                  <SelectItem value="both">{language === 'el' ? 'Και τα δύο' : 'Both'}</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label>{language === 'el' ? 'Τηλέφωνο' : 'Phone'}</Label>
+              <Input
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              />
             </div>
 
             <div className="space-y-2">
