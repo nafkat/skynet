@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Globe, Anchor, Eye, EyeOff } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Globe, Anchor, Eye, EyeOff, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Login() {
@@ -15,6 +17,11 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Forgot password state
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [isSendingReset, setIsSendingReset] = useState(false);
 
   if (loading) {
     return (
@@ -43,6 +50,46 @@ export default function Login() {
     setIsLoading(false);
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!forgotEmail.trim()) {
+      toast.error(language === 'el' ? 'Εισάγετε email' : 'Please enter an email');
+      return;
+    }
+    
+    setIsSendingReset(true);
+    
+    try {
+      const redirectUrl = `${window.location.origin}/reset-password`;
+      
+      const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail.trim(), {
+        redirectTo: redirectUrl,
+      });
+      
+      if (error) {
+        // Don't reveal if email exists or not
+        console.error('Reset password error:', error);
+      }
+      
+      // Always show success message to prevent user enumeration
+      toast.success(
+        language === 'el'
+          ? 'Αν το email υπάρχει, θα λάβετε οδηγίες επαναφοράς.'
+          : 'If the email exists, you will receive reset instructions.'
+      );
+      setShowForgotPassword(false);
+      setForgotEmail('');
+    } catch (err) {
+      toast.error(
+        language === 'el'
+          ? 'Παρουσιάστηκε σφάλμα. Δοκιμάστε ξανά.'
+          : 'An error occurred. Please try again.'
+      );
+    } finally {
+      setIsSendingReset(false);
+    }
+  };
 
   const toggleLanguage = () => {
     setLanguage(language === 'en' ? 'el' : 'en');
@@ -124,6 +171,20 @@ export default function Login() {
               </div>
             </div>
 
+            {/* Forgot Password Link */}
+            <div className="text-right">
+              <button
+                type="button"
+                onClick={() => {
+                  setForgotEmail(email);
+                  setShowForgotPassword(true);
+                }}
+                className="text-sm text-muted-foreground hover:text-primary transition-colors underline-offset-4 hover:underline"
+              >
+                {language === 'el' ? 'Ξεχάσατε τον κωδικό;' : 'Forgot Password?'}
+              </button>
+            </div>
+
             <Button
               type="submit"
               className="w-full btn-tablet"
@@ -134,6 +195,51 @@ export default function Login() {
           </form>
         </div>
       </div>
+
+      {/* Forgot Password Dialog */}
+      <Dialog open={showForgotPassword} onOpenChange={setShowForgotPassword}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5" />
+              {language === 'el' ? 'Επαναφορά Κωδικού' : 'Reset Password'}
+            </DialogTitle>
+            <DialogDescription>
+              {language === 'el'
+                ? 'Εισάγετε το email σας και θα σας στείλουμε οδηγίες επαναφοράς.'
+                : 'Enter your email and we will send you reset instructions.'}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleForgotPassword} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="forgot-email">Email</Label>
+              <Input
+                id="forgot-email"
+                type="email"
+                value={forgotEmail}
+                onChange={(e) => setForgotEmail(e.target.value)}
+                placeholder="name@shipyard.com"
+                required
+                autoComplete="email"
+              />
+            </div>
+            <div className="flex gap-3 justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowForgotPassword(false)}
+              >
+                {language === 'el' ? 'Ακύρωση' : 'Cancel'}
+              </Button>
+              <Button type="submit" disabled={isSendingReset}>
+                {isSendingReset
+                  ? (language === 'el' ? 'Αποστολή...' : 'Sending...')
+                  : (language === 'el' ? 'Αποστολή' : 'Send')}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
