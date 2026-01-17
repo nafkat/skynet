@@ -27,6 +27,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { Plus, Search, Edit2, ChevronDown, ChevronRight, Archive, Trash2, MoreHorizontal, AlertCircle } from 'lucide-react';
+import { ViberLinkCard } from '@/components/ViberLinkCard';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -863,6 +864,14 @@ const [searchQuery, setSearchQuery] = useState('');
                       </div>
                     </CollapsibleContent>
                   </Collapsible>
+                )}
+
+                {/* Viber Link Section - Admin/HR Only, only when editing */}
+                {hasElevatedRole && editingEmployee && (
+                  <ViberLinkCard 
+                    employeeId={editingEmployee.id} 
+                    hasElevatedRole={hasElevatedRole} 
+                  />
                 )}
 
                 <div className="flex gap-3 pt-4 border-t">

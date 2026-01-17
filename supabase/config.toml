@@ -1,1 +1,7 @@
 project_id = "degvwobjdamxjhhhvbiz"
+
+[functions.viber_webhook]
+verify_jwt = false
+
+[functions.send_announcements_worker]
+verify_jwt = false
