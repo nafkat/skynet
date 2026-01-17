@@ -190,21 +190,38 @@ serve(async (req: Request) => {
           html: htmlBody,
         });
 
-        console.log(`Email sent to ${email}:`, emailResponse);
+        console.log(`Email response for ${email}:`, JSON.stringify(emailResponse));
 
-        // Update recipient status
-        await supabase
-          .from("request_offer_recipients")
-          .update({
-            status: "sent",
-            sent_at: new Date().toISOString(),
-            error_message: null,
-          })
-          .eq("id", recipient.id);
+        // Check if Resend returned an error (SDK doesn't throw on API errors)
+        if (emailResponse.error) {
+          const errorMsg = emailResponse.error.message || "Resend API error";
+          console.error(`Resend error for ${email}:`, errorMsg);
 
-        sentCount++;
+          await supabase
+            .from("request_offer_recipients")
+            .update({
+              status: "failed",
+              error_message: errorMsg,
+            })
+            .eq("id", recipient.id);
+
+          failedCount++;
+          failures.push({ email, error: errorMsg });
+        } else {
+          // Email sent successfully
+          await supabase
+            .from("request_offer_recipients")
+            .update({
+              status: "sent",
+              sent_at: new Date().toISOString(),
+              error_message: null,
+            })
+            .eq("id", recipient.id);
+
+          sentCount++;
+        }
       } catch (emailError: any) {
-        console.error(`Failed to send email to ${email}:`, emailError);
+        console.error(`Exception sending email to ${email}:`, emailError);
 
         await supabase
           .from("request_offer_recipients")
