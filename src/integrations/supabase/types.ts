@@ -1009,6 +1009,41 @@ export type Database = {
           },
         ]
       }
+      rfq_attachments: {
+        Row: {
+          created_at: string | null
+          file_path: string
+          filename: string
+          id: string
+          rfq_id: string
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string | null
+          file_path: string
+          filename: string
+          id?: string
+          rfq_id: string
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string | null
+          file_path?: string
+          filename?: string
+          id?: string
+          rfq_id?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rfq_attachments_rfq_id_fkey"
+            columns: ["rfq_id"]
+            isOneToOne: false
+            referencedRelation: "rfqs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rfq_suppliers: {
         Row: {
           id: string
@@ -1170,6 +1205,7 @@ export type Database = {
           created_at: string
           email: string | null
           id: string
+          is_preferred: boolean | null
           name: string
           notes: string | null
           phone: string | null
@@ -1181,6 +1217,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          is_preferred?: boolean | null
           name: string
           notes?: string | null
           phone?: string | null
@@ -1192,6 +1229,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          is_preferred?: boolean | null
           name?: string
           notes?: string | null
           phone?: string | null

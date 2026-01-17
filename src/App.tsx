@@ -34,6 +34,7 @@ import ProcurementLayout from "./pages/procurement/ProcurementLayout";
 import ProcurementDashboard from "./pages/procurement/ProcurementDashboard";
 import PurchaseRequests from "./pages/procurement/PurchaseRequests";
 import RFQs from "./pages/procurement/RFQs";
+import RFQDetails from "./pages/procurement/RFQDetails";
 import PurchaseOrders from "./pages/procurement/PurchaseOrders";
 import Receiving from "./pages/procurement/Receiving";
 import Suppliers from "./pages/procurement/Suppliers";
@@ -253,6 +254,7 @@ function AppRoutes() {
         <Route index element={<ProcurementDashboard />} />
         <Route path="purchase-requests" element={<PurchaseRequests />} />
         <Route path="rfqs" element={<RFQs />} />
+        <Route path="rfqs/:id" element={<RFQDetails />} />
         <Route path="purchase-orders" element={<PurchaseOrders />} />
         <Route path="receiving" element={<Receiving />} />
         <Route path="suppliers" element={<Suppliers />} />

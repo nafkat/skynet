@@ -19,8 +19,10 @@ import {
   Trash2,
   Mail,
   Phone,
-  MapPin
+  MapPin,
+  Star
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 
 interface Supplier {
   id: string;
@@ -30,6 +32,7 @@ interface Supplier {
   phone: string | null;
   country: string | null;
   category: string;
+  is_preferred: boolean;
   notes: string | null;
   created_at: string;
 }
@@ -184,6 +187,29 @@ export default function Suppliers() {
     }
   };
 
+  const handleTogglePreferred = async (supplier: Supplier) => {
+    try {
+      const { error } = await supabase
+        .from('suppliers')
+        .update({ is_preferred: !supplier.is_preferred })
+        .eq('id', supplier.id);
+
+      if (error) throw error;
+      
+      setSuppliers(prev => prev.map(s => 
+        s.id === supplier.id ? { ...s, is_preferred: !s.is_preferred } : s
+      ));
+      toast.success(
+        supplier.is_preferred
+          ? (language === 'el' ? 'Αφαίρεση από προτιμώμενους' : 'Removed from preferred')
+          : (language === 'el' ? 'Προστέθηκε στους προτιμώμενους' : 'Added to preferred')
+      );
+    } catch (error) {
+      console.error('Error updating preferred:', error);
+      toast.error(language === 'el' ? 'Αποτυχία ενημέρωσης' : 'Failed to update');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -233,6 +259,9 @@ export default function Suppliers() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[40px]">
+                  <Star className="h-4 w-4" />
+                </TableHead>
                 <TableHead>{language === 'el' ? 'Όνομα' : 'Name'}</TableHead>
                 <TableHead>{language === 'el' ? 'Επαφή' : 'Contact'}</TableHead>
                 <TableHead>{language === 'el' ? 'Email' : 'Email'}</TableHead>
@@ -245,13 +274,28 @@ export default function Suppliers() {
             <TableBody>
               {filteredSuppliers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     {language === 'el' ? 'Δεν βρέθηκαν προμηθευτές' : 'No suppliers found'}
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredSuppliers.map((supplier) => (
                   <TableRow key={supplier.id}>
+                    <TableCell>
+                      <button
+                        onClick={() => handleTogglePreferred(supplier)}
+                        className="focus:outline-none"
+                        title={language === 'el' ? 'Προτιμώμενος' : 'Preferred'}
+                      >
+                        <Star 
+                          className={`h-4 w-4 transition-colors ${
+                            supplier.is_preferred 
+                              ? 'text-yellow-500 fill-yellow-500' 
+                              : 'text-muted-foreground hover:text-yellow-400'
+                          }`} 
+                        />
+                      </button>
+                    </TableCell>
                     <TableCell className="font-medium">{supplier.name}</TableCell>
                     <TableCell>{supplier.contact_name || '-'}</TableCell>
                     <TableCell>

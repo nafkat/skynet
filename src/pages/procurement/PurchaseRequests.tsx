@@ -18,13 +18,11 @@ import {
   Plus, 
   Search, 
   Filter,
-  FileText,
   Loader2,
   Eye,
-  CheckCircle,
-  XCircle,
-  Send
+  Plane
 } from 'lucide-react';
+import CreateRFQModal from '@/components/procurement/CreateRFQModal';
 import { cn } from '@/lib/utils';
 
 interface Project {
@@ -91,6 +89,10 @@ export default function PurchaseRequests() {
     priority: 'normal' as 'normal' | 'urgent',
     needed_by: '',
   });
+  
+  // Create RFQ modal
+  const [showRFQModal, setShowRFQModal] = useState(false);
+  const [selectedPRForRFQ, setSelectedPRForRFQ] = useState<PurchaseRequest | null>(null);
 
   useEffect(() => {
     fetchRequests();
@@ -339,30 +341,14 @@ export default function PurchaseRequests() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => handleStatusChange(pr, 'submitted')}
+                            title={language === 'el' ? 'Δημιουργία RFQ' : 'Create RFQ'}
+                            onClick={() => {
+                              setSelectedPRForRFQ(pr);
+                              setShowRFQModal(true);
+                            }}
                           >
-                            <Send className="h-4 w-4" />
+                            <Plane className="h-4 w-4" />
                           </Button>
-                        )}
-                        {pr.status === 'submitted' && (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-green-600"
-                              onClick={() => handleStatusChange(pr, 'approved')}
-                            >
-                              <CheckCircle className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-red-600"
-                              onClick={() => handleStatusChange(pr, 'rejected')}
-                            >
-                              <XCircle className="h-4 w-4" />
-                            </Button>
-                          </>
                         )}
                         <Button
                           size="sm"
@@ -510,6 +496,23 @@ export default function PurchaseRequests() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Create RFQ Modal */}
+      {selectedPRForRFQ && (
+        <CreateRFQModal
+          open={showRFQModal}
+          onOpenChange={(open) => {
+            setShowRFQModal(open);
+            if (!open) {
+              setSelectedPRForRFQ(null);
+              fetchRequests();
+            }
+          }}
+          prId={selectedPRForRFQ.id}
+          prType={selectedPRForRFQ.type as 'material' | 'service'}
+          prNumber={selectedPRForRFQ.pr_number}
+        />
+      )}
     </div>
   );
 }
