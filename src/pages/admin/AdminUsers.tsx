@@ -30,7 +30,7 @@ import {
   Power,
   FileStack,
   Check,
-  Trash2
+  AlertTriangle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -117,9 +117,10 @@ export default function AdminUsers() {
   const [overwritePermissions, setOverwritePermissions] = useState(true);
   const [applyingTemplate, setApplyingTemplate] = useState(false);
 
-  // Delete user modal state
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  // Helper to check if user has privileged role (cannot be deactivated)
+  const isPrivilegedRole = (role: AppRole): boolean => {
+    return role === 'admin' || role === 'hr' || role === 'timekeeper';
+  };
 
   // Fetch all users with roles
   const fetchUsers = useCallback(async () => {
@@ -563,12 +564,18 @@ export default function AdminUsers() {
     }
   };
 
-  // Handle toggle user active status
+  // Handle toggle user active status (only for non-privileged roles)
   const handleToggleActive = async () => {
     if (!selectedUser || !user) return;
     
     if (selectedUser.user_id === user.id) {
       toast.error(language === 'el' ? 'Δεν μπορείτε να απενεργοποιήσετε τον εαυτό σας' : 'You cannot deactivate yourself');
+      return;
+    }
+
+    // Server-side guard: privileged roles cannot be deactivated
+    if (isPrivilegedRole(selectedUser.role)) {
+      toast.error(language === 'el' ? 'Οι προνομιούχοι ρόλοι δεν μπορούν να απενεργοποιηθούν' : 'Privileged roles cannot be deactivated');
       return;
     }
 
@@ -586,7 +593,7 @@ export default function AdminUsers() {
       await supabase.from('permission_audit_logs').insert({
         actor_user_id: user.id,
         target_user_id: selectedUser.user_id,
-        change_type: 'ROLE_CHANGE',
+        change_type: 'STATUS_CHANGE',
         details: { action: 'STATUS_CHANGE', is_active: newStatus },
       });
 
@@ -609,37 +616,7 @@ export default function AdminUsers() {
     }
   };
 
-  // Handle delete user
-  const handleDeleteUser = async () => {
-    if (!selectedUser || !user) return;
-    
-    if (selectedUser.user_id === user.id) {
-      toast.error(language === 'el' ? 'Δεν μπορείτε να διαγράψετε τον εαυτό σας' : 'You cannot delete yourself');
-      return;
-    }
-
-    try {
-      setDeleting(true);
-
-      const { data, error } = await supabase.functions.invoke('delete_user', {
-        body: { user_id: selectedUser.user_id },
-      });
-
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-
-      toast.success(language === 'el' ? 'Ο χρήστης διαγράφηκε επιτυχώς' : 'User deleted successfully');
-      setShowDeleteModal(false);
-      setSelectedUser(null);
-      
-      await fetchUsers();
-    } catch (error: any) {
-      console.error('Error deleting user:', error);
-      toast.error(error.message || (language === 'el' ? 'Αποτυχία διαγραφής χρήστη' : 'Failed to delete user'));
-    } finally {
-      setDeleting(false);
-    }
-  };
+  // Removed: handleDeleteUser - No hard delete allowed per security policy
 
   const getRoleBadgeVariant = (role: AppRole) => {
     switch (role) {
@@ -849,7 +826,12 @@ export default function AdminUsers() {
                         </Select>
                       </div>
                       <Separator />
-                      <div className="flex items-center justify-between p-4 rounded-lg border">
+                      <div className={cn(
+                        "flex items-center justify-between p-4 rounded-lg border",
+                        isPrivilegedRole(selectedUser.role) 
+                          ? "bg-muted/50 border-muted" 
+                          : ""
+                      )}>
                         <div className="flex items-center gap-3">
                           <Power className={cn(
                             "h-5 w-5",
@@ -865,45 +847,26 @@ export default function AdminUsers() {
                                 : (language === 'el' ? 'Ανενεργός' : 'Inactive')
                               }
                             </p>
+                            {isPrivilegedRole(selectedUser.role) && (
+                              <div className="flex items-center gap-1 mt-1 text-xs text-amber-600 dark:text-amber-400">
+                                <AlertTriangle className="h-3 w-3" />
+                                {language === 'el' 
+                                  ? 'Οι προνομιούχοι ρόλοι δεν μπορούν να απενεργοποιηθούν' 
+                                  : 'Privileged roles cannot be deactivated'}
+                              </div>
+                            )}
                           </div>
                         </div>
                         <Button
                           variant={selectedUser.is_active ? "destructive" : "default"}
                           size="sm"
                           onClick={handleToggleActive}
-                          disabled={saving || selectedUser.user_id === user?.id}
+                          disabled={saving || selectedUser.user_id === user?.id || isPrivilegedRole(selectedUser.role)}
                         >
                           {selectedUser.is_active
                             ? (language === 'el' ? 'Απενεργοποίηση' : 'Deactivate')
                             : (language === 'el' ? 'Ενεργοποίηση' : 'Activate')
                           }
-                        </Button>
-                      </div>
-
-                      {/* Delete User Section */}
-                      <Separator />
-                      <div className="flex items-center justify-between p-4 rounded-lg border border-destructive/30 bg-destructive/5">
-                        <div className="flex items-center gap-3">
-                          <Trash2 className="h-5 w-5 text-destructive" />
-                          <div>
-                            <p className="font-medium text-destructive">
-                              {language === 'el' ? 'Διαγραφή Χρήστη' : 'Delete User'}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {language === 'el' 
-                                ? 'Μόνιμη διαγραφή του χρήστη από το σύστημα' 
-                                : 'Permanently remove user from the system'}
-                            </p>
-                          </div>
-                        </div>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => setShowDeleteModal(true)}
-                          disabled={saving || selectedUser.user_id === user?.id}
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          {language === 'el' ? 'Διαγραφή' : 'Delete'}
                         </Button>
                       </div>
                     </div>
@@ -1275,56 +1238,6 @@ export default function AdminUsers() {
                 <>
                   <Check className="h-4 w-4 mr-2" />
                   {language === 'el' ? 'Εφαρμογή' : 'Apply'}
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete User Confirmation Modal */}
-      <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-destructive">
-              <Trash2 className="h-5 w-5" />
-              {language === 'el' ? 'Διαγραφή Χρήστη' : 'Delete User'}
-            </DialogTitle>
-            <DialogDescription>
-              {language === 'el'
-                ? `Είστε βέβαιοι ότι θέλετε να διαγράψετε τον χρήστη "${selectedUser?.full_name || selectedUser?.email}"; Αυτή η ενέργεια δεν μπορεί να αναιρεθεί.`
-                : `Are you sure you want to delete "${selectedUser?.full_name || selectedUser?.email}"? This action cannot be undone.`}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
-              <Info className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
-              <p className="text-xs text-destructive">
-                {language === 'el'
-                  ? 'Όλα τα δεδομένα του χρήστη, συμπεριλαμβανομένων των δικαιωμάτων και του προφίλ, θα διαγραφούν οριστικά.'
-                  : 'All user data, including permissions and profile, will be permanently deleted.'}
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowDeleteModal(false)}
-              disabled={deleting}
-            >
-              {language === 'el' ? 'Ακύρωση' : 'Cancel'}
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDeleteUser}
-              disabled={deleting}
-            >
-              {deleting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <>
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  {language === 'el' ? 'Διαγραφή' : 'Delete'}
                 </>
               )}
             </Button>
