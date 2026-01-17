@@ -163,6 +163,9 @@ export function Sidebar() {
           <span className="font-medium">{persistentNavItem.label}</span>
         </Link>
 
+        {/* Separator between global and module nav */}
+        <div className="my-2 border-t border-sidebar-border" />
+
         {/* Context-specific nav items */}
         {contextNavItems.filter(item => item.show).map((item) => {
           const isActive = location.pathname === item.path;
