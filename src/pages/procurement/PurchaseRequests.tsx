@@ -277,9 +277,11 @@ export default function PurchaseRequests() {
               <SelectContent>
                 <SelectItem value="all">{language === 'el' ? 'Όλες' : 'All'}</SelectItem>
                 <SelectItem value="draft">{language === 'el' ? 'Πρόχειρο' : 'Draft'}</SelectItem>
-                <SelectItem value="submitted">{language === 'el' ? 'Υποβλήθηκε' : 'Submitted'}</SelectItem>
-                <SelectItem value="approved">{language === 'el' ? 'Εγκρίθηκε' : 'Approved'}</SelectItem>
-                <SelectItem value="rejected">{language === 'el' ? 'Απορρίφθηκε' : 'Rejected'}</SelectItem>
+                <SelectItem value="rfq_sent">{language === 'el' ? 'RFQ Εστάλη' : 'RFQ Sent'}</SelectItem>
+                <SelectItem value="offers_received">{language === 'el' ? 'Προσφορές' : 'Offers Received'}</SelectItem>
+                <SelectItem value="awarded">{language === 'el' ? 'Κατακυρώθηκε' : 'Awarded'}</SelectItem>
+                <SelectItem value="po_issued">{language === 'el' ? 'PO Εκδόθηκε' : 'PO Issued'}</SelectItem>
+                <SelectItem value="closed">{language === 'el' ? 'Κλειστό' : 'Closed'}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -341,7 +343,7 @@ export default function PurchaseRequests() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            title={language === 'el' ? 'Δημιουργία RFQ' : 'Create RFQ'}
+                            title={language === 'el' ? 'Αίτηση Προσφορών' : 'Request Offers'}
                             onClick={() => {
                               setSelectedPRForRFQ(pr);
                               setShowRFQModal(true);
@@ -511,6 +513,8 @@ export default function PurchaseRequests() {
           prId={selectedPRForRFQ.id}
           prType={selectedPRForRFQ.type as 'material' | 'service'}
           prNumber={selectedPRForRFQ.pr_number}
+          prDescription={selectedPRForRFQ.description}
+          prProjectCode={selectedPRForRFQ.project?.project_code}
         />
       )}
     </div>
