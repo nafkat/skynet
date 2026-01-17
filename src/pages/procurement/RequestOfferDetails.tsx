@@ -137,16 +137,56 @@ export default function RequestOfferDetails() {
 
       if (error) throw error;
 
-      toast.success(
-        language === 'el' 
-          ? `Απεστάλη σε ${result?.sent_count || 0} παραλήπτες` 
-          : `Sent to ${result?.sent_count || 0} recipients`
-      );
+      const sentCount = result?.sent_count || 0;
+      const failedCount = result?.failed_count || 0;
+      const failures = result?.failures || [];
+
+      if (failedCount > 0 && sentCount === 0) {
+        // All failed
+        const errorDetails = failures.map((f: { email: string; error: string }) => 
+          `${f.email}: ${f.error}`
+        ).join('\n');
+        
+        toast.error(
+          language === 'el' 
+            ? `Αποτυχία αποστολής σε όλους τους παραλήπτες` 
+            : `Failed to send to all recipients`,
+          {
+            description: errorDetails,
+            duration: 10000,
+          }
+        );
+      } else if (failedCount > 0) {
+        // Partial success
+        const errorDetails = failures.map((f: { email: string; error: string }) => 
+          `${f.email}: ${f.error}`
+        ).join('\n');
+        
+        toast.warning(
+          language === 'el' 
+            ? `Απεστάλη σε ${sentCount}, απέτυχε σε ${failedCount}` 
+            : `Sent to ${sentCount}, failed for ${failedCount}`,
+          {
+            description: errorDetails,
+            duration: 10000,
+          }
+        );
+      } else {
+        // All successful
+        toast.success(
+          language === 'el' 
+            ? `Απεστάλη επιτυχώς σε ${sentCount} παραλήπτες` 
+            : `Successfully sent to ${sentCount} recipients`
+        );
+      }
 
       fetchRequestOffer();
     } catch (error: any) {
       console.error('Error sending:', error);
-      toast.error(error.message || (language === 'el' ? 'Αποτυχία αποστολής' : 'Failed to send'));
+      toast.error(
+        language === 'el' ? 'Αποτυχία αποστολής' : 'Failed to send',
+        { description: error.message }
+      );
     } finally {
       setSending(false);
     }
