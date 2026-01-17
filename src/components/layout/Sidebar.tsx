@@ -11,7 +11,8 @@ import {
   GitPullRequest,
   Globe,
   FileSpreadsheet,
-  ClipboardList
+  ClipboardList,
+  Home
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -27,6 +28,12 @@ export function Sidebar() {
   const isTimekeeperOnly = role === 'timekeeper' && !isAdmin && !isHR;
 
   const navigationItems = [
+    { 
+      path: '/home', 
+      icon: Home, 
+      label: language === 'el' ? 'Αρχική' : 'Home',
+      show: true 
+    },
     { 
       path: '/admin/dashboard', 
       icon: LayoutDashboard, 

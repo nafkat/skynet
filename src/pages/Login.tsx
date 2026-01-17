@@ -32,7 +32,7 @@ export default function Login() {
   }
 
   if (user) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/home" replace />;
   }
 
   const handleSignIn = async (e: React.FormEvent) => {
