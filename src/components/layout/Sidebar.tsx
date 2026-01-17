@@ -31,16 +31,17 @@ export function Sidebar() {
 
   // Determine if we're on the Home/Global context or Timekeeping context
   const isHomeContext = location.pathname === '/home' || location.pathname === '/';
-  const isTimekeepingContext = !isHomeContext;
 
-  // GLOBAL / SYSTEM NAV (Home context only)
+  // PERSISTENT NAV - Always visible on all routes
+  const persistentNavItem = { 
+    path: '/home', 
+    icon: Home, 
+    label: language === 'el' ? 'Αρχική' : 'Home',
+    show: true 
+  };
+
+  // GLOBAL / SYSTEM NAV (Home context only) - excludes Home since it's persistent
   const globalNavItems = [
-    { 
-      path: '/home', 
-      icon: Home, 
-      label: language === 'el' ? 'Αρχική' : 'Home',
-      show: true 
-    },
     { 
       path: '/admin', 
       icon: Shield, 
@@ -125,8 +126,8 @@ export function Sidebar() {
     },
   ];
 
-  // Select navigation items based on context
-  const navigationItems = isHomeContext ? globalNavItems : timekeepingNavItems;
+  // Select context-specific navigation items (Home is always added separately)
+  const contextNavItems = isHomeContext ? globalNavItems : timekeepingNavItems;
 
   const getRoleLabel = () => {
     if (isAdmin) return t('role.admin');
@@ -150,7 +151,20 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto scrollbar-thin">
-        {navigationItems.filter(item => item.show).map((item) => {
+        {/* Persistent Home nav item - always visible */}
+        <Link
+          to={persistentNavItem.path}
+          className={cn(
+            'nav-item',
+            location.pathname === persistentNavItem.path && 'active'
+          )}
+        >
+          <persistentNavItem.icon className="h-5 w-5" />
+          <span className="font-medium">{persistentNavItem.label}</span>
+        </Link>
+
+        {/* Context-specific nav items */}
+        {contextNavItems.filter(item => item.show).map((item) => {
           const isActive = location.pathname === item.path;
           return (
             <Link
