@@ -115,7 +115,9 @@ export default function AdminUsers() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<AppRole>('timekeeper');
   const [inviteDisplayName, setInviteDisplayName] = useState('');
+  const [inviteCustomRoles, setInviteCustomRoles] = useState<string[]>([]);
   const [inviting, setInviting] = useState(false);
+  const [availableTemplates, setAvailableTemplates] = useState<PermissionTemplate[]>([]);
 
   // Apply template modal state
   const [showTemplateModal, setShowTemplateModal] = useState(false);
@@ -570,6 +572,34 @@ export default function AdminUsers() {
     return lockedActions.includes(actionKey);
   };
 
+  // Fetch available templates for invite modal
+  const fetchAvailableTemplates = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('permission_templates')
+        .select('id, name, description')
+        .order('name');
+
+      if (error) throw error;
+      setAvailableTemplates(data || []);
+    } catch (error) {
+      console.error('Error fetching templates:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAvailableTemplates();
+  }, [fetchAvailableTemplates]);
+
+  // Handle custom role toggle in invite modal
+  const handleInviteCustomRoleToggle = (templateId: string) => {
+    setInviteCustomRoles(prev => 
+      prev.includes(templateId)
+        ? prev.filter(id => id !== templateId)
+        : [...prev, templateId]
+    );
+  };
+
   // Handle invite user
   const handleInviteUser = async () => {
     if (!user || !inviteEmail.trim()) return;
@@ -582,6 +612,7 @@ export default function AdminUsers() {
           email: inviteEmail.trim(),
           role: inviteRole,
           display_name: inviteDisplayName.trim() || undefined,
+          custom_role_ids: inviteCustomRoles.length > 0 ? inviteCustomRoles : undefined,
         },
       });
 
@@ -593,6 +624,7 @@ export default function AdminUsers() {
       setInviteEmail('');
       setInviteRole('timekeeper');
       setInviteDisplayName('');
+      setInviteCustomRoles([]);
       
       await fetchUsers();
     } catch (error: any) {
@@ -1182,7 +1214,7 @@ export default function AdminUsers() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="invite-role">
-                {language === 'el' ? 'Ρόλος' : 'Role'} *
+                {language === 'el' ? 'Βασικός Ρόλος' : 'Base Role'} *
               </Label>
               <Select
                 value={inviteRole}
@@ -1202,6 +1234,46 @@ export default function AdminUsers() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Custom Roles Section */}
+            {availableTemplates.length > 0 && (
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <FileStack className="h-4 w-4" />
+                  {language === 'el' ? 'Custom Roles (προαιρετικά)' : 'Custom Roles (optional)'}
+                </Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  {language === 'el' 
+                    ? 'Επιλέξτε ρόλους για επιπλέον δικαιώματα πρόσβασης σε modules' 
+                    : 'Select roles for additional module access permissions'}
+                </p>
+                <div className="border rounded-lg p-3 space-y-2 max-h-40 overflow-y-auto bg-muted/30">
+                  {availableTemplates.map((template) => (
+                    <div 
+                      key={template.id}
+                      className="flex items-center gap-3"
+                    >
+                      <Switch
+                        id={`template-${template.id}`}
+                        checked={inviteCustomRoles.includes(template.id)}
+                        onCheckedChange={() => handleInviteCustomRoleToggle(template.id)}
+                      />
+                      <Label 
+                        htmlFor={`template-${template.id}`}
+                        className="flex-1 cursor-pointer"
+                      >
+                        <span className="font-medium">{template.name}</span>
+                        {template.description && (
+                          <span className="text-xs text-muted-foreground ml-2">
+                            — {template.description}
+                          </span>
+                        )}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button
