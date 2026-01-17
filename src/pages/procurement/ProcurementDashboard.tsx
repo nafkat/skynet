@@ -2,19 +2,17 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { 
   FileText, 
   Send, 
-  ShoppingCart, 
   AlertTriangle,
   Clock,
   Plus,
   ArrowRight,
   Loader2,
-  Plane
+  Plane,
+  Users
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -143,7 +141,7 @@ export default function ProcurementDashboard() {
     {
       title: language === 'el' ? 'Διαχείριση Προμηθευτών' : 'Manage Suppliers',
       description: language === 'el' ? 'Προσθήκη ή επεξεργασία προμηθευτών' : 'Add or edit suppliers',
-      icon: ArrowRight,
+      icon: Users,
       route: '/procurement/suppliers',
     },
   ];
@@ -216,55 +214,6 @@ export default function ProcurementDashboard() {
           </Card>
         ))}
       </div>
-
-      {/* Workflow Overview - Updated without Approval */}
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {language === 'el' ? 'Ροή Εργασίας' : 'Workflow Overview'}
-          </CardTitle>
-          <CardDescription>
-            {language === 'el' 
-              ? 'Η διαδικασία προμηθειών βήμα προς βήμα' 
-              : 'The procurement process step by step'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap items-center justify-center gap-4">
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="flex items-center gap-1">
-                <FileText className="h-3 w-3" />
-                {language === 'el' ? 'Πρόχειρο PR' : 'Draft PR'}
-              </Badge>
-              <span className="text-muted-foreground">→</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="flex items-center gap-1">
-                <Plane className="h-3 w-3" />
-                RFQ
-              </Badge>
-              <span className="text-muted-foreground">→</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="flex items-center gap-1">
-                <Send className="h-3 w-3" />
-                {language === 'el' ? 'Προσφορές' : 'Offers'}
-              </Badge>
-              <span className="text-muted-foreground">→</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="flex items-center gap-1">
-                <ShoppingCart className="h-3 w-3" />
-                PO
-              </Badge>
-              <span className="text-muted-foreground">→</span>
-            </div>
-            <Badge variant="default" className="flex items-center gap-1">
-              {language === 'el' ? 'Παραλαβή' : 'Receiving'}
-            </Badge>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }
