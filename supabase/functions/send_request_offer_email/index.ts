@@ -24,6 +24,7 @@ serve(async (req: Request) => {
     }
 
     const fromEmail = Deno.env.get("FROM_EMAIL") || "SKYNET Procurement <onboarding@resend.dev>";
+    const replyToEmail = Deno.env.get("REPLY_TO_EMAIL");
 
     const resend = new Resend(resendApiKey);
 
@@ -190,6 +191,7 @@ serve(async (req: Request) => {
           to: [email],
           subject: subject,
           html: htmlBody,
+          ...(replyToEmail && { reply_to: replyToEmail }),
         });
 
         console.log(`Email response for ${email}:`, JSON.stringify(emailResponse));
