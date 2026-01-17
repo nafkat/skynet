@@ -86,6 +86,12 @@ interface PermissionTemplate {
   description: string | null;
 }
 
+interface UserTemplateAssignment {
+  template_id: string;
+  template_name: string;
+  assigned_at: string;
+}
+
 export default function AdminUsers() {
   const { user } = useAuth();
   const { language } = useLanguage();
@@ -101,6 +107,7 @@ export default function AdminUsers() {
   const [moduleAccess, setModuleAccess] = useState<ModuleAccessRecord[]>([]);
   const [actionPermissions, setActionPermissions] = useState<ActionPermissionRecord[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogRecord[]>([]);
+  const [userTemplates, setUserTemplates] = useState<UserTemplateAssignment[]>([]);
   const [permissionsLoading, setPermissionsLoading] = useState(false);
 
   // Invite user modal state
@@ -238,6 +245,28 @@ export default function AdminUsers() {
       }));
       setAuditLogs(logsWithActors);
 
+      // Fetch user's assigned custom roles (templates)
+      const { data: userTemplatesData } = await supabase
+        .from('user_permission_templates')
+        .select('template_id, assigned_at')
+        .eq('user_id', userId);
+
+      if (userTemplatesData && userTemplatesData.length > 0) {
+        const templateIds = userTemplatesData.map(ut => ut.template_id);
+        const { data: templateNames } = await supabase
+          .from('permission_templates')
+          .select('id, name')
+          .in('id', templateIds);
+
+        const assignments: UserTemplateAssignment[] = userTemplatesData.map(ut => ({
+          template_id: ut.template_id,
+          template_name: templateNames?.find(t => t.id === ut.template_id)?.name || 'Unknown',
+          assigned_at: ut.assigned_at,
+        }));
+        setUserTemplates(assignments);
+      } else {
+        setUserTemplates([]);
+      }
     } catch (error) {
       console.error('Error fetching permissions:', error);
       toast.error(language === 'el' ? 'Αποτυχία φόρτωσης δικαιωμάτων' : 'Failed to load permissions');
@@ -488,6 +517,16 @@ export default function AdminUsers() {
             granted_by: user.id,
           }, { onConflict: 'user_id,action_key' });
       }
+
+      // Record the template assignment
+      await supabase
+        .from('user_permission_templates')
+        .upsert({
+          user_id: selectedUser.user_id,
+          template_id: selectedTemplateId,
+          assigned_by: user.id,
+          assigned_at: new Date().toISOString(),
+        }, { onConflict: 'user_id,template_id' });
 
       // Log the change
       const template = templates.find(t => t.id === selectedTemplateId);
@@ -891,6 +930,26 @@ export default function AdminUsers() {
                             {language === 'el' ? 'Εφαρμογή Ρόλου' : 'Apply Role'}
                           </Button>
                         </div>
+
+                        {/* Assigned Custom Roles Section */}
+                        {userTemplates.length > 0 && (
+                          <div className="mb-4">
+                            <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+                              <FileStack className="h-4 w-4" />
+                              {language === 'el' ? 'Εφαρμοσμένοι Ρόλοι' : 'Applied Custom Roles'}
+                            </h3>
+                            <div className="flex flex-wrap gap-2">
+                              {userTemplates.map((ut) => (
+                                <Badge key={ut.template_id} variant="secondary" className="px-3 py-1">
+                                  {ut.template_name}
+                                  <span className="ml-2 text-xs text-muted-foreground">
+                                    ({format(new Date(ut.assigned_at), 'dd/MM/yyyy')})
+                                  </span>
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
 
                         {/* Module Access */}
                         <div>
