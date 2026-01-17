@@ -35,12 +35,9 @@ import AnnouncementDetails from "./pages/AnnouncementDetails";
 
 // Procurement Pages
 import ProcurementLayout from "./pages/procurement/ProcurementLayout";
-import ProcurementDashboard from "./pages/procurement/ProcurementDashboard";
-import PurchaseRequests from "./pages/procurement/PurchaseRequests";
-import RFQs from "./pages/procurement/RFQs";
-import RFQDetails from "./pages/procurement/RFQDetails";
-import PurchaseOrders from "./pages/procurement/PurchaseOrders";
-import Receiving from "./pages/procurement/Receiving";
+import RequestOffersList from "./pages/procurement/RequestOffersList";
+import RequestOfferCreate from "./pages/procurement/RequestOfferCreate";
+import RequestOfferDetails from "./pages/procurement/RequestOfferDetails";
 import Suppliers from "./pages/procurement/Suppliers";
 import ProcurementReports from "./pages/procurement/ProcurementReports";
 
@@ -250,12 +247,10 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<ProcurementDashboard />} />
-        <Route path="purchase-requests" element={<PurchaseRequests />} />
-        <Route path="rfqs" element={<RFQs />} />
-        <Route path="rfqs/:id" element={<RFQDetails />} />
-        <Route path="purchase-orders" element={<PurchaseOrders />} />
-        <Route path="receiving" element={<Receiving />} />
+        <Route index element={<RequestOffersList />} />
+        <Route path="request-offers" element={<RequestOffersList />} />
+        <Route path="request-offers/new" element={<RequestOfferCreate />} />
+        <Route path="request-offers/:id" element={<RequestOfferDetails />} />
         <Route path="suppliers" element={<Suppliers />} />
         <Route path="reports" element={<ProcurementReports />} />
       </Route>

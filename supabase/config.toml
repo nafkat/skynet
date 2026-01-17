@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.send_announcements_worker]
 verify_jwt = false
+
+[functions.send_request_offer_email]
+verify_jwt = false
