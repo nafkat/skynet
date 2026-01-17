@@ -740,6 +740,54 @@ export type Database = {
         }
         Relationships: []
       }
+      viber_link_codes: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string
+          employee_id: string
+          expires_at: string
+          id: string
+          used_at: string | null
+          used_by_viber_user_id: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by: string
+          employee_id: string
+          expires_at: string
+          id?: string
+          used_at?: string | null
+          used_by_viber_user_id?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string
+          employee_id?: string
+          expires_at?: string
+          id?: string
+          used_at?: string | null
+          used_by_viber_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "viber_link_codes_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "viber_link_codes_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees_limited"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       employees_limited: {
