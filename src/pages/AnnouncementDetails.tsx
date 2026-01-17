@@ -28,7 +28,8 @@ import {
   Clock,
   AlertCircle,
   CheckCircle,
-  XCircle
+  XCircle,
+  Zap
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -254,6 +255,28 @@ export default function AnnouncementDetails() {
     }
   };
 
+  const handleRunWorker = async () => {
+    setActionLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send_announcements_worker');
+      
+      if (error) throw error;
+      
+      toast.success(
+        t(
+          `Worker completed: ${data?.sent || 0} sent, ${data?.failed || 0} failed`,
+          `Εργασία ολοκληρώθηκε: ${data?.sent || 0} απεστάλησαν, ${data?.failed || 0} απέτυχαν`
+        )
+      );
+      fetchData();
+    } catch (error) {
+      console.error('Error running worker:', error);
+      toast.error(t('Failed to run worker', 'Αποτυχία εκτέλεσης εργασίας'));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const getStatusBadgeVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
       case 'sent':
@@ -374,20 +397,40 @@ export default function AnnouncementDetails() {
               </>
             )}
             {isPending && (
-              <Badge variant="secondary" className="py-2 px-4">
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                {t('Sending in progress...', 'Αποστολή σε εξέλιξη...')}
-              </Badge>
+              <>
+                <Badge variant="secondary" className="py-2 px-4">
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {t('Sending in progress...', 'Αποστολή σε εξέλιξη...')}
+                </Badge>
+                <Button variant="outline" onClick={handleRunWorker} disabled={actionLoading}>
+                  {actionLoading ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Zap className="h-4 w-4 mr-2" />
+                  )}
+                  {t('Run Worker', 'Εκτέλεση Εργασίας')}
+                </Button>
+              </>
             )}
             {canRetry && (
-              <Button onClick={handleRetryFailed} disabled={actionLoading}>
-                {actionLoading ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                )}
-                {t('Retry failed deliveries', 'Επανάληψη αποτυχημένων')} ({failedCount})
-              </Button>
+              <>
+                <Button onClick={handleRetryFailed} disabled={actionLoading}>
+                  {actionLoading ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                  )}
+                  {t('Retry failed deliveries', 'Επανάληψη αποτυχημένων')} ({failedCount})
+                </Button>
+                <Button variant="outline" onClick={handleRunWorker} disabled={actionLoading}>
+                  {actionLoading ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Zap className="h-4 w-4 mr-2" />
+                  )}
+                  {t('Run Worker', 'Εκτέλεση Εργασίας')}
+                </Button>
+              </>
             )}
           </div>
         </div>
