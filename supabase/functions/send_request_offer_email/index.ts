@@ -23,6 +23,8 @@ serve(async (req: Request) => {
       throw new Error("RESEND_API_KEY is not configured");
     }
 
+    const fromEmail = Deno.env.get("FROM_EMAIL") || "SKYNET Procurement <onboarding@resend.dev>";
+
     const resend = new Resend(resendApiKey);
 
     // Get Supabase client
@@ -184,7 +186,7 @@ serve(async (req: Request) => {
         console.log(`Sending email to: ${email}`);
         
         const emailResponse = await resend.emails.send({
-          from: "SKYNET Procurement <onboarding@resend.dev>",
+          from: fromEmail,
           to: [email],
           subject: subject,
           html: htmlBody,
