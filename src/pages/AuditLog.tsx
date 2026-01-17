@@ -48,6 +48,19 @@ interface UserProfile {
 }
 
 const ACTION_TYPES = [
+  // Time Entry actions (new format)
+  'TIME_ENTRY_CREATE',
+  'TIME_ENTRY_EDIT',
+  'TIME_ENTRY_DELETE',
+  'TIME_ENTRY_DELETE_REQUEST',
+  'TIME_ENTRY_APPROVE',
+  'TIME_ENTRY_REJECT',
+  // Employee actions
+  'EMPLOYEE_CREATE',
+  'EMPLOYEE_EDIT',
+  'EMPLOYEE_STATUS_CHANGE',
+  'EMPLOYEE_ASSIGN_RECORDER',
+  // Legacy action types (backward compatibility)
   'CREATE_ENTRY',
   'EDIT_ENTRY',
   'DELETE_ENTRY',
@@ -201,16 +214,27 @@ export default function AuditLog() {
   const getActionBadgeVariant = (actionType: string): 'default' | 'secondary' | 'destructive' | 'outline' => {
     switch (actionType) {
       case 'CREATE_ENTRY':
+      case 'TIME_ENTRY_CREATE':
+      case 'EMPLOYEE_CREATE':
         return 'default';
       case 'EDIT_ENTRY':
+      case 'TIME_ENTRY_EDIT':
+      case 'EMPLOYEE_EDIT':
+      case 'EMPLOYEE_ASSIGN_RECORDER':
         return 'secondary';
       case 'DELETE_ENTRY':
       case 'DELETE_REQUEST':
+      case 'TIME_ENTRY_DELETE':
+      case 'TIME_ENTRY_DELETE_REQUEST':
         return 'destructive';
       case 'APPROVE':
+      case 'TIME_ENTRY_APPROVE':
         return 'default';
       case 'REJECT':
+      case 'TIME_ENTRY_REJECT':
         return 'outline';
+      case 'EMPLOYEE_STATUS_CHANGE':
+        return 'secondary';
       default:
         return 'secondary';
     }
@@ -218,6 +242,19 @@ export default function AuditLog() {
 
   const getActionLabel = (actionType: string): string => {
     const labels: Record<string, { en: string; el: string }> = {
+      // Time Entry actions (new)
+      'TIME_ENTRY_CREATE': { en: 'Time Entry Create', el: 'Δημιουργία Καταχώρησης' },
+      'TIME_ENTRY_EDIT': { en: 'Time Entry Edit', el: 'Επεξεργασία Καταχώρησης' },
+      'TIME_ENTRY_DELETE': { en: 'Time Entry Delete', el: 'Διαγραφή Καταχώρησης' },
+      'TIME_ENTRY_DELETE_REQUEST': { en: 'Delete Request', el: 'Αίτηση Διαγραφής' },
+      'TIME_ENTRY_APPROVE': { en: 'Approve', el: 'Έγκριση' },
+      'TIME_ENTRY_REJECT': { en: 'Reject', el: 'Απόρριψη' },
+      // Employee actions
+      'EMPLOYEE_CREATE': { en: 'Employee Create', el: 'Δημιουργία Εργαζομένου' },
+      'EMPLOYEE_EDIT': { en: 'Employee Edit', el: 'Επεξεργασία Εργαζομένου' },
+      'EMPLOYEE_STATUS_CHANGE': { en: 'Status Change', el: 'Αλλαγή Κατάστασης' },
+      'EMPLOYEE_ASSIGN_RECORDER': { en: 'Assign Recorder', el: 'Ανάθεση Καταγραφέα' },
+      // Legacy
       'CREATE_ENTRY': { en: 'Create Entry', el: 'Δημιουργία' },
       'EDIT_ENTRY': { en: 'Edit Entry', el: 'Επεξεργασία' },
       'DELETE_ENTRY': { en: 'Delete Entry', el: 'Διαγραφή' },
