@@ -13,9 +13,14 @@ import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard";
-import AdminConsole from "./pages/AdminConsole";
 import PayrollExport from "./pages/PayrollExport";
 import AuditLog from "./pages/AuditLog";
+
+// Admin Console Pages
+import AdminLayout from "./pages/admin/AdminLayout";
+import AdminUsers from "./pages/admin/AdminUsers";
+import AdminTemplates from "./pages/admin/AdminTemplates";
+import AdminAudit from "./pages/admin/AdminAudit";
 import TimeEntry from "./pages/TimeEntry";
 import Employees from "./pages/Employees";
 import Projects from "./pages/Projects";
@@ -114,10 +119,14 @@ function AppRoutes() {
         path="/admin" 
         element={
           <ProtectedRoute requiredRoles={['admin']}>
-            <AdminConsole />
+            <AdminLayout />
           </ProtectedRoute>
-        } 
-      />
+        }
+      >
+        <Route index element={<AdminUsers />} />
+        <Route path="templates" element={<AdminTemplates />} />
+        <Route path="audit" element={<AdminAudit />} />
+      </Route>
       
       {/* Admin Dashboard - Admin and HR only */}
       <Route 

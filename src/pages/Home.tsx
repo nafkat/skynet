@@ -62,18 +62,6 @@ const modules: ModuleTile[] = [
     section: 'operations',
   },
   {
-    id: 'audit',
-    title: 'Audit Log',
-    titleEl: 'Ημερολόγιο Ελέγχου',
-    description: 'Enterprise audit trail (who / what / when).',
-    descriptionEl: 'Επιχειρησιακό ιστορικό ελέγχου (ποιος / τι / πότε).',
-    icon: ClipboardList,
-    status: 'active',
-    route: '/admin/audit-log',
-    visibleTo: ['admin', 'hr'],
-    section: 'operations',
-  },
-  {
     id: 'announcements',
     title: 'Announcements',
     titleEl: 'Ανακοινώσεις',
