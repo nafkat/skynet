@@ -62,7 +62,7 @@ const modules: ModuleTile[] = [
     description: 'Internal announcements to employees via Viber (Phase 1).',
     descriptionEl: 'Εσωτερικές ανακοινώσεις σε εργαζόμενους μέσω Viber (Φάση 1).',
     icon: Megaphone,
-    status: 'coming_soon',
+    status: 'active',
     route: '/announcements',
     visibleTo: ['admin', 'hr'],
   },

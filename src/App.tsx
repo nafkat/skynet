@@ -24,6 +24,9 @@ import Corrections from "./pages/Corrections";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import Home from "./pages/Home";
+import AnnouncementsList from "./pages/AnnouncementsList";
+import AnnouncementCreate from "./pages/AnnouncementCreate";
+import AnnouncementDetails from "./pages/AnnouncementDetails";
 
 const queryClient = new QueryClient();
 
@@ -120,6 +123,32 @@ function AppRoutes() {
         element={
           <ProtectedRoute requiredRoles={['admin', 'hr']}>
             <AuditLog />
+          </ProtectedRoute>
+        } 
+      />
+      
+      {/* Announcements - Admin and HR only */}
+      <Route 
+        path="/announcements" 
+        element={
+          <ProtectedRoute requiredRoles={['admin', 'hr']}>
+            <AnnouncementsList />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/announcements/new" 
+        element={
+          <ProtectedRoute requiredRoles={['admin', 'hr']}>
+            <AnnouncementCreate />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/announcements/:id" 
+        element={
+          <ProtectedRoute requiredRoles={['admin', 'hr']}>
+            <AnnouncementDetails />
           </ProtectedRoute>
         } 
       />
