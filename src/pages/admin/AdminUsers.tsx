@@ -113,9 +113,8 @@ export default function AdminUsers() {
   // Invite user modal state
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<AppRole>('timekeeper');
+  const [inviteSelectedRole, setInviteSelectedRole] = useState<string>('timekeeper'); // can be 'admin'|'hr'|'timekeeper' or a template id
   const [inviteDisplayName, setInviteDisplayName] = useState('');
-  const [inviteCustomRoles, setInviteCustomRoles] = useState<string[]>([]);
   const [inviting, setInviting] = useState(false);
   const [availableTemplates, setAvailableTemplates] = useState<PermissionTemplate[]>([]);
 
@@ -591,28 +590,29 @@ export default function AdminUsers() {
     fetchAvailableTemplates();
   }, [fetchAvailableTemplates]);
 
-  // Handle custom role toggle in invite modal
-  const handleInviteCustomRoleToggle = (templateId: string) => {
-    setInviteCustomRoles(prev => 
-      prev.includes(templateId)
-        ? prev.filter(id => id !== templateId)
-        : [...prev, templateId]
-    );
+  // Helper to check if selected role is a system role
+  const isSystemRole = (roleValue: string): boolean => {
+    return ['admin', 'hr', 'timekeeper'].includes(roleValue);
   };
 
   // Handle invite user
   const handleInviteUser = async () => {
-    if (!user || !inviteEmail.trim()) return;
+    if (!user || !inviteEmail.trim() || !inviteSelectedRole) return;
 
     try {
       setInviting(true);
 
+      // Determine if it's a system role or custom role
+      const isSystem = isSystemRole(inviteSelectedRole);
+      const baseRole: AppRole = isSystem ? (inviteSelectedRole as AppRole) : 'timekeeper';
+      const customRoleIds = isSystem ? undefined : [inviteSelectedRole];
+
       const { data, error } = await supabase.functions.invoke('invite_user', {
         body: {
           email: inviteEmail.trim(),
-          role: inviteRole,
+          role: baseRole,
           display_name: inviteDisplayName.trim() || undefined,
-          custom_role_ids: inviteCustomRoles.length > 0 ? inviteCustomRoles : undefined,
+          custom_role_ids: customRoleIds,
         },
       });
 
@@ -622,9 +622,8 @@ export default function AdminUsers() {
       toast.success(language === 'el' ? 'Πρόσκληση εστάλη επιτυχώς' : 'Invitation sent successfully');
       setShowInviteModal(false);
       setInviteEmail('');
-      setInviteRole('timekeeper');
+      setInviteSelectedRole('timekeeper');
       setInviteDisplayName('');
-      setInviteCustomRoles([]);
       
       await fetchUsers();
     } catch (error: any) {
@@ -1214,16 +1213,17 @@ export default function AdminUsers() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="invite-role">
-                {language === 'el' ? 'Βασικός Ρόλος' : 'Base Role'} *
+                {language === 'el' ? 'Ρόλος' : 'Role'} *
               </Label>
               <Select
-                value={inviteRole}
-                onValueChange={(value) => setInviteRole(value as AppRole)}
+                value={inviteSelectedRole}
+                onValueChange={setInviteSelectedRole}
               >
                 <SelectTrigger id="invite-role">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-background border">
+                  {/* System Roles */}
                   <SelectItem value="admin">
                     {language === 'el' ? 'Διαχειριστής' : 'Admin'}
                   </SelectItem>
@@ -1231,49 +1231,26 @@ export default function AdminUsers() {
                   <SelectItem value="timekeeper">
                     {language === 'el' ? 'Χρονομέτρης' : 'Timekeeper'}
                   </SelectItem>
+                  
+                  {/* Custom Roles - if any exist */}
+                  {availableTemplates.length > 0 && (
+                    <>
+                      <Separator className="my-1" />
+                      {availableTemplates.map((template) => (
+                        <SelectItem key={template.id} value={template.id}>
+                          {template.name}
+                          {template.description && (
+                            <span className="text-muted-foreground ml-1">
+                              — {template.description}
+                            </span>
+                          )}
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>
-
-            {/* Custom Roles Section */}
-            {availableTemplates.length > 0 && (
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <FileStack className="h-4 w-4" />
-                  {language === 'el' ? 'Custom Roles (προαιρετικά)' : 'Custom Roles (optional)'}
-                </Label>
-                <p className="text-xs text-muted-foreground mb-2">
-                  {language === 'el' 
-                    ? 'Επιλέξτε ρόλους για επιπλέον δικαιώματα πρόσβασης σε modules' 
-                    : 'Select roles for additional module access permissions'}
-                </p>
-                <div className="border rounded-lg p-3 space-y-2 max-h-40 overflow-y-auto bg-muted/30">
-                  {availableTemplates.map((template) => (
-                    <div 
-                      key={template.id}
-                      className="flex items-center gap-3"
-                    >
-                      <Switch
-                        id={`template-${template.id}`}
-                        checked={inviteCustomRoles.includes(template.id)}
-                        onCheckedChange={() => handleInviteCustomRoleToggle(template.id)}
-                      />
-                      <Label 
-                        htmlFor={`template-${template.id}`}
-                        className="flex-1 cursor-pointer"
-                      >
-                        <span className="font-medium">{template.name}</span>
-                        {template.description && (
-                          <span className="text-xs text-muted-foreground ml-2">
-                            — {template.description}
-                          </span>
-                        )}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
           <DialogFooter>
             <Button
