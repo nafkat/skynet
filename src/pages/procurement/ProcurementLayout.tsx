@@ -1,4 +1,5 @@
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
@@ -13,23 +14,22 @@ import {
   FileBarChart,
   Home,
   LogOut,
-  Globe
+  Globe,
+  Plus
 } from 'lucide-react';
-
-const navigationItems = [
-  { path: '/procurement', icon: LayoutDashboard, labelEn: 'Dashboard', labelEl: 'Πίνακας Ελέγχου', exact: true },
-  { path: '/procurement/purchase-requests', icon: FileText, labelEn: 'Purchase Requests', labelEl: 'Αιτήματα Αγορών' },
-  { path: '/procurement/rfqs', icon: Send, labelEn: 'RFQs', labelEl: 'Αιτήματα Προσφορών' },
-  { path: '/procurement/purchase-orders', icon: ShoppingCart, labelEn: 'Purchase Orders', labelEl: 'Εντολές Αγοράς' },
-  { path: '/procurement/receiving', icon: Package, labelEn: 'Receiving / Acceptance', labelEl: 'Παραλαβή / Αποδοχή' },
-  { path: '/procurement/suppliers', icon: Users, labelEn: 'Suppliers', labelEl: 'Προμηθευτές' },
-  { path: '/procurement/reports', icon: FileBarChart, labelEn: 'Reports', labelEl: 'Αναφορές' },
-];
 
 export default function ProcurementLayout() {
   const location = useLocation();
-  const { signOut, user } = useAuth();
+  const navigate = useNavigate();
+  const { signOut, isAdmin, loading } = useAuth();
   const { language, setLanguage } = useLanguage();
+
+  // Redirect non-admin users
+  useEffect(() => {
+    if (!loading && !isAdmin) {
+      navigate('/home');
+    }
+  }, [loading, isAdmin, navigate]);
 
   const toggleLanguage = () => {
     setLanguage(language === 'en' ? 'el' : 'en');
@@ -41,6 +41,18 @@ export default function ProcurementLayout() {
     }
     return location.pathname.startsWith(path);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-pulse text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return null;
+  }
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -61,32 +73,129 @@ export default function ProcurementLayout() {
           {/* Back to Home */}
           <Link
             to="/home"
-            className="nav-item mb-4"
+            className="nav-item mb-2"
           >
             <Home className="h-5 w-5" />
             <span className="font-medium">{language === 'el' ? 'Αρχική' : 'Home'}</span>
           </Link>
           
+          {/* Dashboard - small link */}
+          <Link
+            to="/procurement"
+            className={cn(
+              'nav-item text-sm',
+              isActiveRoute('/procurement', true) && 'active'
+            )}
+          >
+            <LayoutDashboard className="h-4 w-4" />
+            <span>{language === 'el' ? 'Πίνακας Ελέγχου' : 'Dashboard'}</span>
+          </Link>
+
           <div className="border-t border-sidebar-border my-4" />
-          
-          {navigationItems.map((item) => {
-            const isActive = isActiveRoute(item.path, item.exact);
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={cn(
-                  'nav-item',
-                  isActive && 'active'
-                )}
-              >
-                <item.icon className="h-5 w-5" />
-                <span className="font-medium">
-                  {language === 'el' ? item.labelEl : item.labelEn}
-                </span>
-              </Link>
-            );
-          })}
+
+          {/* ACTIONS Section */}
+          <div className="mb-3">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">
+              {language === 'el' ? 'Ενέργειες' : 'Actions'}
+            </p>
+            <Link
+              to="/procurement/purchase-requests?action=new"
+              className="nav-item bg-primary/10 hover:bg-primary/20 text-primary mb-1"
+            >
+              <Plus className="h-5 w-5" />
+              <span className="font-medium">
+                {language === 'el' ? 'Νέο Αίτημα Αγοράς' : 'New Purchase Request'}
+              </span>
+            </Link>
+            <Link
+              to="/procurement/purchase-requests"
+              className={cn(
+                'nav-item',
+                isActiveRoute('/procurement/purchase-requests') && 'active'
+              )}
+            >
+              <FileText className="h-5 w-5" />
+              <span className="font-medium">
+                {language === 'el' ? 'Αιτήματα Αγορών' : 'Purchase Requests'}
+              </span>
+            </Link>
+          </div>
+
+          <div className="border-t border-sidebar-border my-4" />
+
+          {/* OPERATIONS Section */}
+          <div className="mb-3">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">
+              {language === 'el' ? 'Λειτουργίες' : 'Operations'}
+            </p>
+            <Link
+              to="/procurement/rfqs"
+              className={cn(
+                'nav-item',
+                isActiveRoute('/procurement/rfqs') && 'active'
+              )}
+            >
+              <Send className="h-5 w-5" />
+              <span className="font-medium">RFQs</span>
+            </Link>
+            <Link
+              to="/procurement/purchase-orders"
+              className={cn(
+                'nav-item',
+                isActiveRoute('/procurement/purchase-orders') && 'active'
+              )}
+            >
+              <ShoppingCart className="h-5 w-5" />
+              <span className="font-medium">
+                {language === 'el' ? 'Εντολές Αγοράς' : 'Purchase Orders'}
+              </span>
+            </Link>
+            <Link
+              to="/procurement/receiving"
+              className={cn(
+                'nav-item',
+                isActiveRoute('/procurement/receiving') && 'active'
+              )}
+            >
+              <Package className="h-5 w-5" />
+              <span className="font-medium">
+                {language === 'el' ? 'Παραλαβή / Αποδοχή' : 'Receiving / Acceptance'}
+              </span>
+            </Link>
+          </div>
+
+          <div className="border-t border-sidebar-border my-4" />
+
+          {/* MANAGEMENT Section */}
+          <div className="mb-3">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">
+              {language === 'el' ? 'Διαχείριση' : 'Management'}
+            </p>
+            <Link
+              to="/procurement/suppliers"
+              className={cn(
+                'nav-item',
+                isActiveRoute('/procurement/suppliers') && 'active'
+              )}
+            >
+              <Users className="h-5 w-5" />
+              <span className="font-medium">
+                {language === 'el' ? 'Προμηθευτές' : 'Suppliers'}
+              </span>
+            </Link>
+            <Link
+              to="/procurement/reports"
+              className={cn(
+                'nav-item',
+                isActiveRoute('/procurement/reports') && 'active'
+              )}
+            >
+              <FileBarChart className="h-5 w-5" />
+              <span className="font-medium">
+                {language === 'el' ? 'Αναφορές' : 'Reports'}
+              </span>
+            </Link>
+          </div>
         </nav>
 
         {/* Footer */}
