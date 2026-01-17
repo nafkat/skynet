@@ -610,24 +610,30 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string
+          display_name: string | null
           full_name: string | null
           id: string
+          is_active: boolean
           preferred_language: string
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
+          display_name?: string | null
           full_name?: string | null
           id?: string
+          is_active?: boolean
           preferred_language?: string
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
+          display_name?: string | null
           full_name?: string | null
           id?: string
+          is_active?: boolean
           preferred_language?: string
           updated_at?: string
           user_id?: string
@@ -987,6 +993,19 @@ export type Database = {
         Args: { _employee_id: string; _user_id: string }
         Returns: boolean
       }
+      get_all_users_with_profiles: {
+        Args: never
+        Returns: {
+          created_at: string
+          display_name: string
+          email: string
+          full_name: string
+          is_active: boolean
+          role: string
+          user_id: string
+        }[]
+      }
+      get_user_email: { Args: { _user_id: string }; Returns: string }
       has_action_permission: {
         Args: { _action_key: string; _user_id: string }
         Returns: boolean
@@ -1013,6 +1032,7 @@ export type Database = {
       }
       is_timekeeper_only: { Args: { _user_id: string }; Returns: boolean }
       is_today_athens: { Args: { _date: string }; Returns: boolean }
+      is_user_active: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       announcement_status: "draft" | "pending" | "sent" | "partial" | "failed"

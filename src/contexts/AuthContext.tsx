@@ -9,6 +9,7 @@ interface AuthContextType {
   session: Session | null;
   role: AppRole | null;
   loading: boolean;
+  isActive: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   isAdmin: boolean;
@@ -23,25 +24,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
+  const [isActive, setIsActive] = useState(true);
   const [loading, setLoading] = useState(true);
 
-  const fetchUserRole = async (userId: string) => {
+  const fetchUserRoleAndStatus = async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      // Fetch role
+      const { data: roleData, error: roleError } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', userId)
         .maybeSingle();
       
-      if (error) {
-        console.error('Error fetching role:', error);
-        return null;
+      if (roleError) {
+        console.error('Error fetching role:', roleError);
       }
       
-      return data?.role as AppRole | null;
+      // Fetch active status from profiles
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('is_active')
+        .eq('user_id', userId)
+        .maybeSingle();
+      
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
+      }
+      
+      return {
+        role: roleData?.role as AppRole | null,
+        isActive: profileData?.is_active ?? true,
+      };
     } catch (err) {
-      console.error('Error fetching role:', err);
-      return null;
+      console.error('Error fetching user data:', err);
+      return { role: null, isActive: true };
     }
   };
 
@@ -55,12 +71,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (currentSession?.user) {
           // Use setTimeout to avoid potential deadlocks
           setTimeout(async () => {
-            const userRole = await fetchUserRole(currentSession.user.id);
-            setRole(userRole);
+            const userData = await fetchUserRoleAndStatus(currentSession.user.id);
+            setRole(userData.role);
+            setIsActive(userData.isActive);
             setLoading(false);
           }, 0);
         } else {
           setRole(null);
+          setIsActive(true);
           setLoading(false);
         }
       }
@@ -72,8 +90,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(initialSession?.user ?? null);
       
       if (initialSession?.user) {
-        fetchUserRole(initialSession.user.id).then(userRole => {
-          setRole(userRole);
+        fetchUserRoleAndStatus(initialSession.user.id).then(userData => {
+          setRole(userData.role);
+          setIsActive(userData.isActive);
           setLoading(false);
         });
       } else {
@@ -95,6 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     await supabase.auth.signOut();
     setRole(null);
+    setIsActive(true);
   };
 
   const isAdmin = role === 'admin';
@@ -109,6 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         session,
         role,
         loading,
+        isActive,
         signIn,
         signOut,
         isAdmin,

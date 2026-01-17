@@ -7,12 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Globe, Anchor, Eye, EyeOff, Mail } from 'lucide-react';
+import { Globe, Anchor, Eye, EyeOff, Mail, XCircle, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Login() {
   const { t, language, setLanguage } = useLanguage();
-  const { user, loading, signIn } = useAuth();
+  const { user, loading, signIn, isActive } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -27,6 +27,31 @@ export default function Login() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-pulse text-muted-foreground">{t('common.loading')}</div>
+      </div>
+    );
+  }
+
+  // User is logged in but inactive
+  if (user && !isActive) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <div className="text-center space-y-4 p-8 max-w-md">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-destructive/10 text-destructive mb-4">
+            <XCircle className="h-8 w-8" />
+          </div>
+          <h1 className="text-2xl font-bold text-destructive">
+            {language === 'el' ? 'Λογαριασμός Ανενεργός' : 'Account Inactive'}
+          </h1>
+          <p className="text-muted-foreground">
+            {language === 'el' 
+              ? 'Ο λογαριασμός σας είναι ανενεργός. Επικοινωνήστε με τον Διαχειριστή.' 
+              : 'Your account is inactive. Contact Administrator.'}
+          </p>
+          <Button variant="outline" onClick={() => supabase.auth.signOut()}>
+            <LogOut className="h-4 w-4 mr-2" />
+            {language === 'el' ? 'Αποσύνδεση' : 'Logout'}
+          </Button>
+        </div>
       </div>
     );
   }

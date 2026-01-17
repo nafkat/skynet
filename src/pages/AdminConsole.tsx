@@ -27,7 +27,9 @@ import {
   CheckCircle,
   XCircle,
   Lock,
-  Info
+  Info,
+  UserPlus,
+  Power
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -35,6 +37,14 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 type AppRole = 'admin' | 'hr' | 'timekeeper';
 
@@ -43,6 +53,9 @@ interface UserWithRole {
   email: string;
   role: AppRole;
   full_name: string | null;
+  display_name: string | null;
+  is_active: boolean;
+  created_at: string | null;
 }
 
 interface ModuleAccessRecord {
@@ -84,6 +97,13 @@ export default function AdminConsole() {
   const [auditLogs, setAuditLogs] = useState<AuditLogRecord[]>([]);
   const [permissionsLoading, setPermissionsLoading] = useState(false);
 
+  // Invite user modal state
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState<AppRole>('timekeeper');
+  const [inviteDisplayName, setInviteDisplayName] = useState('');
+  const [inviting, setInviting] = useState(false);
+
   // Redirect non-admin users
   useEffect(() => {
     if (!authLoading && !isAdmin) {
@@ -91,36 +111,25 @@ export default function AdminConsole() {
     }
   }, [authLoading, isAdmin, navigate]);
 
-  // Fetch all users with roles
+  // Fetch all users with roles using the database function
   const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
       
-      // Get all user roles with profile info
-      const { data: rolesData, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('user_id, role');
+      // Use the security definer function to get users with emails
+      const { data, error } = await supabase.rpc('get_all_users_with_profiles');
 
-      if (rolesError) throw rolesError;
+      if (error) throw error;
 
-      // Get profiles for names
-      const { data: profilesData } = await supabase
-        .from('profiles')
-        .select('user_id, full_name');
-
-      // We need to get emails from auth - but we can't directly query auth.users
-      // So we'll use a workaround: store emails when they log in or use the profile
-      // For now, we'll just use user_id and profile info
-      
-      const usersWithRoles: UserWithRole[] = (rolesData || []).map(role => {
-        const profile = profilesData?.find(p => p.user_id === role.user_id);
-        return {
-          user_id: role.user_id,
-          email: role.user_id.slice(0, 8) + '...', // Placeholder - we'll need to enhance this
-          role: role.role as AppRole,
-          full_name: profile?.full_name || null,
-        };
-      });
+      const usersWithRoles: UserWithRole[] = (data || []).map((u: any) => ({
+        user_id: u.user_id,
+        email: u.email || u.user_id.slice(0, 8) + '...',
+        role: (u.role as AppRole) || 'timekeeper',
+        full_name: u.full_name,
+        display_name: u.display_name,
+        is_active: u.is_active ?? true,
+        created_at: u.created_at,
+      }));
 
       setUsers(usersWithRoles);
       setFilteredUsers(usersWithRoles);
@@ -130,7 +139,7 @@ export default function AdminConsole() {
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [language]);
 
   useEffect(() => {
     if (isAdmin) {
@@ -239,6 +248,12 @@ export default function AdminConsole() {
   // Handle role change
   const handleRoleChange = async (newRole: AppRole) => {
     if (!selectedUser || !user) return;
+    
+    // Prevent admin from changing their own role
+    if (selectedUser.user_id === user.id) {
+      toast.error(language === 'el' ? 'Δεν μπορείτε να αλλάξετε τον δικό σας ρόλο' : 'You cannot change your own role');
+      return;
+    }
 
     try {
       setSaving(true);
@@ -423,6 +438,89 @@ export default function AdminConsole() {
     return lockedActions.includes(actionKey);
   };
 
+  // Handle invite user
+  const handleInviteUser = async () => {
+    if (!user || !inviteEmail.trim()) return;
+
+    try {
+      setInviting(true);
+
+      const { data, error } = await supabase.functions.invoke('invite_user', {
+        body: {
+          email: inviteEmail.trim(),
+          role: inviteRole,
+          display_name: inviteDisplayName.trim() || undefined,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast.success(language === 'el' ? 'Πρόσκληση εστάλη επιτυχώς' : 'Invitation sent successfully');
+      setShowInviteModal(false);
+      setInviteEmail('');
+      setInviteRole('timekeeper');
+      setInviteDisplayName('');
+      
+      // Refresh users list
+      await fetchUsers();
+    } catch (error: any) {
+      console.error('Error inviting user:', error);
+      toast.error(error.message || (language === 'el' ? 'Αποτυχία αποστολής πρόσκλησης' : 'Failed to send invitation'));
+    } finally {
+      setInviting(false);
+    }
+  };
+
+  // Handle toggle user active status
+  const handleToggleActive = async () => {
+    if (!selectedUser || !user) return;
+    
+    // Prevent admin from deactivating themselves
+    if (selectedUser.user_id === user.id) {
+      toast.error(language === 'el' ? 'Δεν μπορείτε να απενεργοποιήσετε τον εαυτό σας' : 'You cannot deactivate yourself');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const newStatus = !selectedUser.is_active;
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({ is_active: newStatus })
+        .eq('user_id', selectedUser.user_id);
+
+      if (error) throw error;
+
+      // Log the change
+      await supabase.from('permission_audit_logs').insert({
+        actor_user_id: user.id,
+        target_user_id: selectedUser.user_id,
+        change_type: 'ROLE_CHANGE',
+        details: { action: 'STATUS_CHANGE', is_active: newStatus },
+      });
+
+      // Update local state
+      const updatedUser = { ...selectedUser, is_active: newStatus };
+      setSelectedUser(updatedUser);
+      setUsers(users.map(u => 
+        u.user_id === selectedUser.user_id ? updatedUser : u
+      ));
+
+      toast.success(
+        newStatus
+          ? (language === 'el' ? 'Ο χρήστης ενεργοποιήθηκε' : 'User activated')
+          : (language === 'el' ? 'Ο χρήστης απενεργοποιήθηκε' : 'User deactivated')
+      );
+    } catch (error) {
+      console.error('Error updating user status:', error);
+      toast.error(language === 'el' ? 'Αποτυχία ενημέρωσης κατάστασης' : 'Failed to update status');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const getRoleBadgeVariant = (role: AppRole) => {
     switch (role) {
       case 'admin': return 'default';
@@ -492,10 +590,16 @@ export default function AdminConsole() {
           {/* Left Panel - User List */}
           <Card className="lg:col-span-1">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                {language === 'el' ? 'Χρήστες' : 'Users'}
-              </CardTitle>
+              <div className="flex items-center justify-between mb-2">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  {language === 'el' ? 'Χρήστες' : 'Users'}
+                </CardTitle>
+                <Button size="sm" onClick={() => setShowInviteModal(true)}>
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  {language === 'el' ? 'Πρόσκληση' : 'Invite'}
+                </Button>
+              </div>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -517,23 +621,37 @@ export default function AdminConsole() {
                         'w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors',
                         selectedUser?.user_id === u.user_id
                           ? 'bg-primary/10 border border-primary/20'
-                          : 'hover:bg-muted'
+                          : 'hover:bg-muted',
+                        !u.is_active && 'opacity-50'
                       )}
                     >
-                      <div className="flex items-center justify-center w-10 h-10 rounded-full bg-muted">
-                        <User className="h-5 w-5 text-muted-foreground" />
+                      <div className={cn(
+                        "flex items-center justify-center w-10 h-10 rounded-full",
+                        u.is_active ? "bg-muted" : "bg-destructive/10"
+                      )}>
+                        <User className={cn(
+                          "h-5 w-5",
+                          u.is_active ? "text-muted-foreground" : "text-destructive"
+                        )} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">
-                          {u.full_name || u.email}
+                          {u.full_name || u.display_name || u.email}
                         </p>
                         <p className="text-xs text-muted-foreground truncate">
                           {u.email}
                         </p>
                       </div>
-                      <Badge variant={getRoleBadgeVariant(u.role)} className="shrink-0">
-                        {getRoleLabel(u.role)}
-                      </Badge>
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge variant={getRoleBadgeVariant(u.role)} className="shrink-0">
+                          {getRoleLabel(u.role)}
+                        </Badge>
+                        {!u.is_active && (
+                          <Badge variant="destructive" className="text-xs">
+                            {language === 'el' ? 'Ανενεργός' : 'Inactive'}
+                          </Badge>
+                        )}
+                      </div>
                     </button>
                   ))}
                   {filteredUsers.length === 0 && (
@@ -624,6 +742,45 @@ export default function AdminConsole() {
                             </p>
                           )}
                         </div>
+                        <Separator />
+                        {/* Active Status Toggle */}
+                        <div className="flex items-center justify-between p-4 rounded-lg border">
+                          <div className="flex items-center gap-3">
+                            <Power className={cn(
+                              "h-5 w-5",
+                              selectedUser.is_active ? "text-green-500" : "text-destructive"
+                            )} />
+                            <div>
+                              <p className="font-medium">
+                                {language === 'el' ? 'Κατάσταση Λογαριασμού' : 'Account Status'}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {selectedUser.is_active
+                                  ? (language === 'el' ? 'Ενεργός - Ο χρήστης μπορεί να συνδεθεί' : 'Active - User can sign in')
+                                  : (language === 'el' ? 'Ανενεργός - Ο χρήστης δεν μπορεί να συνδεθεί' : 'Inactive - User cannot sign in')
+                                }
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            variant={selectedUser.is_active ? "destructive" : "default"}
+                            size="sm"
+                            onClick={handleToggleActive}
+                            disabled={saving || selectedUser.user_id === user?.id}
+                          >
+                            {selectedUser.is_active
+                              ? (language === 'el' ? 'Απενεργοποίηση' : 'Deactivate')
+                              : (language === 'el' ? 'Ενεργοποίηση' : 'Activate')
+                            }
+                          </Button>
+                        </div>
+                        {selectedUser.user_id === user?.id && (
+                          <p className="text-xs text-muted-foreground">
+                            {language === 'el' 
+                              ? 'Δεν μπορείτε να απενεργοποιήσετε τον εαυτό σας' 
+                              : 'You cannot deactivate yourself'}
+                          </p>
+                        )}
                       </div>
                     </TabsContent>
 
@@ -833,6 +990,103 @@ export default function AdminConsole() {
           </Card>
         </div>
       </div>
+
+      {/* Invite User Modal */}
+      <Dialog open={showInviteModal} onOpenChange={setShowInviteModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5" />
+              {language === 'el' ? 'Πρόσκληση Χρήστη' : 'Invite User'}
+            </DialogTitle>
+            <DialogDescription>
+              {language === 'el'
+                ? 'Στείλτε πρόσκληση μέσω email για να προσθέσετε νέο χρήστη.'
+                : 'Send an email invitation to add a new user.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="invite-email">Email *</Label>
+              <Input
+                id="invite-email"
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="user@example.com"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="invite-name">
+                {language === 'el' ? 'Όνομα' : 'Display Name'}
+              </Label>
+              <Input
+                id="invite-name"
+                type="text"
+                value={inviteDisplayName}
+                onChange={(e) => setInviteDisplayName(e.target.value)}
+                placeholder={language === 'el' ? 'Προαιρετικό' : 'Optional'}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="invite-role">
+                {language === 'el' ? 'Ρόλος' : 'Role'} *
+              </Label>
+              <Select
+                value={inviteRole}
+                onValueChange={(value) => setInviteRole(value as AppRole)}
+              >
+                <SelectTrigger id="invite-role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">
+                    {language === 'el' ? 'Διαχειριστής' : 'Admin'}
+                  </SelectItem>
+                  <SelectItem value="hr">HR</SelectItem>
+                  <SelectItem value="timekeeper">
+                    {language === 'el' ? 'Χρονομέτρης' : 'Timekeeper'}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+              <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+              <p className="text-xs text-blue-700 dark:text-blue-300">
+                {language === 'el'
+                  ? 'Οι HR και Timekeeper έχουν πρόσβαση μόνο στο module Χρονοκαταγραφής.'
+                  : 'HR and Timekeeper have access only to the Timekeeping module.'}
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowInviteModal(false)}
+              disabled={inviting}
+            >
+              {language === 'el' ? 'Ακύρωση' : 'Cancel'}
+            </Button>
+            <Button
+              onClick={handleInviteUser}
+              disabled={inviting || !inviteEmail.trim()}
+            >
+              {inviting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {language === 'el' ? 'Αποστολή...' : 'Sending...'}
+                </>
+              ) : (
+                <>
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  {language === 'el' ? 'Αποστολή Πρόσκλησης' : 'Send Invitation'}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 }
