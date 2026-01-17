@@ -85,17 +85,48 @@ serve(async (req) => {
     const { data: targetUser } = await adminClient.auth.admin.getUserById(user_id);
     const targetEmail = targetUser?.user?.email || 'unknown';
 
-    // Delete user permissions first
-    await adminClient.from("user_module_access").delete().eq("user_id", user_id);
-    await adminClient.from("user_module_actions").delete().eq("user_id", user_id);
-    
-    // Delete user role
-    await adminClient.from("user_roles").delete().eq("user_id", user_id);
-    
-    // Delete user profile
-    await adminClient.from("profiles").delete().eq("user_id", user_id);
+    console.log(`Attempting to delete user: ${targetEmail} (${user_id})`);
 
-    // Delete the user from auth
+    // Delete all data referencing the user in proper order
+    // 1. Delete permission audit logs where this user is the target
+    const { error: auditError } = await adminClient
+      .from("permission_audit_logs")
+      .delete()
+      .eq("target_user_id", user_id);
+    if (auditError) console.log("Error deleting permission_audit_logs (target):", auditError.message);
+
+    // 2. Delete user module actions
+    const { error: actionsError } = await adminClient
+      .from("user_module_actions")
+      .delete()
+      .eq("user_id", user_id);
+    if (actionsError) console.log("Error deleting user_module_actions:", actionsError.message);
+
+    // 3. Delete user module access
+    const { error: accessError } = await adminClient
+      .from("user_module_access")
+      .delete()
+      .eq("user_id", user_id);
+    if (accessError) console.log("Error deleting user_module_access:", accessError.message);
+
+    // 4. Delete user role
+    const { error: userRoleDeleteError } = await adminClient
+      .from("user_roles")
+      .delete()
+      .eq("user_id", user_id);
+    if (userRoleDeleteError) console.log("Error deleting user_roles:", userRoleDeleteError.message);
+
+    // 5. Delete user profile (this must be done before deleting auth user)
+    const { error: profileError } = await adminClient
+      .from("profiles")
+      .delete()
+      .eq("user_id", user_id);
+    if (profileError) console.log("Error deleting profiles:", profileError.message);
+
+    // Small delay to ensure all deletes are committed
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // 6. Now delete the user from auth
     const { error: deleteError } = await adminClient.auth.admin.deleteUser(user_id);
 
     if (deleteError) {
