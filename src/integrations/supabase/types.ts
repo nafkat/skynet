@@ -14,6 +14,78 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_logs: {
+        Row: {
+          action_type: string
+          actor_user_id: string
+          correction_request_id: string | null
+          created_at: string
+          details: Json | null
+          employee_id: string | null
+          id: string
+          project_id: string | null
+          time_entry_id: string | null
+        }
+        Insert: {
+          action_type: string
+          actor_user_id: string
+          correction_request_id?: string | null
+          created_at?: string
+          details?: Json | null
+          employee_id?: string | null
+          id?: string
+          project_id?: string | null
+          time_entry_id?: string | null
+        }
+        Update: {
+          action_type?: string
+          actor_user_id?: string
+          correction_request_id?: string | null
+          created_at?: string
+          details?: Json | null
+          employee_id?: string | null
+          id?: string
+          project_id?: string | null
+          time_entry_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_correction_request_id_fkey"
+            columns: ["correction_request_id"]
+            isOneToOne: false
+            referencedRelation: "correction_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_logs_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_logs_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees_limited"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_logs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_logs_time_entry_id_fkey"
+            columns: ["time_entry_id"]
+            isOneToOne: false
+            referencedRelation: "time_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       correction_requests: {
         Row: {
           created_at: string

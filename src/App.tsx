@@ -13,6 +13,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import PayrollExport from "./pages/PayrollExport";
+import AuditLog from "./pages/AuditLog";
 import TimeEntry from "./pages/TimeEntry";
 import Employees from "./pages/Employees";
 import Projects from "./pages/Projects";
@@ -103,6 +104,16 @@ function AppRoutes() {
         element={
           <ProtectedRoute requiredRoles={['admin', 'hr']}>
             <PayrollExport />
+          </ProtectedRoute>
+        } 
+      />
+      
+      {/* Audit Log - Admin and HR only */}
+      <Route 
+        path="/admin/audit-log" 
+        element={
+          <ProtectedRoute requiredRoles={['admin', 'hr']}>
+            <AuditLog />
           </ProtectedRoute>
         } 
       />
