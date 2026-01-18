@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -30,7 +30,11 @@ import {
   UserPlus,
   Power,
   FileStack,
-  Check
+  Check,
+  Mail,
+  AlertTriangle,
+  Save,
+  X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -46,6 +50,16 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // New base role type - only Admin and Employee
 type BaseRole = 'admin' | 'employee';
@@ -53,12 +67,13 @@ type BaseRole = 'admin' | 'employee';
 interface UserWithRole {
   user_id: string;
   email: string;
-  base_role: BaseRole; // Changed from legacy 'role'
+  base_role: BaseRole;
   full_name: string | null;
   display_name: string | null;
   is_active: boolean;
   created_at: string | null;
-  assigned_templates: PermissionTemplate[]; // Assigned permission templates
+  assigned_templates: PermissionTemplate[];
+  email_confirmed_at?: string | null; // Track if user has accepted invite
 }
 
 interface ModuleAccessRecord {
@@ -88,6 +103,12 @@ interface PermissionTemplate {
   description: string | null;
 }
 
+// Draft state for permissions
+interface PermissionDraft {
+  baseRole: BaseRole;
+  templateIds: string[];
+}
+
 export default function AdminUsers() {
   const { user } = useAuth();
   const { language } = useLanguage();
@@ -105,8 +126,13 @@ export default function AdminUsers() {
   const [auditLogs, setAuditLogs] = useState<AuditLogRecord[]>([]);
   const [permissionsLoading, setPermissionsLoading] = useState(false);
   
-  // Selected user's assigned templates (for Profile tab editing)
-  const [userTemplateIds, setUserTemplateIds] = useState<string[]>([]);
+  // Original (saved) values for the selected user
+  const [savedBaseRole, setSavedBaseRole] = useState<BaseRole>('employee');
+  const [savedTemplateIds, setSavedTemplateIds] = useState<string[]>([]);
+  
+  // Draft state for permissions (editable, not yet saved)
+  const [draftBaseRole, setDraftBaseRole] = useState<BaseRole>('employee');
+  const [draftTemplateIds, setDraftTemplateIds] = useState<string[]>([]);
 
   // Invite user modal state
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -116,12 +142,37 @@ export default function AdminUsers() {
   const [inviteTemplateIds, setInviteTemplateIds] = useState<string[]>([]);
   const [inviting, setInviting] = useState(false);
 
+  // Resend invite state
+  const [resendingInvite, setResendingInvite] = useState(false);
+
   // Apply template modal state
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [templates, setTemplates] = useState<PermissionTemplate[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [overwritePermissions, setOverwritePermissions] = useState(true);
   const [applyingTemplate, setApplyingTemplate] = useState(false);
+
+  // Confirmation modal states
+  const [showRoleChangeConfirm, setShowRoleChangeConfirm] = useState(false);
+  const [showCriticalPermissionWarning, setShowCriticalPermissionWarning] = useState(false);
+  const [pendingSaveAction, setPendingSaveAction] = useState<(() => Promise<void>) | null>(null);
+
+  // Check if there are unsaved changes
+  const hasUnsavedChanges = useMemo(() => {
+    if (!selectedUser) return false;
+    const baseRoleChanged = draftBaseRole !== savedBaseRole;
+    const templatesChanged = 
+      draftTemplateIds.length !== savedTemplateIds.length ||
+      !draftTemplateIds.every(id => savedTemplateIds.includes(id));
+    return baseRoleChanged || templatesChanged;
+  }, [selectedUser, draftBaseRole, savedBaseRole, draftTemplateIds, savedTemplateIds]);
+
+  // Check if this is a pending/invited user (hasn't accepted invite yet)
+  const isPendingUser = useMemo(() => {
+    if (!selectedUser) return false;
+    // User is pending if they don't have email_confirmed_at
+    return !selectedUser.email_confirmed_at;
+  }, [selectedUser]);
 
   // Fetch all templates
   const fetchTemplates = useCallback(async () => {
@@ -173,6 +224,7 @@ export default function AdminUsers() {
           is_active: u.is_active ?? true,
           created_at: u.created_at,
           assigned_templates: userTemplatesMap[u.user_id] || [],
+          email_confirmed_at: u.email_confirmed_at || null,
         };
       });
 
@@ -261,7 +313,9 @@ export default function AdminUsers() {
         .select('template_id')
         .eq('user_id', userId);
       
-      setUserTemplateIds((userTemplatesData || []).map(t => t.template_id));
+      const templateIds = (userTemplatesData || []).map(t => t.template_id);
+      setSavedTemplateIds(templateIds);
+      setDraftTemplateIds(templateIds);
 
       // Fetch audit logs for this user
       const { data: logsData } = await supabase
@@ -292,80 +346,141 @@ export default function AdminUsers() {
     }
   }, [language]);
 
+  // When selected user changes, initialize draft state
   useEffect(() => {
     if (selectedUser) {
+      setSavedBaseRole(selectedUser.base_role);
+      setDraftBaseRole(selectedUser.base_role);
       fetchUserPermissions(selectedUser.user_id);
     }
   }, [selectedUser, fetchUserPermissions]);
 
-  // Handle base role change (Admin/Employee)
-  const handleBaseRoleChange = async (newBaseRole: BaseRole) => {
+  // Handle resend invite
+  const handleResendInvite = async () => {
     if (!selectedUser || !user) return;
-    
-    if (selectedUser.user_id === user.id) {
-      toast.error(language === 'el' ? 'Δεν μπορείτε να αλλάξετε τον δικό σας ρόλο' : 'You cannot change your own role');
-      return;
-    }
 
     try {
-      setSaving(true);
-      const oldRole = selectedUser.base_role;
+      setResendingInvite(true);
 
-      // Map base_role to app_role enum: admin -> 'admin', employee -> 'timekeeper'
-      const appRole = newBaseRole === 'admin' ? 'admin' : 'timekeeper';
+      const { data, error } = await supabase.functions.invoke('resend_invite', {
+        body: { user_id: selectedUser.user_id },
+      });
 
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .upsert({ 
-          user_id: selectedUser.user_id, 
-          role: appRole 
-        }, { onConflict: 'user_id,role' });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
-      if (roleError) {
-        // Try update if upsert fails
-        const { error: updateError } = await supabase
-          .from('user_roles')
-          .update({ role: appRole })
-          .eq('user_id', selectedUser.user_id);
-        
-        if (updateError) throw updateError;
-      }
-
-      // Log the change
-      await supabase
-        .from('permission_audit_logs')
-        .insert({
-          actor_user_id: user.id,
-          target_user_id: selectedUser.user_id,
-          change_type: 'ROLE_CHANGE',
-          details: { old_base_role: oldRole, new_base_role: newBaseRole },
-        });
-
-      // Update local state
-      const updatedUser = { ...selectedUser, base_role: newBaseRole };
-      setSelectedUser(updatedUser);
-      setUsers(users.map(u => 
-        u.user_id === selectedUser.user_id ? updatedUser : u
-      ));
-
-      toast.success(language === 'el' ? 'Ο βασικός ρόλος ενημερώθηκε' : 'Base role updated');
-    } catch (error) {
-      console.error('Error updating base role:', error);
-      toast.error(language === 'el' ? 'Αποτυχία ενημέρωσης ρόλου' : 'Failed to update role');
+      toast.success(language === 'el' ? 'Η πρόσκληση εστάλη ξανά' : 'Invitation email has been resent');
+      
+      // Refresh audit logs
+      await fetchUserPermissions(selectedUser.user_id);
+    } catch (error: any) {
+      console.error('Error resending invite:', error);
+      toast.error(error.message || (language === 'el' ? 'Αποτυχία αποστολής πρόσκλησης' : 'Failed to resend invitation'));
     } finally {
-      setSaving(false);
+      setResendingInvite(false);
     }
   };
 
-  // Handle template assignment toggle
-  const handleTemplateToggle = async (templateId: string, assigned: boolean) => {
+  // Save all permission changes
+  const handleSaveChanges = async () => {
+    if (!selectedUser || !user) return;
+
+    // Check if base role is changing
+    const baseRoleChanging = draftBaseRole !== savedBaseRole;
+    
+    // Check if removing admin-level permissions
+    const wasAdmin = savedBaseRole === 'admin';
+    const removingAdmin = wasAdmin && draftBaseRole !== 'admin';
+
+    // Show confirmation for role changes
+    if (baseRoleChanging) {
+      setPendingSaveAction(() => performSave);
+      setShowRoleChangeConfirm(true);
+      return;
+    }
+
+    // Check for critical permission removals (e.g., removing all templates)
+    const removingAllTemplates = savedTemplateIds.length > 0 && draftTemplateIds.length === 0;
+    if (removingAllTemplates && !baseRoleChanging) {
+      setPendingSaveAction(() => performSave);
+      setShowCriticalPermissionWarning(true);
+      return;
+    }
+
+    await performSave();
+  };
+
+  const performSave = async () => {
     if (!selectedUser || !user) return;
 
     try {
       setSaving(true);
 
-      if (assigned) {
-        // Assign template
+      const changes: string[] = [];
+
+      // Update base role if changed
+      if (draftBaseRole !== savedBaseRole) {
+        const appRole = draftBaseRole === 'admin' ? 'admin' : 'timekeeper';
+
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .upsert({ 
+            user_id: selectedUser.user_id, 
+            role: appRole 
+          }, { onConflict: 'user_id,role' });
+
+        if (roleError) {
+          const { error: updateError } = await supabase
+            .from('user_roles')
+            .update({ role: appRole })
+            .eq('user_id', selectedUser.user_id);
+          
+          if (updateError) throw updateError;
+        }
+
+        // Log the role change
+        await supabase
+          .from('permission_audit_logs')
+          .insert({
+            actor_user_id: user.id,
+            target_user_id: selectedUser.user_id,
+            change_type: 'ROLE_CHANGE',
+            details: { 
+              old_base_role: savedBaseRole, 
+              new_base_role: draftBaseRole,
+              actor_email: user.email,
+            },
+          });
+
+        changes.push('base role');
+      }
+
+      // Update templates if changed
+      const addedTemplates = draftTemplateIds.filter(id => !savedTemplateIds.includes(id));
+      const removedTemplates = savedTemplateIds.filter(id => !draftTemplateIds.includes(id));
+
+      // Remove templates
+      for (const templateId of removedTemplates) {
+        const { error } = await supabase
+          .from('user_permission_templates')
+          .delete()
+          .eq('user_id', selectedUser.user_id)
+          .eq('template_id', templateId);
+        if (error) throw error;
+
+        const template = templates.find(t => t.id === templateId);
+        await supabase
+          .from('permission_audit_logs')
+          .insert({
+            actor_user_id: user.id,
+            target_user_id: selectedUser.user_id,
+            change_type: 'TEMPLATE_REMOVED',
+            details: { template_id: templateId, template_name: template?.name },
+          });
+      }
+
+      // Add templates
+      for (const templateId of addedTemplates) {
         const { error } = await supabase
           .from('user_permission_templates')
           .insert({
@@ -374,58 +489,77 @@ export default function AdminUsers() {
             assigned_by: user.id,
           });
         if (error) throw error;
-        setUserTemplateIds(prev => [...prev, templateId]);
-      } else {
-        // Remove template
-        const { error } = await supabase
-          .from('user_permission_templates')
-          .delete()
-          .eq('user_id', selectedUser.user_id)
-          .eq('template_id', templateId);
-        if (error) throw error;
-        setUserTemplateIds(prev => prev.filter(id => id !== templateId));
+
+        const template = templates.find(t => t.id === templateId);
+        await supabase
+          .from('permission_audit_logs')
+          .insert({
+            actor_user_id: user.id,
+            target_user_id: selectedUser.user_id,
+            change_type: 'TEMPLATE_ASSIGNED',
+            details: { template_id: templateId, template_name: template?.name },
+          });
       }
 
-      // Log the change
-      const template = templates.find(t => t.id === templateId);
-      await supabase
-        .from('permission_audit_logs')
-        .insert({
-          actor_user_id: user.id,
-          target_user_id: selectedUser.user_id,
-          change_type: assigned ? 'TEMPLATE_ASSIGNED' : 'TEMPLATE_REMOVED',
-          details: { template_id: templateId, template_name: template?.name },
-        });
+      if (addedTemplates.length > 0 || removedTemplates.length > 0) {
+        changes.push('permission roles');
 
-      // Update local state for selected user's templates
-      const updatedTemplates = assigned
-        ? [...selectedUser.assigned_templates, templates.find(t => t.id === templateId)!].filter(Boolean)
-        : selectedUser.assigned_templates.filter(t => t.id !== templateId);
-      
-      const updatedUser = { ...selectedUser, assigned_templates: updatedTemplates };
+        // Recompute effective permissions
+        await supabase.rpc('recompute_user_permissions', {
+          _user_id: selectedUser.user_id,
+        });
+      }
+
+      // Update saved state
+      setSavedBaseRole(draftBaseRole);
+      setSavedTemplateIds(draftTemplateIds);
+
+      // Update local user list
+      const updatedTemplates = templates.filter(t => draftTemplateIds.includes(t.id));
+      const updatedUser = { 
+        ...selectedUser, 
+        base_role: draftBaseRole,
+        assigned_templates: updatedTemplates,
+      };
       setSelectedUser(updatedUser);
       setUsers(users.map(u => 
         u.user_id === selectedUser.user_id ? updatedUser : u
       ));
 
-      toast.success(
-        assigned 
-          ? (language === 'el' ? 'Ο ρόλος ανατέθηκε' : 'Role assigned')
-          : (language === 'el' ? 'Ο ρόλος αφαιρέθηκε' : 'Role removed')
-      );
+      // Refresh audit logs
+      await fetchUserPermissions(selectedUser.user_id);
+
+      toast.success(language === 'el' ? 'Τα δικαιώματα χρήστη ενημερώθηκαν' : 'User permissions updated successfully');
     } catch (error) {
-      console.error('Error toggling template:', error);
-      toast.error(language === 'el' ? 'Αποτυχία ενημέρωσης' : 'Failed to update');
+      console.error('Error saving permissions:', error);
+      toast.error(language === 'el' ? 'Αποτυχία αποθήκευσης' : 'Failed to save changes');
     } finally {
       setSaving(false);
+      setShowRoleChangeConfirm(false);
+      setShowCriticalPermissionWarning(false);
+      setPendingSaveAction(null);
     }
   };
 
-  // Handle module access toggle
+  // Cancel changes and revert to saved state
+  const handleCancelChanges = () => {
+    setDraftBaseRole(savedBaseRole);
+    setDraftTemplateIds(savedTemplateIds);
+  };
+
+  // Handle template toggle in draft state (no auto-save)
+  const handleDraftTemplateToggle = (templateId: string, assigned: boolean) => {
+    if (assigned) {
+      setDraftTemplateIds(prev => [...prev, templateId]);
+    } else {
+      setDraftTemplateIds(prev => prev.filter(id => id !== templateId));
+    }
+  };
+
+  // Handle module access toggle (kept as immediate save for Access tab)
   const handleModuleAccessToggle = async (moduleKey: string, canAccess: boolean) => {
     if (!selectedUser || !user) return;
     
-    // Check if this is locked for non-admin users
     if (selectedUser.base_role !== 'admin') {
       if (moduleKey === 'admin_console') {
         toast.error(language === 'el' ? 'Η πρόσβαση στην Κονσόλα Διαχειριστή είναι περιορισμένη' : 'Admin Console access is restricted');
@@ -530,7 +664,6 @@ export default function AdminUsers() {
       // Apply module access
       for (const tm of templateModules || []) {
         let canAccess = tm.can_access;
-        // Enforce: non-admin cannot access admin_console
         if (selectedUser.base_role !== 'admin' && tm.module_key === 'admin_console') {
           canAccess = false;
         }
@@ -580,8 +713,6 @@ export default function AdminUsers() {
       toast.success(language === 'el' ? 'Ο ρόλος εφαρμόστηκε' : 'Role applied');
       setShowTemplateModal(false);
       await fetchUserPermissions(selectedUser.user_id);
-      
-      // Refresh user list to update template badges
       await fetchUsers();
     } catch (error) {
       console.error('Error applying template:', error);
@@ -595,7 +726,6 @@ export default function AdminUsers() {
   const isModuleLocked = (moduleKey: string): boolean => {
     if (!selectedUser) return false;
     if (selectedUser.base_role === 'admin') return false;
-    // Non-admin: admin_console is always locked OFF
     return moduleKey === 'admin_console';
   };
 
@@ -708,6 +838,8 @@ export default function AdminUsers() {
       case 'TEMPLATE_ASSIGNED': return language === 'el' ? 'Ανάθεση Ρόλου' : 'Role Assigned';
       case 'TEMPLATE_REMOVED': return language === 'el' ? 'Αφαίρεση Ρόλου' : 'Role Removed';
       case 'STATUS_CHANGE': return language === 'el' ? 'Αλλαγή Κατάστασης' : 'Status Change';
+      case 'INVITE_RESENT': return language === 'el' ? 'Επαναποστολή Πρόσκλησης' : 'Invite Resent';
+      case 'USER_INVITED': return language === 'el' ? 'Πρόσκληση Χρήστη' : 'User Invited';
       default: return type;
     }
   };
@@ -824,6 +956,11 @@ export default function AdminUsers() {
                           {language === 'el' ? 'Ανενεργός' : 'Inactive'}
                         </Badge>
                       )}
+                      {!u.email_confirmed_at && (
+                        <Badge variant="outline" className="text-xs text-amber-600 border-amber-400">
+                          {language === 'el' ? 'Εκκρεμεί' : 'Pending'}
+                        </Badge>
+                      )}
                     </div>
                   </button>
                 ))}
@@ -853,6 +990,11 @@ export default function AdminUsers() {
                     <Badge variant={getBaseRoleBadgeVariant(selectedUser.base_role)} className="text-sm px-3 py-1">
                       {getBaseRoleLabel(selectedUser.base_role)}
                     </Badge>
+                    {isPendingUser && (
+                      <Badge variant="outline" className="text-sm px-3 py-1 text-amber-600 border-amber-400">
+                        {language === 'el' ? 'Εκκρεμεί' : 'Pending'}
+                      </Badge>
+                    )}
                   </div>
                 </div>
                 {/* Assigned Templates Display */}
@@ -898,16 +1040,63 @@ export default function AdminUsers() {
                           {selectedUser.email}
                         </p>
                       </div>
+
+                      {/* Resend Invite Section - only for pending users */}
+                      {isPendingUser && (
+                        <>
+                          <Separator />
+                          <div className="p-4 rounded-lg border border-amber-400/50 bg-amber-500/10">
+                            <div className="flex items-start gap-3">
+                              <Mail className="h-5 w-5 text-amber-600 mt-0.5" />
+                              <div className="flex-1">
+                                <p className="font-medium text-amber-700 dark:text-amber-400">
+                                  {language === 'el' ? 'Πρόσκληση εκκρεμεί' : 'Invitation pending'}
+                                </p>
+                                <p className="text-sm text-amber-600 dark:text-amber-500 mt-1">
+                                  {language === 'el' 
+                                    ? 'Ο χρήστης δεν έχει αποδεχτεί ακόμα την πρόσκληση. Μπορείτε να στείλετε ξανά το email πρόσκλησης.'
+                                    : 'User has not accepted the invitation yet. You can resend the invitation email.'}
+                                </p>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="mt-3 border-amber-400 text-amber-700 hover:bg-amber-100 dark:text-amber-400 dark:hover:bg-amber-900/50"
+                                  onClick={handleResendInvite}
+                                  disabled={resendingInvite}
+                                >
+                                  {resendingInvite ? (
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                  ) : (
+                                    <Mail className="h-4 w-4 mr-2" />
+                                  )}
+                                  {language === 'el' ? 'Επαναποστολή Πρόσκλησης' : 'Resend Invite'}
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        </>
+                      )}
+
                       <Separator />
                       
-                      {/* Base Role Dropdown - NEW */}
+                      {/* Unsaved Changes Indicator */}
+                      {hasUnsavedChanges && (
+                        <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                          <AlertTriangle className="h-4 w-4 text-amber-600" />
+                          <span className="text-sm text-amber-700 dark:text-amber-400">
+                            {language === 'el' ? 'Υπάρχουν μη αποθηκευμένες αλλαγές' : 'You have unsaved changes'}
+                          </span>
+                        </div>
+                      )}
+                      
+                      {/* Base Role Dropdown */}
                       <div>
                         <Label htmlFor="base-role-select">
                           {language === 'el' ? 'Βασικός Ρόλος' : 'Base Role'}
                         </Label>
                         <Select
-                          value={selectedUser.base_role}
-                          onValueChange={(value) => handleBaseRoleChange(value as BaseRole)}
+                          value={draftBaseRole}
+                          onValueChange={(value) => setDraftBaseRole(value as BaseRole)}
                           disabled={saving || selectedUser.user_id === user?.id}
                         >
                           <SelectTrigger id="base-role-select" className="mt-2">
@@ -938,7 +1127,7 @@ export default function AdminUsers() {
 
                       <Separator />
 
-                      {/* Permission Templates Multi-Select - NEW */}
+                      {/* Permission Templates Multi-Select */}
                       <div>
                         <Label>
                           {language === 'el' ? 'Ρόλοι Δικαιωμάτων' : 'Permission Roles'}
@@ -955,13 +1144,13 @@ export default function AdminUsers() {
                             </p>
                           ) : (
                             templates.map(t => {
-                              const isAssigned = userTemplateIds.includes(t.id);
+                              const isAssigned = draftTemplateIds.includes(t.id);
                               return (
                                 <div key={t.id} className="flex items-center gap-3 p-2 rounded hover:bg-muted/50">
                                   <Checkbox
                                     id={`user-template-${t.id}`}
                                     checked={isAssigned}
-                                    onCheckedChange={(checked) => handleTemplateToggle(t.id, !!checked)}
+                                    onCheckedChange={(checked) => handleDraftTemplateToggle(t.id, !!checked)}
                                     disabled={saving}
                                   />
                                   <label 
@@ -983,6 +1172,30 @@ export default function AdminUsers() {
                             })
                           )}
                         </div>
+                      </div>
+
+                      {/* Save / Cancel Buttons */}
+                      <div className="flex items-center gap-3 pt-2">
+                        <Button
+                          onClick={handleSaveChanges}
+                          disabled={saving || !hasUnsavedChanges || selectedUser.user_id === user?.id}
+                          className="flex-1"
+                        >
+                          {saving ? (
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          ) : (
+                            <Save className="h-4 w-4 mr-2" />
+                          )}
+                          {language === 'el' ? 'Αποθήκευση Αλλαγών' : 'Save Changes'}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={handleCancelChanges}
+                          disabled={saving || !hasUnsavedChanges}
+                        >
+                          <X className="h-4 w-4 mr-2" />
+                          {language === 'el' ? 'Ακύρωση' : 'Cancel'}
+                        </Button>
                       </div>
 
                       <Separator />
@@ -1414,6 +1627,63 @@ export default function AdminUsers() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Role Change Confirmation Modal */}
+      <AlertDialog open={showRoleChangeConfirm} onOpenChange={setShowRoleChangeConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              {language === 'el' ? 'Επιβεβαίωση Αλλαγής Ρόλου' : 'Confirm Role Change'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {draftBaseRole === 'admin' 
+                ? (language === 'el' 
+                    ? 'Θέλετε να αναβαθμίσετε αυτόν τον χρήστη σε Διαχειριστή; Θα έχει πλήρη πρόσβαση σε όλα τα modules και ρυθμίσεις.'
+                    : 'Are you sure you want to promote this user to Admin? They will have full access to all modules and settings.')
+                : (language === 'el'
+                    ? 'Θέλετε να υποβαθμίσετε αυτόν τον χρήστη σε Υπάλληλο; Θα χάσει την πρόσβαση Διαχειριστή και θα χρειάζεται ρόλους δικαιωμάτων.'
+                    : 'Are you sure you want to demote this user to Employee? They will lose Admin access and will need permission roles.')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingSaveAction(null)}>
+              {language === 'el' ? 'Ακύρωση' : 'Cancel'}
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={() => pendingSaveAction?.()}>
+              {language === 'el' ? 'Επιβεβαίωση' : 'Confirm'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Critical Permission Warning Modal */}
+      <AlertDialog open={showCriticalPermissionWarning} onOpenChange={setShowCriticalPermissionWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              {language === 'el' ? 'Προειδοποίηση' : 'Warning'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === 'el'
+                ? 'Πρόκειται να αφαιρέσετε όλους τους ρόλους δικαιωμάτων από αυτόν τον χρήστη. Ο χρήστης μπορεί να χάσει την πρόσβαση σε σημαντικές λειτουργίες.'
+                : 'You are about to remove all permission roles from this user. The user may lose access to important functionality.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingSaveAction(null)}>
+              {language === 'el' ? 'Ακύρωση' : 'Cancel'}
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => pendingSaveAction?.()}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {language === 'el' ? 'Συνέχεια' : 'Proceed'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
