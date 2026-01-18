@@ -130,9 +130,8 @@ export function Sidebar() {
   const contextNavItems = isHomeContext ? globalNavItems : timekeepingNavItems;
 
   const getRoleLabel = () => {
-    if (isAdmin) return t('role.admin');
-    if (isHR) return t('role.hr');
-    return t('role.timekeeper');
+    if (isAdmin) return language === 'el' ? 'Διαχειριστής' : 'Admin';
+    return language === 'el' ? 'Υπάλληλος' : 'Employee';
   };
 
   const toggleLanguage = () => {

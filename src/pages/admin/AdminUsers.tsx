@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import {
@@ -46,17 +47,18 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
-type AppRole = 'admin' | 'hr' | 'timekeeper'; // Legacy for display
-type BaseRole = 'admin' | 'employee'; // New base roles
+// New base role type - only Admin and Employee
+type BaseRole = 'admin' | 'employee';
 
 interface UserWithRole {
   user_id: string;
   email: string;
-  role: AppRole;
+  base_role: BaseRole; // Changed from legacy 'role'
   full_name: string | null;
   display_name: string | null;
   is_active: boolean;
   created_at: string | null;
+  assigned_templates: PermissionTemplate[]; // Assigned permission templates
 }
 
 interface ModuleAccessRecord {
@@ -102,6 +104,9 @@ export default function AdminUsers() {
   const [actionPermissions, setActionPermissions] = useState<ActionPermissionRecord[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogRecord[]>([]);
   const [permissionsLoading, setPermissionsLoading] = useState(false);
+  
+  // Selected user's assigned templates (for Profile tab editing)
+  const [userTemplateIds, setUserTemplateIds] = useState<string[]>([]);
 
   // Invite user modal state
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -118,7 +123,16 @@ export default function AdminUsers() {
   const [overwritePermissions, setOverwritePermissions] = useState(true);
   const [applyingTemplate, setApplyingTemplate] = useState(false);
 
-  // Fetch all users with roles
+  // Fetch all templates
+  const fetchTemplates = useCallback(async () => {
+    const { data } = await supabase
+      .from('permission_templates')
+      .select('id, name, description')
+      .order('name');
+    setTemplates(data || []);
+  }, []);
+
+  // Fetch all users with their base roles from user_roles table
   const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
@@ -126,15 +140,41 @@ export default function AdminUsers() {
 
       if (error) throw error;
 
-      const usersWithRoles: UserWithRole[] = (data || []).map((u: any) => ({
-        user_id: u.user_id,
-        email: u.email || u.user_id.slice(0, 8) + '...',
-        role: (u.role as AppRole) || 'timekeeper',
-        full_name: u.full_name,
-        display_name: u.display_name,
-        is_active: u.is_active ?? true,
-        created_at: u.created_at,
-      }));
+      // Also fetch assigned templates for each user
+      const userIds = (data || []).map((u: any) => u.user_id);
+      
+      const { data: userTemplatesData } = await supabase
+        .from('user_permission_templates')
+        .select('user_id, template_id, permission_templates(id, name, description)')
+        .in('user_id', userIds);
+
+      // Group templates by user
+      const userTemplatesMap: Record<string, PermissionTemplate[]> = {};
+      (userTemplatesData || []).forEach((ut: any) => {
+        if (!userTemplatesMap[ut.user_id]) {
+          userTemplatesMap[ut.user_id] = [];
+        }
+        if (ut.permission_templates) {
+          userTemplatesMap[ut.user_id].push(ut.permission_templates);
+        }
+      });
+
+      const usersWithRoles: UserWithRole[] = (data || []).map((u: any) => {
+        // Map legacy roles to base_role: admin stays admin, everything else is employee
+        const legacyRole = u.role;
+        const baseRole: BaseRole = legacyRole === 'admin' ? 'admin' : 'employee';
+        
+        return {
+          user_id: u.user_id,
+          email: u.email || u.user_id.slice(0, 8) + '...',
+          base_role: baseRole,
+          full_name: u.full_name,
+          display_name: u.display_name,
+          is_active: u.is_active ?? true,
+          created_at: u.created_at,
+          assigned_templates: userTemplatesMap[u.user_id] || [],
+        };
+      });
 
       setUsers(usersWithRoles);
       setFilteredUsers(usersWithRoles);
@@ -148,7 +188,8 @@ export default function AdminUsers() {
 
   useEffect(() => {
     fetchUsers();
-  }, [fetchUsers]);
+    fetchTemplates();
+  }, [fetchUsers, fetchTemplates]);
 
   // Filter users based on search
   useEffect(() => {
@@ -161,7 +202,8 @@ export default function AdminUsers() {
       users.filter(u => 
         u.email.toLowerCase().includes(query) ||
         u.full_name?.toLowerCase().includes(query) ||
-        u.role.toLowerCase().includes(query)
+        u.base_role.toLowerCase().includes(query) ||
+        u.assigned_templates.some(t => t.name.toLowerCase().includes(query))
       )
     );
   }, [searchQuery, users]);
@@ -213,6 +255,14 @@ export default function AdminUsers() {
       });
       setActionPermissions(actionsList);
 
+      // Fetch user's assigned templates
+      const { data: userTemplatesData } = await supabase
+        .from('user_permission_templates')
+        .select('template_id')
+        .eq('user_id', userId);
+      
+      setUserTemplateIds((userTemplatesData || []).map(t => t.template_id));
+
       // Fetch audit logs for this user
       const { data: logsData } = await supabase
         .from('permission_audit_logs')
@@ -248,21 +298,8 @@ export default function AdminUsers() {
     }
   }, [selectedUser, fetchUserPermissions]);
 
-  // Fetch templates for apply modal
-  const fetchTemplates = useCallback(async () => {
-    const { data } = await supabase
-      .from('permission_templates')
-      .select('id, name, description')
-      .order('name');
-    setTemplates(data || []);
-  }, []);
-
-  useEffect(() => {
-    fetchTemplates();
-  }, [fetchTemplates]);
-
-  // Handle role change
-  const handleRoleChange = async (newRole: AppRole) => {
+  // Handle base role change (Admin/Employee)
+  const handleBaseRoleChange = async (newBaseRole: BaseRole) => {
     if (!selectedUser || !user) return;
     
     if (selectedUser.user_id === user.id) {
@@ -272,43 +309,113 @@ export default function AdminUsers() {
 
     try {
       setSaving(true);
-      const oldRole = selectedUser.role;
+      const oldRole = selectedUser.base_role;
+
+      // Map base_role to app_role enum: admin -> 'admin', employee -> 'timekeeper'
+      const appRole = newBaseRole === 'admin' ? 'admin' : 'timekeeper';
 
       const { error: roleError } = await supabase
         .from('user_roles')
-        .update({ role: newRole })
-        .eq('user_id', selectedUser.user_id);
+        .upsert({ 
+          user_id: selectedUser.user_id, 
+          role: appRole 
+        }, { onConflict: 'user_id,role' });
 
-      if (roleError) throw roleError;
+      if (roleError) {
+        // Try update if upsert fails
+        const { error: updateError } = await supabase
+          .from('user_roles')
+          .update({ role: appRole })
+          .eq('user_id', selectedUser.user_id);
+        
+        if (updateError) throw updateError;
+      }
 
-      const { error: initError } = await supabase.rpc('initialize_user_permissions', {
-        _user_id: selectedUser.user_id,
-        _role: newRole,
-        _granted_by: user.id,
-      });
-
-      if (initError) throw initError;
-
+      // Log the change
       await supabase
         .from('permission_audit_logs')
         .insert({
           actor_user_id: user.id,
           target_user_id: selectedUser.user_id,
           change_type: 'ROLE_CHANGE',
-          details: { old_role: oldRole, new_role: newRole },
+          details: { old_base_role: oldRole, new_base_role: newBaseRole },
         });
 
-      setSelectedUser({ ...selectedUser, role: newRole });
+      // Update local state
+      const updatedUser = { ...selectedUser, base_role: newBaseRole };
+      setSelectedUser(updatedUser);
       setUsers(users.map(u => 
-        u.user_id === selectedUser.user_id ? { ...u, role: newRole } : u
+        u.user_id === selectedUser.user_id ? updatedUser : u
       ));
 
-      await fetchUserPermissions(selectedUser.user_id);
-
-      toast.success(language === 'el' ? 'Ο ρόλος ενημερώθηκε επιτυχώς' : 'Role updated successfully');
+      toast.success(language === 'el' ? 'Ο βασικός ρόλος ενημερώθηκε' : 'Base role updated');
     } catch (error) {
-      console.error('Error updating role:', error);
+      console.error('Error updating base role:', error);
       toast.error(language === 'el' ? 'Αποτυχία ενημέρωσης ρόλου' : 'Failed to update role');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Handle template assignment toggle
+  const handleTemplateToggle = async (templateId: string, assigned: boolean) => {
+    if (!selectedUser || !user) return;
+
+    try {
+      setSaving(true);
+
+      if (assigned) {
+        // Assign template
+        const { error } = await supabase
+          .from('user_permission_templates')
+          .insert({
+            user_id: selectedUser.user_id,
+            template_id: templateId,
+            assigned_by: user.id,
+          });
+        if (error) throw error;
+        setUserTemplateIds(prev => [...prev, templateId]);
+      } else {
+        // Remove template
+        const { error } = await supabase
+          .from('user_permission_templates')
+          .delete()
+          .eq('user_id', selectedUser.user_id)
+          .eq('template_id', templateId);
+        if (error) throw error;
+        setUserTemplateIds(prev => prev.filter(id => id !== templateId));
+      }
+
+      // Log the change
+      const template = templates.find(t => t.id === templateId);
+      await supabase
+        .from('permission_audit_logs')
+        .insert({
+          actor_user_id: user.id,
+          target_user_id: selectedUser.user_id,
+          change_type: assigned ? 'TEMPLATE_ASSIGNED' : 'TEMPLATE_REMOVED',
+          details: { template_id: templateId, template_name: template?.name },
+        });
+
+      // Update local state for selected user's templates
+      const updatedTemplates = assigned
+        ? [...selectedUser.assigned_templates, templates.find(t => t.id === templateId)!].filter(Boolean)
+        : selectedUser.assigned_templates.filter(t => t.id !== templateId);
+      
+      const updatedUser = { ...selectedUser, assigned_templates: updatedTemplates };
+      setSelectedUser(updatedUser);
+      setUsers(users.map(u => 
+        u.user_id === selectedUser.user_id ? updatedUser : u
+      ));
+
+      toast.success(
+        assigned 
+          ? (language === 'el' ? 'Ο ρόλος ανατέθηκε' : 'Role assigned')
+          : (language === 'el' ? 'Ο ρόλος αφαιρέθηκε' : 'Role removed')
+      );
+    } catch (error) {
+      console.error('Error toggling template:', error);
+      toast.error(language === 'el' ? 'Αποτυχία ενημέρωσης' : 'Failed to update');
     } finally {
       setSaving(false);
     }
@@ -318,13 +425,10 @@ export default function AdminUsers() {
   const handleModuleAccessToggle = async (moduleKey: string, canAccess: boolean) => {
     if (!selectedUser || !user) return;
     
-    if (selectedUser.role !== 'admin') {
+    // Check if this is locked for non-admin users
+    if (selectedUser.base_role !== 'admin') {
       if (moduleKey === 'admin_console') {
         toast.error(language === 'el' ? 'Η πρόσβαση στην Κονσόλα Διαχειριστή είναι περιορισμένη' : 'Admin Console access is restricted');
-        return;
-      }
-      if (moduleKey === 'timekeeping' && !canAccess) {
-        toast.error(language === 'el' ? 'Η πρόσβαση στο Χρονοκαταγραφή δεν μπορεί να απενεργοποιηθεί' : 'Timekeeping access cannot be disabled');
         return;
       }
     }
@@ -369,19 +473,6 @@ export default function AdminUsers() {
   const handleActionToggle = async (actionKey: string, allowed: boolean) => {
     if (!selectedUser || !user) return;
 
-    if (selectedUser.role === 'timekeeper') {
-      const lockedActions = [
-        'timekeeping.entries.approve_requests',
-        'timekeeping.employees.manage',
-        'timekeeping.projects.manage',
-        'timekeeping.reports.export',
-      ];
-      if (lockedActions.includes(actionKey) && allowed) {
-        toast.error(language === 'el' ? 'Αυτή η ενέργεια δεν είναι διαθέσιμη για τον ρόλο Χρονομέτρη' : 'Not available for Timekeeper role');
-        return;
-      }
-    }
-
     try {
       setSaving(true);
 
@@ -418,7 +509,7 @@ export default function AdminUsers() {
     }
   };
 
-  // Apply template
+  // Apply template (quick apply from Access tab)
   const handleApplyTemplate = async () => {
     if (!selectedUser || !user || !selectedTemplateId) return;
 
@@ -438,15 +529,10 @@ export default function AdminUsers() {
 
       // Apply module access
       for (const tm of templateModules || []) {
-        // Enforce role restrictions
         let canAccess = tm.can_access;
-        if (selectedUser.role !== 'admin') {
-          if (tm.module_key === 'admin_console' || tm.module_key === 'procurement') {
-            canAccess = false;
-          }
-          if (tm.module_key === 'timekeeping') {
-            canAccess = true;
-          }
+        // Enforce: non-admin cannot access admin_console
+        if (selectedUser.base_role !== 'admin' && tm.module_key === 'admin_console') {
+          canAccess = false;
         }
 
         await supabase
@@ -461,29 +547,24 @@ export default function AdminUsers() {
 
       // Apply action permissions
       for (const ta of templateActions || []) {
-        // Enforce role restrictions for timekeeper
-        let allowed = ta.allowed;
-        if (selectedUser.role === 'timekeeper') {
-          const lockedActions = [
-            'timekeeping.entries.approve_requests',
-            'timekeeping.employees.manage',
-            'timekeeping.projects.manage',
-            'timekeeping.reports.export',
-          ];
-          if (lockedActions.includes(ta.action_key)) {
-            allowed = false;
-          }
-        }
-
         await supabase
           .from('user_module_actions')
           .upsert({
             user_id: selectedUser.user_id,
             action_key: ta.action_key,
-            allowed: allowed,
+            allowed: ta.allowed,
             granted_by: user.id,
           }, { onConflict: 'user_id,action_key' });
       }
+
+      // Also assign the template to the user
+      await supabase
+        .from('user_permission_templates')
+        .upsert({
+          user_id: selectedUser.user_id,
+          template_id: selectedTemplateId,
+          assigned_by: user.id,
+        }, { onConflict: 'user_id,template_id' });
 
       // Log the change
       const template = templates.find(t => t.id === selectedTemplateId);
@@ -499,6 +580,9 @@ export default function AdminUsers() {
       toast.success(language === 'el' ? 'Ο ρόλος εφαρμόστηκε' : 'Role applied');
       setShowTemplateModal(false);
       await fetchUserPermissions(selectedUser.user_id);
+      
+      // Refresh user list to update template badges
+      await fetchUsers();
     } catch (error) {
       console.error('Error applying template:', error);
       toast.error(language === 'el' ? 'Αποτυχία εφαρμογής' : 'Failed to apply role');
@@ -510,21 +594,9 @@ export default function AdminUsers() {
   // Check if module is locked
   const isModuleLocked = (moduleKey: string): boolean => {
     if (!selectedUser) return false;
-    if (selectedUser.role === 'admin') return false;
-    return moduleKey === 'timekeeping' || moduleKey === 'admin_console' || moduleKey === 'procurement';
-  };
-
-  // Check if action is locked
-  const isActionLocked = (actionKey: string): boolean => {
-    if (!selectedUser) return false;
-    if (selectedUser.role === 'admin' || selectedUser.role === 'hr') return false;
-    const lockedActions = [
-      'timekeeping.entries.approve_requests',
-      'timekeeping.employees.manage',
-      'timekeeping.projects.manage',
-      'timekeeping.reports.export',
-    ];
-    return lockedActions.includes(actionKey);
+    if (selectedUser.base_role === 'admin') return false;
+    // Non-admin: admin_console is always locked OFF
+    return moduleKey === 'admin_console';
   };
 
   // Handle invite user
@@ -595,7 +667,7 @@ export default function AdminUsers() {
       await supabase.from('permission_audit_logs').insert({
         actor_user_id: user.id,
         target_user_id: selectedUser.user_id,
-        change_type: 'ROLE_CHANGE',
+        change_type: 'STATUS_CHANGE',
         details: { action: 'STATUS_CHANGE', is_active: newStatus },
       });
 
@@ -618,20 +690,13 @@ export default function AdminUsers() {
     }
   };
 
-  const getRoleBadgeVariant = (role: AppRole) => {
-    switch (role) {
-      case 'admin': return 'default';
-      case 'hr': return 'secondary';
-      default: return 'outline';
-    }
+  const getBaseRoleBadgeVariant = (role: BaseRole) => {
+    return role === 'admin' ? 'default' : 'secondary';
   };
 
-  const getRoleLabel = (role: AppRole) => {
-    switch (role) {
-      case 'admin': return language === 'el' ? 'Διαχειριστής' : 'Admin';
-      case 'hr': return 'HR';
-      case 'timekeeper': return language === 'el' ? 'Χρονομέτρης' : 'Timekeeper';
-    }
+  const getBaseRoleLabel = (role: BaseRole) => {
+    if (role === 'admin') return language === 'el' ? 'Διαχειριστής' : 'Admin';
+    return language === 'el' ? 'Υπάλληλος' : 'Employee';
   };
 
   const getChangeTypeLabel = (type: string) => {
@@ -640,6 +705,9 @@ export default function AdminUsers() {
       case 'MODULE_ACCESS': return language === 'el' ? 'Πρόσβαση Module' : 'Module Access';
       case 'ACTION_PERMISSION': return language === 'el' ? 'Δικαίωμα Ενέργειας' : 'Action Permission';
       case 'TEMPLATE_APPLIED': return language === 'el' ? 'Εφαρμογή Ρόλου' : 'Role Applied';
+      case 'TEMPLATE_ASSIGNED': return language === 'el' ? 'Ανάθεση Ρόλου' : 'Role Assigned';
+      case 'TEMPLATE_REMOVED': return language === 'el' ? 'Αφαίρεση Ρόλου' : 'Role Removed';
+      case 'STATUS_CHANGE': return language === 'el' ? 'Αλλαγή Κατάστασης' : 'Status Change';
       default: return type;
     }
   };
@@ -671,8 +739,8 @@ export default function AdminUsers() {
         </h1>
         <p className="text-muted-foreground">
           {language === 'el' 
-            ? 'Διαχείριση χρηστών, ρόλων και δικαιωμάτων' 
-            : 'Manage users, roles, and permissions'}
+            ? 'Διαχείριση χρηστών, βασικών ρόλων και ρόλων δικαιωμάτων' 
+            : 'Manage users, base roles, and permission roles'}
         </p>
       </div>
 
@@ -716,7 +784,7 @@ export default function AdminUsers() {
                     )}
                   >
                     <div className={cn(
-                      "flex items-center justify-center w-10 h-10 rounded-full",
+                      "flex items-center justify-center w-10 h-10 rounded-full shrink-0",
                       u.is_active ? "bg-muted" : "bg-destructive/10"
                     )}>
                       <User className={cn(
@@ -731,10 +799,25 @@ export default function AdminUsers() {
                       <p className="text-xs text-muted-foreground truncate">
                         {u.email}
                       </p>
+                      {/* Template badges */}
+                      {u.assigned_templates.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {u.assigned_templates.slice(0, 2).map(t => (
+                            <Badge key={t.id} variant="outline" className="text-[10px] px-1.5 py-0">
+                              {t.name}
+                            </Badge>
+                          ))}
+                          {u.assigned_templates.length > 2 && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                              +{u.assigned_templates.length - 2}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <Badge variant={getRoleBadgeVariant(u.role)} className="shrink-0">
-                        {getRoleLabel(u.role)}
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <Badge variant={getBaseRoleBadgeVariant(u.base_role)} className="shrink-0">
+                        {getBaseRoleLabel(u.base_role)}
                       </Badge>
                       {!u.is_active && (
                         <Badge variant="destructive" className="text-xs">
@@ -766,10 +849,22 @@ export default function AdminUsers() {
                     </CardTitle>
                     <CardDescription>{selectedUser.email}</CardDescription>
                   </div>
-                  <Badge variant={getRoleBadgeVariant(selectedUser.role)} className="text-sm px-3 py-1">
-                    {getRoleLabel(selectedUser.role)}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={getBaseRoleBadgeVariant(selectedUser.base_role)} className="text-sm px-3 py-1">
+                      {getBaseRoleLabel(selectedUser.base_role)}
+                    </Badge>
+                  </div>
                 </div>
+                {/* Assigned Templates Display */}
+                {selectedUser.assigned_templates.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {selectedUser.assigned_templates.map(t => (
+                      <Badge key={t.id} variant="outline" className="text-xs">
+                        {t.name}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
               </CardHeader>
               <CardContent>
                 <Tabs defaultValue="profile" className="w-full">
@@ -804,28 +899,95 @@ export default function AdminUsers() {
                         </p>
                       </div>
                       <Separator />
+                      
+                      {/* Base Role Dropdown - NEW */}
                       <div>
-                        <Label htmlFor="role-select">{language === 'el' ? 'Ρόλος' : 'Role'}</Label>
+                        <Label htmlFor="base-role-select">
+                          {language === 'el' ? 'Βασικός Ρόλος' : 'Base Role'}
+                        </Label>
                         <Select
-                          value={selectedUser.role}
-                          onValueChange={(value) => handleRoleChange(value as AppRole)}
+                          value={selectedUser.base_role}
+                          onValueChange={(value) => handleBaseRoleChange(value as BaseRole)}
                           disabled={saving || selectedUser.user_id === user?.id}
                         >
-                          <SelectTrigger id="role-select" className="mt-2">
+                          <SelectTrigger id="base-role-select" className="mt-2">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="admin">
                               {language === 'el' ? 'Διαχειριστής' : 'Admin'}
                             </SelectItem>
-                            <SelectItem value="hr">HR</SelectItem>
-                            <SelectItem value="timekeeper">
-                              {language === 'el' ? 'Χρονομέτρης' : 'Timekeeper'}
+                            <SelectItem value="employee">
+                              {language === 'el' ? 'Υπάλληλος' : 'Employee'}
                             </SelectItem>
                           </SelectContent>
                         </Select>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          {language === 'el' 
+                            ? 'Ο Διαχειριστής έχει πλήρη πρόσβαση. Ο Υπάλληλος χρειάζεται ρόλους δικαιωμάτων.' 
+                            : 'Admin has full access. Employee needs permission roles.'}
+                        </p>
+                        {selectedUser.user_id === user?.id && (
+                          <p className="text-xs text-amber-600 mt-1">
+                            {language === 'el' 
+                              ? 'Δεν μπορείτε να αλλάξετε τον δικό σας ρόλο' 
+                              : 'You cannot change your own role'}
+                          </p>
+                        )}
                       </div>
+
                       <Separator />
+
+                      {/* Permission Templates Multi-Select - NEW */}
+                      <div>
+                        <Label>
+                          {language === 'el' ? 'Ρόλοι Δικαιωμάτων' : 'Permission Roles'}
+                        </Label>
+                        <p className="text-xs text-muted-foreground mt-1 mb-3">
+                          {language === 'el' 
+                            ? 'Επιλέξτε τους ρόλους δικαιωμάτων για αυτόν τον χρήστη' 
+                            : 'Select permission roles for this user'}
+                        </p>
+                        <div className="border rounded-md p-3 space-y-2 max-h-48 overflow-y-auto">
+                          {templates.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-2">
+                              {language === 'el' ? 'Δεν υπάρχουν ρόλοι' : 'No roles available'}
+                            </p>
+                          ) : (
+                            templates.map(t => {
+                              const isAssigned = userTemplateIds.includes(t.id);
+                              return (
+                                <div key={t.id} className="flex items-center gap-3 p-2 rounded hover:bg-muted/50">
+                                  <Checkbox
+                                    id={`user-template-${t.id}`}
+                                    checked={isAssigned}
+                                    onCheckedChange={(checked) => handleTemplateToggle(t.id, !!checked)}
+                                    disabled={saving}
+                                  />
+                                  <label 
+                                    htmlFor={`user-template-${t.id}`}
+                                    className="text-sm cursor-pointer flex-1"
+                                  >
+                                    <span className="font-medium">{t.name}</span>
+                                    {t.description && (
+                                      <span className="text-xs text-muted-foreground ml-2">
+                                        – {t.description}
+                                      </span>
+                                    )}
+                                  </label>
+                                  {isAssigned && (
+                                    <Check className="h-4 w-4 text-green-500" />
+                                  )}
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+
+                      <Separator />
+
+                      {/* Active Status Toggle */}
                       <div className="flex items-center justify-between p-4 rounded-lg border">
                         <div className="flex items-center gap-3">
                           <Power className={cn(
@@ -875,7 +1037,7 @@ export default function AdminUsers() {
                             disabled={templates.length === 0}
                           >
                             <FileStack className="h-4 w-4 mr-2" />
-                            {language === 'el' ? 'Εφαρμογή Ρόλου' : 'Apply Role'}
+                            {language === 'el' ? 'Γρήγορη Εφαρμογή Ρόλου' : 'Quick Apply Role'}
                           </Button>
                         </div>
 
@@ -910,8 +1072,8 @@ export default function AdminUsers() {
                                         </TooltipTrigger>
                                         <TooltipContent>
                                           {language === 'el' 
-                                            ? 'Περιορισμένο από πολιτική συστήματος' 
-                                            : 'Restricted by system policy'}
+                                            ? 'Περιορισμένο - μόνο για Διαχειριστές' 
+                                            : 'Restricted - Admins only'}
                                         </TooltipContent>
                                       </Tooltip>
                                     )}
@@ -936,53 +1098,35 @@ export default function AdminUsers() {
                             {language === 'el' ? 'Ενέργειες Χρονοκαταγραφής' : 'Timekeeping Actions'}
                           </h3>
                           <div className="space-y-2">
-                            {actionPermissions.map((action) => {
-                              const locked = isActionLocked(action.action_key);
-                              return (
-                                <div
-                                  key={action.action_key}
-                                  className={cn(
-                                    'flex items-center justify-between p-3 rounded-lg border',
-                                    locked ? 'bg-muted/50 opacity-60' : 'bg-card'
+                            {actionPermissions.map((action) => (
+                              <div
+                                key={action.action_key}
+                                className="flex items-center justify-between p-3 rounded-lg border bg-card"
+                              >
+                                <div className="flex items-center gap-3">
+                                  {action.allowed ? (
+                                    <CheckCircle className="h-4 w-4 text-green-500" />
+                                  ) : (
+                                    <XCircle className="h-4 w-4 text-muted-foreground" />
                                   )}
-                                >
-                                  <div className="flex items-center gap-3">
-                                    {action.allowed ? (
-                                      <CheckCircle className="h-4 w-4 text-green-500" />
-                                    ) : (
-                                      <XCircle className="h-4 w-4 text-muted-foreground" />
-                                    )}
-                                    <div>
-                                      <span className="text-sm font-medium">
-                                        {formatActionKey(action.action_key)}
-                                      </span>
-                                      {action.description && (
-                                        <p className="text-xs text-muted-foreground">
-                                          {action.description}
-                                        </p>
-                                      )}
-                                    </div>
-                                    {locked && (
-                                      <Tooltip>
-                                        <TooltipTrigger>
-                                          <Lock className="h-4 w-4 text-muted-foreground" />
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          {language === 'el' 
-                                            ? 'Μη διαθέσιμο για αυτόν τον ρόλο' 
-                                            : 'Not available for this role'}
-                                        </TooltipContent>
-                                      </Tooltip>
+                                  <div>
+                                    <span className="text-sm font-medium">
+                                      {formatActionKey(action.action_key)}
+                                    </span>
+                                    {action.description && (
+                                      <p className="text-xs text-muted-foreground">
+                                        {action.description}
+                                      </p>
                                     )}
                                   </div>
-                                  <Switch
-                                    checked={action.allowed}
-                                    onCheckedChange={(checked) => handleActionToggle(action.action_key, checked)}
-                                    disabled={saving || locked}
-                                  />
                                 </div>
-                              );
-                            })}
+                                <Switch
+                                  checked={action.allowed}
+                                  onCheckedChange={(checked) => handleActionToggle(action.action_key, checked)}
+                                  disabled={saving}
+                                />
+                              </div>
+                            ))}
                           </div>
                         </div>
 
@@ -996,13 +1140,13 @@ export default function AdminUsers() {
                             <ul className="list-disc list-inside space-y-1 text-xs">
                               <li>
                                 {language === 'el' 
-                                  ? 'Οι Admin έχουν πλήρη πρόσβαση' 
-                                  : 'Admins have full access'}
+                                  ? 'Οι Διαχειριστές έχουν πλήρη πρόσβαση σε όλα τα modules' 
+                                  : 'Admins have full access to all modules'}
                               </li>
                               <li>
                                 {language === 'el' 
-                                  ? 'Οι HR & Timekeeper έχουν μόνο πρόσβαση στο Timekeeping' 
-                                  : 'HR & Timekeeper only access Timekeeping'}
+                                  ? 'Οι Υπάλληλοι λαμβάνουν δικαιώματα μέσω ρόλων δικαιωμάτων' 
+                                  : 'Employees get permissions via permission roles'}
                               </li>
                             </ul>
                           </div>
@@ -1130,8 +1274,8 @@ export default function AdminUsers() {
               </Select>
               <p className="text-xs text-muted-foreground">
                 {language === 'el' 
-                  ? 'Admin έχει πλήρη πρόσβαση. Employee χρειάζεται permission templates.'
-                  : 'Admin has full access. Employee needs permission templates.'}
+                  ? 'Ο Διαχειριστής έχει πλήρη πρόσβαση. Ο Υπάλληλος χρειάζεται ρόλους δικαιωμάτων.'
+                  : 'Admin has full access. Employee needs permission roles.'}
               </p>
             </div>
             <div className="space-y-2">
@@ -1151,12 +1295,10 @@ export default function AdminUsers() {
                 ) : (
                   templates.map(t => (
                     <div key={t.id} className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         id={`template-${t.id}`}
                         checked={inviteTemplateIds.includes(t.id)}
-                        onChange={() => toggleInviteTemplate(t.id)}
-                        className="h-4 w-4 rounded border-gray-300"
+                        onCheckedChange={() => toggleInviteTemplate(t.id)}
                       />
                       <label 
                         htmlFor={`template-${t.id}`}
@@ -1203,7 +1345,7 @@ export default function AdminUsers() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileStack className="h-5 w-5" />
-              {language === 'el' ? 'Εφαρμογή Ρόλου' : 'Apply Role'}
+              {language === 'el' ? 'Γρήγορη Εφαρμογή Ρόλου' : 'Quick Apply Role'}
             </DialogTitle>
             <DialogDescription>
               {language === 'el'
@@ -1246,8 +1388,8 @@ export default function AdminUsers() {
               <Info className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
               <p className="text-xs text-amber-700 dark:text-amber-300">
                 {language === 'el'
-                  ? 'Οι περιορισμοί ρόλων θα εφαρμοστούν αυτόματα.'
-                  : 'Role restrictions will be enforced automatically.'}
+                  ? 'Αυτό θα εφαρμόσει τα δικαιώματα του ρόλου και θα τον αναθέσει στον χρήστη.'
+                  : 'This will apply the role permissions and assign it to the user.'}
               </p>
             </div>
           </div>
@@ -1266,10 +1408,7 @@ export default function AdminUsers() {
               {applyingTemplate ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <>
-                  <Check className="h-4 w-4 mr-2" />
-                  {language === 'el' ? 'Εφαρμογή' : 'Apply'}
-                </>
+                language === 'el' ? 'Εφαρμογή' : 'Apply'
               )}
             </Button>
           </DialogFooter>
