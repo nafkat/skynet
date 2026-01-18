@@ -113,7 +113,7 @@ export function Sidebar() {
       show: hasElevatedRole 
     },
     { 
-      path: '/admin/audit-log', 
+      path: '/admin/audit', 
       icon: ClipboardList, 
       label: language === 'el' ? 'Ημερολόγιο Ελέγχου' : 'Audit Log',
       show: hasElevatedRole 
