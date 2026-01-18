@@ -130,10 +130,13 @@ export default function AdminUsers() {
   // Original (saved) values for the selected user
   const [savedBaseRole, setSavedBaseRole] = useState<BaseRole>('employee');
   const [savedTemplateIds, setSavedTemplateIds] = useState<string[]>([]);
+  const [savedFullName, setSavedFullName] = useState<string>('');
   
-  // Draft state for permissions (editable, not yet saved)
+  // Draft state for permissions and profile (editable, not yet saved)
   const [draftBaseRole, setDraftBaseRole] = useState<BaseRole>('employee');
   const [draftTemplateIds, setDraftTemplateIds] = useState<string[]>([]);
+  const [draftFullName, setDraftFullName] = useState<string>('');
+  const [nameError, setNameError] = useState<string | null>(null);
 
   // Invite user modal state
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -158,6 +161,21 @@ export default function AdminUsers() {
   const [showCriticalPermissionWarning, setShowCriticalPermissionWarning] = useState(false);
   const [pendingSaveAction, setPendingSaveAction] = useState<(() => Promise<void>) | null>(null);
 
+  // Validate name
+  const validateName = (name: string): string | null => {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      return language === 'el' ? 'Το όνομα είναι υποχρεωτικό' : 'Name is required';
+    }
+    if (trimmed.length < 2) {
+      return language === 'el' ? 'Το όνομα πρέπει να έχει τουλάχιστον 2 χαρακτήρες' : 'Name must be at least 2 characters';
+    }
+    if (trimmed.length > 80) {
+      return language === 'el' ? 'Το όνομα πρέπει να είναι λιγότερο από 80 χαρακτήρες' : 'Name must be less than 80 characters';
+    }
+    return null;
+  };
+
   // Check if there are unsaved changes
   const hasUnsavedChanges = useMemo(() => {
     if (!selectedUser) return false;
@@ -165,8 +183,14 @@ export default function AdminUsers() {
     const templatesChanged = 
       draftTemplateIds.length !== savedTemplateIds.length ||
       !draftTemplateIds.every(id => savedTemplateIds.includes(id));
-    return baseRoleChanged || templatesChanged;
-  }, [selectedUser, draftBaseRole, savedBaseRole, draftTemplateIds, savedTemplateIds]);
+    const nameChanged = draftFullName.trim() !== savedFullName.trim();
+    return baseRoleChanged || templatesChanged || nameChanged;
+  }, [selectedUser, draftBaseRole, savedBaseRole, draftTemplateIds, savedTemplateIds, draftFullName, savedFullName]);
+
+  // Check if form is valid (for save button)
+  const isFormValid = useMemo(() => {
+    return !validateName(draftFullName);
+  }, [draftFullName, language]);
 
   // Check if this is a pending/invited user (hasn't logged in yet)
   // A user is Pending ONLY if they have never logged in (last_sign_in_at is NULL)
@@ -355,6 +379,9 @@ export default function AdminUsers() {
     if (selectedUser) {
       setSavedBaseRole(selectedUser.base_role);
       setDraftBaseRole(selectedUser.base_role);
+      setSavedFullName(selectedUser.full_name || '');
+      setDraftFullName(selectedUser.full_name || '');
+      setNameError(null);
       fetchUserPermissions(selectedUser.user_id);
     }
   }, [selectedUser, fetchUserPermissions]);
@@ -416,6 +443,14 @@ export default function AdminUsers() {
 
   const performSave = async () => {
     if (!selectedUser || !user) return;
+
+    // Validate name before saving
+    const trimmedName = draftFullName.trim();
+    const nameValidationError = validateName(draftFullName);
+    if (nameValidationError) {
+      setNameError(nameValidationError);
+      return;
+    }
 
     try {
       setSaving(true);
@@ -514,9 +549,42 @@ export default function AdminUsers() {
         });
       }
 
+      // Update name if changed
+      const nameChanged = trimmedName !== savedFullName.trim();
+      if (nameChanged) {
+        const { error: nameError } = await supabase
+          .from('profiles')
+          .update({ 
+            full_name: trimmedName,
+            display_name: trimmedName, // Keep display_name in sync
+            updated_at: new Date().toISOString(),
+          })
+          .eq('user_id', selectedUser.user_id);
+
+        if (nameError) throw nameError;
+
+        // Log the name change
+        await supabase
+          .from('permission_audit_logs')
+          .insert({
+            actor_user_id: user.id,
+            target_user_id: selectedUser.user_id,
+            change_type: 'PROFILE_NAME_CHANGE',
+            details: { 
+              old_name: savedFullName,
+              new_name: trimmedName,
+              actor_email: user.email,
+            },
+          });
+
+        changes.push('name');
+      }
+
       // Update saved state
       setSavedBaseRole(draftBaseRole);
       setSavedTemplateIds(draftTemplateIds);
+      setSavedFullName(trimmedName);
+      setDraftFullName(trimmedName);
 
       // Update local user list
       const updatedTemplates = templates.filter(t => draftTemplateIds.includes(t.id));
@@ -524,6 +592,8 @@ export default function AdminUsers() {
         ...selectedUser, 
         base_role: draftBaseRole,
         assigned_templates: updatedTemplates,
+        full_name: trimmedName,
+        display_name: trimmedName,
       };
       setSelectedUser(updatedUser);
       setUsers(users.map(u => 
@@ -549,6 +619,15 @@ export default function AdminUsers() {
   const handleCancelChanges = () => {
     setDraftBaseRole(savedBaseRole);
     setDraftTemplateIds(savedTemplateIds);
+    setDraftFullName(savedFullName);
+    setNameError(null);
+  };
+
+  // Handle name change with validation
+  const handleNameChange = (value: string) => {
+    setDraftFullName(value);
+    const error = validateName(value);
+    setNameError(error);
   };
 
   // Handle template toggle in draft state (no auto-save)
@@ -1033,11 +1112,22 @@ export default function AdminUsers() {
                   {/* Profile Tab */}
                   <TabsContent value="profile" className="space-y-6 pt-4">
                     <div className="space-y-4">
-                      <div>
-                        <Label>{language === 'el' ? 'Όνομα' : 'Name'}</Label>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {selectedUser.full_name || (language === 'el' ? 'Δεν έχει οριστεί' : 'Not set')}
-                        </p>
+                      {/* Editable Name Field */}
+                      <div className="space-y-2">
+                        <Label htmlFor="user-full-name">{language === 'el' ? 'Όνομα' : 'Name'}</Label>
+                        <Input
+                          id="user-full-name"
+                          value={draftFullName}
+                          onChange={(e) => handleNameChange(e.target.value)}
+                          placeholder={language === 'el' ? 'Εισάγετε όνομα...' : 'Enter name...'}
+                          className={cn(
+                            nameError && 'border-destructive focus-visible:ring-destructive'
+                          )}
+                          maxLength={80}
+                        />
+                        {nameError && (
+                          <p className="text-sm text-destructive">{nameError}</p>
+                        )}
                       </div>
                       <div>
                         <Label>Email</Label>
@@ -1183,7 +1273,7 @@ export default function AdminUsers() {
                       <div className="flex items-center gap-3 pt-2">
                         <Button
                           onClick={handleSaveChanges}
-                          disabled={saving || !hasUnsavedChanges || selectedUser.user_id === user?.id}
+                          disabled={saving || !hasUnsavedChanges || !isFormValid || selectedUser.user_id === user?.id}
                           className="flex-1"
                         >
                           {saving ? (
