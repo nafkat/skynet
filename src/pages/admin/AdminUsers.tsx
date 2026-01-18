@@ -107,6 +107,7 @@ export default function AdminUsers() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<AppRole>('timekeeper');
   const [inviteDisplayName, setInviteDisplayName] = useState('');
+  const [inviteTemplateId, setInviteTemplateId] = useState<string>('');
   const [inviting, setInviting] = useState(false);
 
   // Apply template modal state
@@ -537,6 +538,7 @@ export default function AdminUsers() {
           email: inviteEmail.trim(),
           role: inviteRole,
           display_name: inviteDisplayName.trim() || undefined,
+          template_id: inviteTemplateId || undefined,
         },
       });
 
@@ -548,6 +550,7 @@ export default function AdminUsers() {
       setInviteEmail('');
       setInviteRole('timekeeper');
       setInviteDisplayName('');
+      setInviteTemplateId('');
       
       await fetchUsers();
     } catch (error: any) {
@@ -1096,7 +1099,7 @@ export default function AdminUsers() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="invite-role">
-                {language === 'el' ? 'Ρόλος' : 'Role'} *
+                {language === 'el' ? 'Ρόλος Συστήματος' : 'System Role'} *
               </Label>
               <Select
                 value={inviteRole}
@@ -1113,6 +1116,29 @@ export default function AdminUsers() {
                   <SelectItem value="timekeeper">
                     {language === 'el' ? 'Χρονομέτρης' : 'Timekeeper'}
                   </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="invite-template">
+                {language === 'el' ? 'Ρόλος Δικαιωμάτων' : 'Permission Role'}
+              </Label>
+              <Select
+                value={inviteTemplateId}
+                onValueChange={setInviteTemplateId}
+              >
+                <SelectTrigger id="invite-template">
+                  <SelectValue placeholder={language === 'el' ? 'Προαιρετικό...' : 'Optional...'} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">
+                    {language === 'el' ? 'Χωρίς ρόλο' : 'No role'}
+                  </SelectItem>
+                  {templates.map(t => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
