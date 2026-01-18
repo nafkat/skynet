@@ -142,7 +142,7 @@ export default function Login() {
             SKYNET
           </h1>
           <p className="text-muted-foreground mt-2">
-            {language === 'el' ? 'Σύνδεση Admin / HR / Timekeeper' : 'Admin / HR / Timekeeper Sign In'}
+            {language === 'el' ? 'Σύνδεση Χρήστη' : 'User Sign In'}
           </p>
         </div>
 
