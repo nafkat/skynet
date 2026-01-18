@@ -10,6 +10,7 @@ interface InviteRequest {
   email: string;
   role: 'admin' | 'hr' | 'timekeeper';
   display_name?: string;
+  template_id?: string;
 }
 
 serve(async (req) => {
@@ -61,7 +62,7 @@ serve(async (req) => {
     }
 
     // Parse request body
-    const { email, role, display_name }: InviteRequest = await req.json();
+    const { email, role, display_name, template_id }: InviteRequest = await req.json();
 
     if (!email || !role) {
       return new Response(
@@ -133,12 +134,62 @@ serve(async (req) => {
       _granted_by: currentUser.id,
     });
 
+    // If a template was provided, apply it
+    if (template_id && template_id !== 'none') {
+      // Fetch template modules
+      const { data: templateModules } = await adminClient
+        .from("permission_template_modules")
+        .select("module_key, can_access")
+        .eq("template_id", template_id);
+
+      // Fetch template actions
+      const { data: templateActions } = await adminClient
+        .from("permission_template_actions")
+        .select("action_key, allowed")
+        .eq("template_id", template_id);
+
+      // Apply module access from template
+      for (const tm of templateModules || []) {
+        await adminClient.from("user_module_access").upsert({
+          user_id: newUserId,
+          module_key: tm.module_key,
+          can_access: tm.can_access,
+          granted_by: currentUser.id,
+        }, { onConflict: "user_id,module_key" });
+      }
+
+      // Apply action permissions from template
+      for (const ta of templateActions || []) {
+        await adminClient.from("user_module_actions").upsert({
+          user_id: newUserId,
+          action_key: ta.action_key,
+          allowed: ta.allowed,
+          granted_by: currentUser.id,
+        }, { onConflict: "user_id,action_key" });
+      }
+
+      // Get template name for audit log
+      const { data: templateData } = await adminClient
+        .from("permission_templates")
+        .select("name")
+        .eq("id", template_id)
+        .single();
+
+      // Log template application
+      await adminClient.from("permission_audit_logs").insert({
+        actor_user_id: currentUser.id,
+        target_user_id: newUserId,
+        change_type: "TEMPLATE_APPLIED",
+        details: { template_id, template_name: templateData?.name },
+      });
+    }
+
     // Log the permission change
     await adminClient.from("permission_audit_logs").insert({
       actor_user_id: currentUser.id,
       target_user_id: newUserId,
       change_type: "ROLE_CHANGE",
-      details: { action: "INVITE", role: role, email: email },
+      details: { action: "INVITE", role: role, email: email, template_id: template_id || null },
     });
 
     return new Response(
