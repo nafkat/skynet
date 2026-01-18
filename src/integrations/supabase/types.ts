@@ -1516,38 +1516,6 @@ export type Database = {
           },
         ]
       }
-      user_permission_templates: {
-        Row: {
-          assigned_at: string
-          assigned_by: string | null
-          id: string
-          template_id: string
-          user_id: string
-        }
-        Insert: {
-          assigned_at?: string
-          assigned_by?: string | null
-          id?: string
-          template_id: string
-          user_id: string
-        }
-        Update: {
-          assigned_at?: string
-          assigned_by?: string | null
-          id?: string
-          template_id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_permission_templates_template_id_fkey"
-            columns: ["template_id"]
-            isOneToOne: false
-            referencedRelation: "permission_templates"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       user_roles: {
         Row: {
           id: string

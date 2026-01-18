@@ -10,7 +10,6 @@ interface InviteRequest {
   email: string;
   role: 'admin' | 'hr' | 'timekeeper';
   display_name?: string;
-  custom_role_ids?: string[];
 }
 
 serve(async (req) => {
@@ -62,7 +61,7 @@ serve(async (req) => {
     }
 
     // Parse request body
-    const { email, role, display_name, custom_role_ids }: InviteRequest = await req.json();
+    const { email, role, display_name }: InviteRequest = await req.json();
 
     if (!email || !role) {
       return new Response(
@@ -75,14 +74,6 @@ serve(async (req) => {
     if (!["admin", "hr", "timekeeper"].includes(role)) {
       return new Response(
         JSON.stringify({ error: "Invalid role" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Validate custom_role_ids if provided
-    if (custom_role_ids && !Array.isArray(custom_role_ids)) {
-      return new Response(
-        JSON.stringify({ error: "custom_role_ids must be an array" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -135,102 +126,20 @@ serve(async (req) => {
       role: role,
     }, { onConflict: "user_id,role" });
 
-    // Determine if we should use custom role permissions or initialize with base role
-    const hasCustomRole = custom_role_ids && custom_role_ids.length > 0;
+    // Initialize permissions using the database function
+    await adminClient.rpc("initialize_user_permissions", {
+      _user_id: newUserId,
+      _role: role,
+      _granted_by: currentUser.id,
+    });
 
-    if (hasCustomRole) {
-      // When custom role is selected:
-      // 1. First initialize with base timekeeper permissions (creates all module/action records)
-      // 2. Then override with template permissions
-      
-      console.log("Applying custom role permissions for template:", custom_role_ids[0]);
-      
-      // Initialize base permissions first (this creates all module/action records with defaults)
-      await adminClient.rpc("initialize_user_permissions", {
-        _user_id: newUserId,
-        _role: role,
-        _granted_by: currentUser.id,
-      });
-      
-      const templateId = custom_role_ids[0];
-      
-      // Record the template assignment
-      await adminClient.from("user_permission_templates").upsert({
-        user_id: newUserId,
-        template_id: templateId,
-        assigned_by: currentUser.id,
-        assigned_at: new Date().toISOString(),
-      }, { onConflict: "user_id,template_id" });
-
-      // Fetch template configuration
-      const { data: templateModules } = await adminClient
-        .from("permission_template_modules")
-        .select("module_key, can_access")
-        .eq("template_id", templateId);
-
-      const { data: templateActions } = await adminClient
-        .from("permission_template_actions")
-        .select("action_key, allowed")
-        .eq("template_id", templateId);
-
-      console.log("Template modules:", templateModules);
-      console.log("Template actions:", templateActions);
-
-      // Override module access with template values
-      for (const tm of templateModules || []) {
-        await adminClient.from("user_module_access").upsert({
-          user_id: newUserId,
-          module_key: tm.module_key,
-          can_access: tm.can_access,
-          granted_by: currentUser.id,
-        }, { onConflict: "user_id,module_key" });
-      }
-
-      // Override action permissions with template values
-      for (const ta of templateActions || []) {
-        await adminClient.from("user_module_actions").upsert({
-          user_id: newUserId,
-          action_key: ta.action_key,
-          allowed: ta.allowed,
-          granted_by: currentUser.id,
-        }, { onConflict: "user_id,action_key" });
-      }
-
-      // Log template application
-      const { data: templateInfo } = await adminClient
-        .from("permission_templates")
-        .select("name")
-        .eq("id", templateId)
-        .single();
-
-      await adminClient.from("permission_audit_logs").insert({
-        actor_user_id: currentUser.id,
-        target_user_id: newUserId,
-        change_type: "ROLE_ASSIGNED",
-        details: { 
-          template_id: templateId, 
-          template_name: templateInfo?.name,
-          role_type: "custom",
-          base_role: role,
-          email: email
-        },
-      });
-    } else {
-      // No custom role - initialize with base role permissions (admin/hr/timekeeper)
-      await adminClient.rpc("initialize_user_permissions", {
-        _user_id: newUserId,
-        _role: role,
-        _granted_by: currentUser.id,
-      });
-
-      // Log the role assignment
-      await adminClient.from("permission_audit_logs").insert({
-        actor_user_id: currentUser.id,
-        target_user_id: newUserId,
-        change_type: "ROLE_ASSIGNED",
-        details: { action: "INVITE", role: role, role_type: "system", email: email },
-      });
-    }
+    // Log the permission change
+    await adminClient.from("permission_audit_logs").insert({
+      actor_user_id: currentUser.id,
+      target_user_id: newUserId,
+      change_type: "ROLE_CHANGE",
+      details: { action: "INVITE", role: role, email: email },
+    });
 
     return new Response(
       JSON.stringify({ 

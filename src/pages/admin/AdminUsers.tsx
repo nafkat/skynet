@@ -29,8 +29,7 @@ import {
   UserPlus,
   Power,
   FileStack,
-  Check,
-  AlertTriangle
+  Check
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -86,12 +85,6 @@ interface PermissionTemplate {
   description: string | null;
 }
 
-interface UserTemplateAssignment {
-  template_id: string;
-  template_name: string;
-  assigned_at: string;
-}
-
 export default function AdminUsers() {
   const { user } = useAuth();
   const { language } = useLanguage();
@@ -107,16 +100,14 @@ export default function AdminUsers() {
   const [moduleAccess, setModuleAccess] = useState<ModuleAccessRecord[]>([]);
   const [actionPermissions, setActionPermissions] = useState<ActionPermissionRecord[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogRecord[]>([]);
-  const [userTemplates, setUserTemplates] = useState<UserTemplateAssignment[]>([]);
   const [permissionsLoading, setPermissionsLoading] = useState(false);
 
   // Invite user modal state
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteSelectedRole, setInviteSelectedRole] = useState<string>('timekeeper'); // can be 'admin'|'hr'|'timekeeper' or a template id
+  const [inviteRole, setInviteRole] = useState<AppRole>('timekeeper');
   const [inviteDisplayName, setInviteDisplayName] = useState('');
   const [inviting, setInviting] = useState(false);
-  const [availableTemplates, setAvailableTemplates] = useState<PermissionTemplate[]>([]);
 
   // Apply template modal state
   const [showTemplateModal, setShowTemplateModal] = useState(false);
@@ -124,11 +115,6 @@ export default function AdminUsers() {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [overwritePermissions, setOverwritePermissions] = useState(true);
   const [applyingTemplate, setApplyingTemplate] = useState(false);
-
-  // Helper to check if user has privileged role (cannot be deactivated)
-  const isPrivilegedRole = (role: AppRole): boolean => {
-    return role === 'admin' || role === 'hr' || role === 'timekeeper';
-  };
 
   // Fetch all users with roles
   const fetchUsers = useCallback(async () => {
@@ -246,28 +232,6 @@ export default function AdminUsers() {
       }));
       setAuditLogs(logsWithActors);
 
-      // Fetch user's assigned custom roles (templates)
-      const { data: userTemplatesData } = await supabase
-        .from('user_permission_templates')
-        .select('template_id, assigned_at')
-        .eq('user_id', userId);
-
-      if (userTemplatesData && userTemplatesData.length > 0) {
-        const templateIds = userTemplatesData.map(ut => ut.template_id);
-        const { data: templateNames } = await supabase
-          .from('permission_templates')
-          .select('id, name')
-          .in('id', templateIds);
-
-        const assignments: UserTemplateAssignment[] = userTemplatesData.map(ut => ({
-          template_id: ut.template_id,
-          template_name: templateNames?.find(t => t.id === ut.template_id)?.name || 'Unknown',
-          assigned_at: ut.assigned_at,
-        }));
-        setUserTemplates(assignments);
-      } else {
-        setUserTemplates([]);
-      }
     } catch (error) {
       console.error('Error fetching permissions:', error);
       toast.error(language === 'el' ? 'Αποτυχία φόρτωσης δικαιωμάτων' : 'Failed to load permissions');
@@ -519,16 +483,6 @@ export default function AdminUsers() {
           }, { onConflict: 'user_id,action_key' });
       }
 
-      // Record the template assignment
-      await supabase
-        .from('user_permission_templates')
-        .upsert({
-          user_id: selectedUser.user_id,
-          template_id: selectedTemplateId,
-          assigned_by: user.id,
-          assigned_at: new Date().toISOString(),
-        }, { onConflict: 'user_id,template_id' });
-
       // Log the change
       const template = templates.find(t => t.id === selectedTemplateId);
       await supabase
@@ -571,65 +525,28 @@ export default function AdminUsers() {
     return lockedActions.includes(actionKey);
   };
 
-  // Fetch available templates for invite modal
-  const fetchAvailableTemplates = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('permission_templates')
-        .select('id, name, description')
-        .order('name');
-
-      if (error) throw error;
-      setAvailableTemplates(data || []);
-    } catch (error) {
-      console.error('Error fetching templates:', error);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchAvailableTemplates();
-  }, [fetchAvailableTemplates]);
-
-  // Helper to check if selected role is a system role
-  const isSystemRole = (roleValue: string): boolean => {
-    return ['admin', 'hr', 'timekeeper'].includes(roleValue);
-  };
-
   // Handle invite user
   const handleInviteUser = async () => {
-    if (!user || !inviteEmail.trim() || !inviteSelectedRole) return;
+    if (!user || !inviteEmail.trim()) return;
 
     try {
       setInviting(true);
 
-      // Determine if it's a system role or custom role
-      const isSystem = isSystemRole(inviteSelectedRole);
-      const baseRole: AppRole = isSystem ? (inviteSelectedRole as AppRole) : 'timekeeper';
-      const customRoleIds = isSystem ? undefined : [inviteSelectedRole];
-
       const { data, error } = await supabase.functions.invoke('invite_user', {
         body: {
           email: inviteEmail.trim(),
-          role: baseRole,
+          role: inviteRole,
           display_name: inviteDisplayName.trim() || undefined,
-          custom_role_ids: customRoleIds,
         },
       });
 
-      // Handle edge function errors properly
-      if (error) {
-        // Check if the error body contains the actual error message
-        const errorMessage = error.message || (language === 'el' ? 'Σφάλμα αποστολής πρόσκλησης' : 'Failed to send invitation');
-        throw new Error(errorMessage);
-      }
-      if (data?.error) {
-        throw new Error(data.error);
-      }
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
       toast.success(language === 'el' ? 'Πρόσκληση εστάλη επιτυχώς' : 'Invitation sent successfully');
       setShowInviteModal(false);
       setInviteEmail('');
-      setInviteSelectedRole('timekeeper');
+      setInviteRole('timekeeper');
       setInviteDisplayName('');
       
       await fetchUsers();
@@ -641,18 +558,12 @@ export default function AdminUsers() {
     }
   };
 
-  // Handle toggle user active status (only for non-privileged roles)
+  // Handle toggle user active status
   const handleToggleActive = async () => {
     if (!selectedUser || !user) return;
     
     if (selectedUser.user_id === user.id) {
       toast.error(language === 'el' ? 'Δεν μπορείτε να απενεργοποιήσετε τον εαυτό σας' : 'You cannot deactivate yourself');
-      return;
-    }
-
-    // Server-side guard: privileged roles cannot be deactivated
-    if (isPrivilegedRole(selectedUser.role)) {
-      toast.error(language === 'el' ? 'Οι προνομιούχοι ρόλοι δεν μπορούν να απενεργοποιηθούν' : 'Privileged roles cannot be deactivated');
       return;
     }
 
@@ -670,7 +581,7 @@ export default function AdminUsers() {
       await supabase.from('permission_audit_logs').insert({
         actor_user_id: user.id,
         target_user_id: selectedUser.user_id,
-        change_type: 'STATUS_CHANGE',
+        change_type: 'ROLE_CHANGE',
         details: { action: 'STATUS_CHANGE', is_active: newStatus },
       });
 
@@ -692,8 +603,6 @@ export default function AdminUsers() {
       setSaving(false);
     }
   };
-
-  // Removed: handleDeleteUser - No hard delete allowed per security policy
 
   const getRoleBadgeVariant = (role: AppRole) => {
     switch (role) {
@@ -903,12 +812,7 @@ export default function AdminUsers() {
                         </Select>
                       </div>
                       <Separator />
-                      <div className={cn(
-                        "flex items-center justify-between p-4 rounded-lg border",
-                        isPrivilegedRole(selectedUser.role) 
-                          ? "bg-muted/50 border-muted" 
-                          : ""
-                      )}>
+                      <div className="flex items-center justify-between p-4 rounded-lg border">
                         <div className="flex items-center gap-3">
                           <Power className={cn(
                             "h-5 w-5",
@@ -924,21 +828,13 @@ export default function AdminUsers() {
                                 : (language === 'el' ? 'Ανενεργός' : 'Inactive')
                               }
                             </p>
-                            {isPrivilegedRole(selectedUser.role) && (
-                              <div className="flex items-center gap-1 mt-1 text-xs text-amber-600 dark:text-amber-400">
-                                <AlertTriangle className="h-3 w-3" />
-                                {language === 'el' 
-                                  ? 'Οι προνομιούχοι ρόλοι δεν μπορούν να απενεργοποιηθούν' 
-                                  : 'Privileged roles cannot be deactivated'}
-                              </div>
-                            )}
                           </div>
                         </div>
                         <Button
                           variant={selectedUser.is_active ? "destructive" : "default"}
                           size="sm"
                           onClick={handleToggleActive}
-                          disabled={saving || selectedUser.user_id === user?.id || isPrivilegedRole(selectedUser.role)}
+                          disabled={saving || selectedUser.user_id === user?.id}
                         >
                           {selectedUser.is_active
                             ? (language === 'el' ? 'Απενεργοποίηση' : 'Deactivate')
@@ -968,26 +864,6 @@ export default function AdminUsers() {
                             {language === 'el' ? 'Εφαρμογή Ρόλου' : 'Apply Role'}
                           </Button>
                         </div>
-
-                        {/* Assigned Custom Roles Section */}
-                        {userTemplates.length > 0 && (
-                          <div className="mb-4">
-                            <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
-                              <FileStack className="h-4 w-4" />
-                              {language === 'el' ? 'Εφαρμοσμένοι Ρόλοι' : 'Applied Custom Roles'}
-                            </h3>
-                            <div className="flex flex-wrap gap-2">
-                              {userTemplates.map((ut) => (
-                                <Badge key={ut.template_id} variant="secondary" className="px-3 py-1">
-                                  {ut.template_name}
-                                  <span className="ml-2 text-xs text-muted-foreground">
-                                    ({format(new Date(ut.assigned_at), 'dd/MM/yyyy')})
-                                  </span>
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                        )}
 
                         {/* Module Access */}
                         <div>
@@ -1223,14 +1099,13 @@ export default function AdminUsers() {
                 {language === 'el' ? 'Ρόλος' : 'Role'} *
               </Label>
               <Select
-                value={inviteSelectedRole}
-                onValueChange={setInviteSelectedRole}
+                value={inviteRole}
+                onValueChange={(value) => setInviteRole(value as AppRole)}
               >
                 <SelectTrigger id="invite-role">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-background border">
-                  {/* System Roles */}
+                <SelectContent>
                   <SelectItem value="admin">
                     {language === 'el' ? 'Διαχειριστής' : 'Admin'}
                   </SelectItem>
@@ -1238,23 +1113,6 @@ export default function AdminUsers() {
                   <SelectItem value="timekeeper">
                     {language === 'el' ? 'Χρονομέτρης' : 'Timekeeper'}
                   </SelectItem>
-                  
-                  {/* Custom Roles - if any exist */}
-                  {availableTemplates.length > 0 && (
-                    <>
-                      <Separator className="my-1" />
-                      {availableTemplates.map((template) => (
-                        <SelectItem key={template.id} value={template.id}>
-                          {template.name}
-                          {template.description && (
-                            <span className="text-muted-foreground ml-1">
-                              — {template.description}
-                            </span>
-                          )}
-                        </SelectItem>
-                      ))}
-                    </>
-                  )}
                 </SelectContent>
               </Select>
             </div>
