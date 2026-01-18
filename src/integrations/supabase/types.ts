@@ -633,28 +633,28 @@ export type Database = {
       }
       permission_audit_logs: {
         Row: {
-          actor_user_id: string
+          actor_user_id: string | null
           change_type: string
           created_at: string
           details: Json
           id: string
-          target_user_id: string
+          target_user_id: string | null
         }
         Insert: {
-          actor_user_id: string
+          actor_user_id?: string | null
           change_type: string
           created_at?: string
           details: Json
           id?: string
-          target_user_id: string
+          target_user_id?: string | null
         }
         Update: {
-          actor_user_id?: string
+          actor_user_id?: string | null
           change_type?: string
           created_at?: string
           details?: Json
           id?: string
-          target_user_id?: string
+          target_user_id?: string | null
         }
         Relationships: []
       }
