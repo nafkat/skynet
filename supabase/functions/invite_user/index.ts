@@ -139,10 +139,18 @@ serve(async (req) => {
     const hasCustomRole = custom_role_ids && custom_role_ids.length > 0;
 
     if (hasCustomRole) {
-      // When custom role is selected, apply ONLY the template permissions
-      // (do NOT call initialize_user_permissions which sets base role defaults)
+      // When custom role is selected:
+      // 1. First initialize with base timekeeper permissions (creates all module/action records)
+      // 2. Then override with template permissions
       
       console.log("Applying custom role permissions for template:", custom_role_ids[0]);
+      
+      // Initialize base permissions first (this creates all module/action records with defaults)
+      await adminClient.rpc("initialize_user_permissions", {
+        _user_id: newUserId,
+        _role: role,
+        _granted_by: currentUser.id,
+      });
       
       const templateId = custom_role_ids[0];
       
@@ -168,7 +176,7 @@ serve(async (req) => {
       console.log("Template modules:", templateModules);
       console.log("Template actions:", templateActions);
 
-      // Apply module access from template directly
+      // Override module access with template values
       for (const tm of templateModules || []) {
         await adminClient.from("user_module_access").upsert({
           user_id: newUserId,
@@ -178,7 +186,7 @@ serve(async (req) => {
         }, { onConflict: "user_id,module_key" });
       }
 
-      // Apply action permissions from template directly
+      // Override action permissions with template values
       for (const ta of templateActions || []) {
         await adminClient.from("user_module_actions").upsert({
           user_id: newUserId,
@@ -203,6 +211,7 @@ serve(async (req) => {
           template_id: templateId, 
           template_name: templateInfo?.name,
           role_type: "custom",
+          base_role: role,
           email: email
         },
       });
