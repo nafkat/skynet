@@ -710,6 +710,32 @@ export type Database = {
           },
         ]
       }
+      permission_template_permissions: {
+        Row: {
+          allowed: boolean
+          permission_key: string
+          template_id: string
+        }
+        Insert: {
+          allowed?: boolean
+          permission_key: string
+          template_id: string
+        }
+        Update: {
+          allowed?: boolean
+          permission_key?: string
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "permission_template_permissions_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "permission_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       permission_templates: {
         Row: {
           created_at: string
@@ -803,6 +829,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          base_role: string | null
           created_at: string
           display_name: string | null
           full_name: string | null
@@ -813,6 +840,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          base_role?: string | null
           created_at?: string
           display_name?: string | null
           full_name?: string | null
@@ -823,6 +851,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          base_role?: string | null
           created_at?: string
           display_name?: string | null
           full_name?: string | null
@@ -1548,6 +1577,27 @@ export type Database = {
           },
         ]
       }
+      user_permissions: {
+        Row: {
+          allowed: boolean
+          permission_key: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          allowed?: boolean
+          permission_key: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          allowed?: boolean
+          permission_key?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -1694,6 +1744,10 @@ export type Database = {
         Args: { _module_key: string; _user_id: string }
         Returns: boolean
       }
+      has_permission: {
+        Args: { _permission_key: string; _user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1709,13 +1763,19 @@ export type Database = {
         }
         Returns: undefined
       }
+      is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_timekeeper_only: { Args: { _user_id: string }; Returns: boolean }
       is_today_athens: { Args: { _date: string }; Returns: boolean }
       is_user_active: { Args: { _user_id: string }; Returns: boolean }
+      recompute_user_permissions: {
+        Args: { _user_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       announcement_status: "draft" | "pending" | "sent" | "partial" | "failed"
       app_role: "admin" | "hr" | "timekeeper"
+      app_role_v2: "admin" | "employee"
       correction_request_status: "pending" | "approved" | "rejected"
       delivery_status: "pending" | "sent" | "failed"
       employee_status: "active" | "inactive"
@@ -1849,6 +1909,7 @@ export const Constants = {
     Enums: {
       announcement_status: ["draft", "pending", "sent", "partial", "failed"],
       app_role: ["admin", "hr", "timekeeper"],
+      app_role_v2: ["admin", "employee"],
       correction_request_status: ["pending", "approved", "rejected"],
       delivery_status: ["pending", "sent", "failed"],
       employee_status: ["active", "inactive"],

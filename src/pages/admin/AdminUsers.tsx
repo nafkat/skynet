@@ -46,7 +46,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
-type AppRole = 'admin' | 'hr' | 'timekeeper';
+type AppRole = 'admin' | 'hr' | 'timekeeper'; // Legacy for display
+type BaseRole = 'admin' | 'employee'; // New base roles
 
 interface UserWithRole {
   user_id: string;
@@ -105,9 +106,9 @@ export default function AdminUsers() {
   // Invite user modal state
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<AppRole>('timekeeper');
+  const [inviteBaseRole, setInviteBaseRole] = useState<BaseRole>('employee');
   const [inviteDisplayName, setInviteDisplayName] = useState('');
-  const [inviteTemplateId, setInviteTemplateId] = useState<string>('');
+  const [inviteTemplateIds, setInviteTemplateIds] = useState<string[]>([]);
   const [inviting, setInviting] = useState(false);
 
   // Apply template modal state
@@ -536,9 +537,9 @@ export default function AdminUsers() {
       const { data, error } = await supabase.functions.invoke('invite_user', {
         body: {
           email: inviteEmail.trim(),
-          role: inviteRole,
+          base_role: inviteBaseRole,
           display_name: inviteDisplayName.trim() || undefined,
-          template_id: inviteTemplateId || undefined,
+          template_ids: inviteTemplateIds.filter(id => id !== 'none'),
         },
       });
 
@@ -548,9 +549,9 @@ export default function AdminUsers() {
       toast.success(language === 'el' ? 'Πρόσκληση εστάλη επιτυχώς' : 'Invitation sent successfully');
       setShowInviteModal(false);
       setInviteEmail('');
-      setInviteRole('timekeeper');
+      setInviteBaseRole('employee');
       setInviteDisplayName('');
-      setInviteTemplateId('');
+      setInviteTemplateIds([]);
       
       await fetchUsers();
     } catch (error: any) {
@@ -559,6 +560,16 @@ export default function AdminUsers() {
     } finally {
       setInviting(false);
     }
+  };
+
+  // Toggle template selection for invite
+  const toggleInviteTemplate = (templateId: string) => {
+    setInviteTemplateIds(prev => {
+      if (prev.includes(templateId)) {
+        return prev.filter(id => id !== templateId);
+      }
+      return [...prev, templateId];
+    });
   };
 
   // Handle toggle user active status
@@ -1099,11 +1110,11 @@ export default function AdminUsers() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="invite-role">
-                {language === 'el' ? 'Ρόλος Συστήματος' : 'System Role'} *
+                {language === 'el' ? 'Βασικός Ρόλος' : 'Base Role'} *
               </Label>
               <Select
-                value={inviteRole}
-                onValueChange={(value) => setInviteRole(value as AppRole)}
+                value={inviteBaseRole}
+                onValueChange={(value) => setInviteBaseRole(value as BaseRole)}
               >
                 <SelectTrigger id="invite-role">
                   <SelectValue />
@@ -1112,35 +1123,56 @@ export default function AdminUsers() {
                   <SelectItem value="admin">
                     {language === 'el' ? 'Διαχειριστής' : 'Admin'}
                   </SelectItem>
-                  <SelectItem value="hr">HR</SelectItem>
-                  <SelectItem value="timekeeper">
-                    {language === 'el' ? 'Χρονομέτρης' : 'Timekeeper'}
+                  <SelectItem value="employee">
+                    {language === 'el' ? 'Υπάλληλος' : 'Employee'}
                   </SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">
+                {language === 'el' 
+                  ? 'Admin έχει πλήρη πρόσβαση. Employee χρειάζεται permission templates.'
+                  : 'Admin has full access. Employee needs permission templates.'}
+              </p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="invite-template">
-                {language === 'el' ? 'Ρόλος Δικαιωμάτων' : 'Permission Role'}
+              <Label>
+                {language === 'el' ? 'Ρόλοι Δικαιωμάτων' : 'Permission Roles'}
               </Label>
-              <Select
-                value={inviteTemplateId}
-                onValueChange={setInviteTemplateId}
-              >
-                <SelectTrigger id="invite-template">
-                  <SelectValue placeholder={language === 'el' ? 'Προαιρετικό...' : 'Optional...'} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">
-                    {language === 'el' ? 'Χωρίς ρόλο' : 'No role'}
-                  </SelectItem>
-                  {templates.map(t => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <p className="text-xs text-muted-foreground mb-2">
+                {language === 'el' 
+                  ? 'Επιλέξτε έναν ή περισσότερους ρόλους δικαιωμάτων'
+                  : 'Select one or more permission roles'}
+              </p>
+              <div className="border rounded-md p-3 space-y-2 max-h-48 overflow-y-auto">
+                {templates.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-2">
+                    {language === 'el' ? 'Δεν υπάρχουν ρόλοι' : 'No roles available'}
+                  </p>
+                ) : (
+                  templates.map(t => (
+                    <div key={t.id} className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id={`template-${t.id}`}
+                        checked={inviteTemplateIds.includes(t.id)}
+                        onChange={() => toggleInviteTemplate(t.id)}
+                        className="h-4 w-4 rounded border-gray-300"
+                      />
+                      <label 
+                        htmlFor={`template-${t.id}`}
+                        className="text-sm cursor-pointer flex-1"
+                      >
+                        {t.name}
+                        {t.description && (
+                          <span className="text-xs text-muted-foreground ml-2">
+                            – {t.description}
+                          </span>
+                        )}
+                      </label>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           </div>
           <DialogFooter>

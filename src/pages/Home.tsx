@@ -3,7 +3,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { 
   Clock, 
-  ClipboardList, 
   Megaphone, 
   Calculator, 
   FolderKanban, 
@@ -12,7 +11,8 @@ import {
   LogOut,
   Globe,
   Home as HomeIcon,
-  Settings
+  Settings,
+  Lock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,8 +31,9 @@ interface ModuleTile {
   icon: React.ElementType;
   status: ModuleStatus;
   route: string;
-  visibleTo: ('admin' | 'hr' | 'timekeeper')[];
+  permissionKey: string; // e.g., "module.timekeeping"
   section: ModuleSection;
+  adminOnly?: boolean; // If true, only visible to base_role=admin
 }
 
 const modules: ModuleTile[] = [
@@ -46,7 +47,7 @@ const modules: ModuleTile[] = [
     icon: Clock,
     status: 'active',
     route: '/time-entry',
-    visibleTo: ['admin', 'hr', 'timekeeper'],
+    permissionKey: 'module.timekeeping',
     section: 'operations',
   },
   {
@@ -58,7 +59,7 @@ const modules: ModuleTile[] = [
     icon: ShoppingCart,
     status: 'active',
     route: '/procurement',
-    visibleTo: ['admin'],
+    permissionKey: 'module.procurement',
     section: 'operations',
   },
   {
@@ -70,7 +71,7 @@ const modules: ModuleTile[] = [
     icon: Megaphone,
     status: 'active',
     route: '/announcements',
-    visibleTo: ['admin', 'hr'],
+    permissionKey: 'module.announcements',
     section: 'operations',
   },
   {
@@ -82,7 +83,7 @@ const modules: ModuleTile[] = [
     icon: Calculator,
     status: 'coming_soon',
     route: '/costing',
-    visibleTo: ['admin', 'hr'],
+    permissionKey: 'module.costing',
     section: 'operations',
   },
   {
@@ -94,7 +95,7 @@ const modules: ModuleTile[] = [
     icon: FolderKanban,
     status: 'coming_soon',
     route: '/projects-hub',
-    visibleTo: ['admin', 'hr'],
+    permissionKey: 'module.projects_hub',
     section: 'operations',
   },
   {
@@ -106,7 +107,7 @@ const modules: ModuleTile[] = [
     icon: Shield,
     status: 'coming_soon',
     route: '/hse',
-    visibleTo: ['admin', 'hr'],
+    permissionKey: 'module.hse',
     section: 'operations',
   },
   // ===== SYSTEM SECTION (ADMIN ONLY) =====
@@ -119,14 +120,15 @@ const modules: ModuleTile[] = [
     icon: Settings,
     status: 'active',
     route: '/admin',
-    visibleTo: ['admin'],
+    permissionKey: 'module.admin_console',
     section: 'system',
+    adminOnly: true, // Only visible to base_role=admin
   },
 ];
 
 export default function Home() {
   const navigate = useNavigate();
-  const { user, role, signOut, isAdmin, isHR, loading, isActive } = useAuth();
+  const { user, baseRole, signOut, isAdmin, loading, isActive, hasPermission } = useAuth();
   const { language, setLanguage } = useLanguage();
 
   const toggleLanguage = () => {
@@ -135,28 +137,36 @@ export default function Home() {
 
   const getRoleBadgeVariant = () => {
     if (isAdmin) return 'default';
-    if (isHR) return 'secondary';
-    return 'outline';
+    return 'secondary';
   };
 
   const getRoleLabel = () => {
     if (isAdmin) return language === 'el' ? 'Διαχειριστής' : 'Admin';
-    if (isHR) return 'HR';
-    return language === 'el' ? 'Χρονομέτρης' : 'Timekeeper';
+    return language === 'el' ? 'Υπάλληλος' : 'Employee';
   };
 
-  const handleTileClick = (tile: ModuleTile) => {
+  const handleTileClick = (tile: ModuleTile, hasAccess: boolean) => {
     if (tile.status === 'coming_soon') {
       toast.info(language === 'el' ? 'Σύντομα διαθέσιμο' : 'Coming soon');
       return;
     }
+    
+    if (!hasAccess) {
+      toast.error(language === 'el' ? 'Δεν έχετε πρόσβαση σε αυτό το module' : 'You do not have access to this module');
+      return;
+    }
+    
     navigate(tile.route);
   };
 
-  // Filter modules based on role
+  // Filter modules: 
+  // - adminOnly modules are hidden completely for non-admin users
+  // - Other modules are shown but may be locked
   const visibleModules = modules.filter((module) => {
-    if (!role) return false;
-    return module.visibleTo.includes(role);
+    if (module.adminOnly && !isAdmin) {
+      return false; // Hide admin-only modules completely from non-admin users
+    }
+    return true;
   });
 
   // Group by section
@@ -196,8 +206,8 @@ export default function Home() {
     );
   }
 
-  // No role configured
-  if (!role) {
+  // No base role configured (shouldn't happen but handle gracefully)
+  if (!baseRole) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center space-y-4 p-8">
@@ -221,50 +231,68 @@ export default function Home() {
   }
 
   const renderTile = (tile: ModuleTile) => {
-    const isActive = tile.status === 'active';
+    const isModuleActive = tile.status === 'active';
+    const hasAccess = hasPermission(tile.permissionKey);
+    const isLocked = isModuleActive && !hasAccess;
     const Icon = tile.icon;
 
     return (
       <button
         key={tile.id}
-        onClick={() => handleTileClick(tile)}
-        disabled={!isActive}
+        onClick={() => handleTileClick(tile, hasAccess)}
+        disabled={!isModuleActive || isLocked}
         className={cn(
           'group relative flex flex-col items-start p-6 rounded-xl border text-left transition-all duration-200',
-          isActive
+          isModuleActive && hasAccess
             ? 'bg-card border-border hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 cursor-pointer'
+            : isLocked
+            ? 'bg-muted/50 border-border/50 cursor-not-allowed'
             : 'bg-muted/30 border-border/50 cursor-not-allowed opacity-60'
         )}
       >
         {/* Status Badge */}
-        <Badge
-          variant={isActive ? 'default' : 'secondary'}
-          className={cn(
-            'absolute top-4 right-4 text-xs',
-            isActive ? 'bg-green-500/10 text-green-600 border-green-500/20' : ''
+        <div className="absolute top-4 right-4 flex items-center gap-2">
+          {isLocked && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
+              <Lock className="h-3 w-3" />
+              <span>{language === 'el' ? 'Κλειδωμένο' : 'Locked'}</span>
+            </div>
           )}
-        >
-          {isActive 
-            ? (language === 'el' ? 'Ενεργό' : 'Active')
-            : (language === 'el' ? 'Σύντομα' : 'Coming soon')}
-        </Badge>
+          {!isLocked && (
+            <Badge
+              variant={isModuleActive ? 'default' : 'secondary'}
+              className={cn(
+                'text-xs',
+                isModuleActive && hasAccess ? 'bg-green-500/10 text-green-600 border-green-500/20' : ''
+              )}
+            >
+              {isModuleActive 
+                ? (language === 'el' ? 'Ενεργό' : 'Active')
+                : (language === 'el' ? 'Σύντομα' : 'Coming soon')}
+            </Badge>
+          )}
+        </div>
 
         {/* Icon */}
         <div
           className={cn(
             'flex items-center justify-center w-12 h-12 rounded-lg mb-4 transition-colors',
-            isActive
+            isModuleActive && hasAccess
               ? 'bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground'
               : 'bg-muted text-muted-foreground'
           )}
         >
-          <Icon className="h-6 w-6" />
+          {isLocked ? (
+            <Lock className="h-6 w-6" />
+          ) : (
+            <Icon className="h-6 w-6" />
+          )}
         </div>
 
         {/* Title */}
         <h3 className={cn(
           'text-lg font-semibold mb-2',
-          isActive ? 'text-foreground' : 'text-muted-foreground'
+          isModuleActive && hasAccess ? 'text-foreground' : 'text-muted-foreground'
         )}>
           {language === 'el' ? tile.titleEl : tile.title}
         </h3>
@@ -274,8 +302,8 @@ export default function Home() {
           {language === 'el' ? tile.descriptionEl : tile.description}
         </p>
 
-        {/* Hover indicator for active tiles */}
-        {isActive && (
+        {/* Hover indicator for active tiles with access */}
+        {isModuleActive && hasAccess && (
           <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-primary/0 via-primary to-primary/0 opacity-0 group-hover:opacity-100 transition-opacity rounded-b-xl" />
         )}
       </button>
