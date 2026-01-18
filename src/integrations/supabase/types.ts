@@ -1725,8 +1725,10 @@ export type Database = {
           created_at: string
           display_name: string
           email: string
+          email_confirmed_at: string
           full_name: string
           is_active: boolean
+          last_sign_in_at: string
           role: string
           user_id: string
         }[]

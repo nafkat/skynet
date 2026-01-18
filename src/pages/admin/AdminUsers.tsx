@@ -73,7 +73,8 @@ interface UserWithRole {
   is_active: boolean;
   created_at: string | null;
   assigned_templates: PermissionTemplate[];
-  email_confirmed_at?: string | null; // Track if user has accepted invite
+  email_confirmed_at?: string | null; // Track if user has confirmed email
+  last_sign_in_at?: string | null; // Primary indicator - user has logged in at least once
 }
 
 interface ModuleAccessRecord {
@@ -167,11 +168,13 @@ export default function AdminUsers() {
     return baseRoleChanged || templatesChanged;
   }, [selectedUser, draftBaseRole, savedBaseRole, draftTemplateIds, savedTemplateIds]);
 
-  // Check if this is a pending/invited user (hasn't accepted invite yet)
+  // Check if this is a pending/invited user (hasn't logged in yet)
+  // A user is Pending ONLY if they have never logged in (last_sign_in_at is NULL)
+  // Once they log in successfully, they are considered Active
   const isPendingUser = useMemo(() => {
     if (!selectedUser) return false;
-    // User is pending if they don't have email_confirmed_at
-    return !selectedUser.email_confirmed_at;
+    // Primary indicator: last_sign_in_at is NULL means never logged in
+    return !selectedUser.last_sign_in_at;
   }, [selectedUser]);
 
   // Fetch all templates
@@ -225,6 +228,7 @@ export default function AdminUsers() {
           created_at: u.created_at,
           assigned_templates: userTemplatesMap[u.user_id] || [],
           email_confirmed_at: u.email_confirmed_at || null,
+          last_sign_in_at: u.last_sign_in_at || null, // Primary indicator for activation
         };
       });
 
@@ -956,7 +960,8 @@ export default function AdminUsers() {
                           {language === 'el' ? 'Ανενεργός' : 'Inactive'}
                         </Badge>
                       )}
-                      {!u.email_confirmed_at && (
+                      {/* Show Pending badge only if user has never logged in */}
+                      {!u.last_sign_in_at && (
                         <Badge variant="outline" className="text-xs text-amber-600 border-amber-400">
                           {language === 'el' ? 'Εκκρεμεί' : 'Pending'}
                         </Badge>
