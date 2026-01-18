@@ -48,15 +48,16 @@ serve(async (req) => {
       );
     }
 
-    // Check if current user is admin (by base_role in profiles)
-    const { data: profileData, error: profileError } = await userClient
-      .from("profiles")
-      .select("base_role")
+    // Check if current user is admin (via user_roles table - secure location)
+    const { data: roleData, error: roleError } = await userClient
+      .from("user_roles")
+      .select("role")
       .eq("user_id", currentUser.id)
-      .single();
+      .eq("role", "admin")
+      .maybeSingle();
 
-    if (profileError || profileData?.base_role !== "admin") {
-      console.error("Role check failed:", profileError, profileData);
+    if (roleError || !roleData) {
+      console.error("Role check failed:", roleError, roleData);
       return new Response(
         JSON.stringify({ error: "Only admins can invite users" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -117,24 +118,27 @@ serve(async (req) => {
     const newUserId = inviteData.user.id;
     console.log("User invited successfully:", newUserId);
 
-    // Create profile with base_role
+    // Create profile (without base_role - role is stored in user_roles for security)
     const { error: profileInsertError } = await adminClient.from("profiles").upsert({
       user_id: newUserId,
       full_name: display_name || email.split("@")[0],
       display_name: display_name || email.split("@")[0],
       is_active: true,
-      base_role: base_role,
     }, { onConflict: "user_id" });
 
     if (profileInsertError) {
       console.error("Profile insert error:", profileInsertError);
     }
 
-    // Also keep user_roles for backward compatibility with existing RLS policies
-    await adminClient.from("user_roles").upsert({
+    // Store role in user_roles table (secure location - prevents privilege escalation)
+    const { error: roleInsertError } = await adminClient.from("user_roles").upsert({
       user_id: newUserId,
-      role: base_role === 'admin' ? 'admin' : 'timekeeper', // Map employee to timekeeper for old RLS
+      role: base_role === 'admin' ? 'admin' : 'timekeeper', // Map employee to timekeeper for app_role enum
     }, { onConflict: "user_id,role" });
+
+    if (roleInsertError) {
+      console.error("Role insert error:", roleInsertError);
+    }
 
     // Assign templates if provided
     const validTemplateIds = (template_ids || []).filter(id => id && id !== 'none');
