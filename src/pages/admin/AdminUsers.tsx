@@ -616,8 +616,15 @@ export default function AdminUsers() {
         },
       });
 
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      // Handle edge function errors properly
+      if (error) {
+        // Check if the error body contains the actual error message
+        const errorMessage = error.message || (language === 'el' ? 'Σφάλμα αποστολής πρόσκλησης' : 'Failed to send invitation');
+        throw new Error(errorMessage);
+      }
+      if (data?.error) {
+        throw new Error(data.error);
+      }
 
       toast.success(language === 'el' ? 'Πρόσκληση εστάλη επιτυχώς' : 'Invitation sent successfully');
       setShowInviteModal(false);
