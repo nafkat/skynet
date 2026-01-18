@@ -8,9 +8,9 @@ const corsHeaders = {
 
 interface InviteRequest {
   email: string;
-  role: 'admin' | 'hr' | 'timekeeper';
+  base_role: 'admin' | 'employee';
   display_name?: string;
-  template_id?: string;
+  template_ids?: string[]; // Multiple templates can be assigned
 }
 
 serve(async (req) => {
@@ -41,20 +41,22 @@ serve(async (req) => {
     // Get the current user
     const { data: { user: currentUser }, error: userError } = await userClient.auth.getUser();
     if (userError || !currentUser) {
+      console.error("Auth error:", userError);
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Check if current user is admin
-    const { data: roleData, error: roleError } = await userClient
-      .from("user_roles")
-      .select("role")
+    // Check if current user is admin (by base_role in profiles)
+    const { data: profileData, error: profileError } = await userClient
+      .from("profiles")
+      .select("base_role")
       .eq("user_id", currentUser.id)
       .single();
 
-    if (roleError || roleData?.role !== "admin") {
+    if (profileError || profileData?.base_role !== "admin") {
+      console.error("Role check failed:", profileError, profileData);
       return new Response(
         JSON.stringify({ error: "Only admins can invite users" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -62,19 +64,20 @@ serve(async (req) => {
     }
 
     // Parse request body
-    const { email, role, display_name, template_id }: InviteRequest = await req.json();
+    const { email, base_role, display_name, template_ids }: InviteRequest = await req.json();
+    console.log("Invite request:", { email, base_role, display_name, template_ids });
 
-    if (!email || !role) {
+    if (!email || !base_role) {
       return new Response(
-        JSON.stringify({ error: "Email and role are required" }),
+        JSON.stringify({ error: "Email and base_role are required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Validate role
-    if (!["admin", "hr", "timekeeper"].includes(role)) {
+    // Validate base_role
+    if (!["admin", "employee"].includes(base_role)) {
       return new Response(
-        JSON.stringify({ error: "Invalid role" }),
+        JSON.stringify({ error: "Invalid base_role. Must be 'admin' or 'employee'" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -112,85 +115,87 @@ serve(async (req) => {
     }
 
     const newUserId = inviteData.user.id;
+    console.log("User invited successfully:", newUserId);
 
-    // Ensure profile exists with display_name
-    await adminClient.from("profiles").upsert({
+    // Create profile with base_role
+    const { error: profileInsertError } = await adminClient.from("profiles").upsert({
       user_id: newUserId,
       full_name: display_name || email.split("@")[0],
       display_name: display_name || email.split("@")[0],
       is_active: true,
+      base_role: base_role,
     }, { onConflict: "user_id" });
 
-    // Set the user role
+    if (profileInsertError) {
+      console.error("Profile insert error:", profileInsertError);
+    }
+
+    // Also keep user_roles for backward compatibility with existing RLS policies
     await adminClient.from("user_roles").upsert({
       user_id: newUserId,
-      role: role,
+      role: base_role === 'admin' ? 'admin' : 'timekeeper', // Map employee to timekeeper for old RLS
     }, { onConflict: "user_id,role" });
 
-    // Initialize permissions using the database function
-    await adminClient.rpc("initialize_user_permissions", {
-      _user_id: newUserId,
-      _role: role,
-      _granted_by: currentUser.id,
-    });
-
-    // If a template was provided, apply it
-    if (template_id && template_id !== 'none') {
-      // Fetch template modules
-      const { data: templateModules } = await adminClient
-        .from("permission_template_modules")
-        .select("module_key, can_access")
-        .eq("template_id", template_id);
-
-      // Fetch template actions
-      const { data: templateActions } = await adminClient
-        .from("permission_template_actions")
-        .select("action_key, allowed")
-        .eq("template_id", template_id);
-
-      // Apply module access from template
-      for (const tm of templateModules || []) {
-        await adminClient.from("user_module_access").upsert({
+    // Assign templates if provided
+    const validTemplateIds = (template_ids || []).filter(id => id && id !== 'none');
+    
+    if (validTemplateIds.length > 0) {
+      console.log("Assigning templates:", validTemplateIds);
+      
+      // Insert template assignments
+      for (const templateId of validTemplateIds) {
+        const { error: assignError } = await adminClient.from("user_permission_templates").insert({
           user_id: newUserId,
-          module_key: tm.module_key,
-          can_access: tm.can_access,
-          granted_by: currentUser.id,
-        }, { onConflict: "user_id,module_key" });
+          template_id: templateId,
+          assigned_by: currentUser.id,
+        });
+        
+        if (assignError) {
+          console.error("Template assignment error:", assignError);
+        }
+      }
+      
+      // Recompute effective permissions
+      const { error: recomputeError } = await adminClient.rpc("recompute_user_permissions", {
+        _user_id: newUserId,
+      });
+      
+      if (recomputeError) {
+        console.error("Recompute permissions error:", recomputeError);
       }
 
-      // Apply action permissions from template
-      for (const ta of templateActions || []) {
-        await adminClient.from("user_module_actions").upsert({
-          user_id: newUserId,
-          action_key: ta.action_key,
-          allowed: ta.allowed,
-          granted_by: currentUser.id,
-        }, { onConflict: "user_id,action_key" });
-      }
-
-      // Get template name for audit log
-      const { data: templateData } = await adminClient
+      // Get template names for audit log
+      const { data: templateNames } = await adminClient
         .from("permission_templates")
-        .select("name")
-        .eq("id", template_id)
-        .single();
+        .select("id, name")
+        .in("id", validTemplateIds);
 
-      // Log template application
+      // Log template assignments
       await adminClient.from("permission_audit_logs").insert({
         actor_user_id: currentUser.id,
         target_user_id: newUserId,
-        change_type: "TEMPLATE_APPLIED",
-        details: { template_id, template_name: templateData?.name },
+        change_type: "TEMPLATES_ASSIGNED",
+        details: { 
+          template_ids: validTemplateIds, 
+          template_names: templateNames?.map(t => t.name) || [],
+        },
       });
     }
 
-    // Log the permission change
+    // Log the invitation
     await adminClient.from("permission_audit_logs").insert({
       actor_user_id: currentUser.id,
       target_user_id: newUserId,
-      change_type: "ROLE_CHANGE",
-      details: { action: "INVITE", role: role, email: email, template_id: template_id || null },
+      change_type: "USER_INVITED",
+      details: { 
+        action: "INVITE", 
+        base_role: base_role, 
+        email: email, 
+        template_ids: validTemplateIds,
+      },
     });
+
+    console.log("Invitation complete");
 
     return new Response(
       JSON.stringify({ 

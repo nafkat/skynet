@@ -2,17 +2,27 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
+// Base roles are now only Admin and Employee
+type BaseRole = 'admin' | 'employee';
+
+// Legacy role type for backward compatibility
 type AppRole = 'admin' | 'hr' | 'timekeeper';
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
-  role: AppRole | null;
+  baseRole: BaseRole | null;
   loading: boolean;
   isActive: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   isAdmin: boolean;
+  // For permission checking (fetched from user_permissions table)
+  hasPermission: (permissionKey: string) => boolean;
+  permissions: string[];
+  refreshPermissions: () => Promise<void>;
+  // Backward compatibility - these map to permission checks
+  role: AppRole | null;
   isHR: boolean;
   isTimekeeper: boolean;
   hasElevatedRole: boolean;
@@ -23,27 +33,17 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [role, setRole] = useState<AppRole | null>(null);
+  const [baseRole, setBaseRole] = useState<BaseRole | null>(null);
   const [isActive, setIsActive] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [permissions, setPermissions] = useState<string[]>([]);
 
-  const fetchUserRoleAndStatus = async (userId: string) => {
+  const fetchUserData = async (userId: string) => {
     try {
-      // Fetch role
-      const { data: roleData, error: roleError } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .maybeSingle();
-      
-      if (roleError) {
-        console.error('Error fetching role:', roleError);
-      }
-      
-      // Fetch active status from profiles
+      // Fetch base_role and active status from profiles
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('is_active')
+        .select('base_role, is_active')
         .eq('user_id', userId)
         .maybeSingle();
       
@@ -51,14 +51,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error('Error fetching profile:', profileError);
       }
       
+      // Fetch effective permissions from user_permissions cache
+      const { data: permissionsData, error: permissionsError } = await supabase
+        .from('user_permissions')
+        .select('permission_key')
+        .eq('user_id', userId)
+        .eq('allowed', true);
+      
+      if (permissionsError) {
+        console.error('Error fetching permissions:', permissionsError);
+      }
+      
       return {
-        role: roleData?.role as AppRole | null,
+        baseRole: (profileData?.base_role as BaseRole) || 'employee',
         isActive: profileData?.is_active ?? true,
+        permissions: (permissionsData || []).map(p => p.permission_key),
       };
     } catch (err) {
       console.error('Error fetching user data:', err);
-      return { role: null, isActive: true };
+      return { baseRole: 'employee' as BaseRole, isActive: true, permissions: [] };
     }
+  };
+
+  const refreshPermissions = async () => {
+    if (!user) return;
+    
+    const { data: permissionsData } = await supabase
+      .from('user_permissions')
+      .select('permission_key')
+      .eq('user_id', user.id)
+      .eq('allowed', true);
+    
+    setPermissions((permissionsData || []).map(p => p.permission_key));
   };
 
   useEffect(() => {
@@ -71,14 +95,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (currentSession?.user) {
           // Use setTimeout to avoid potential deadlocks
           setTimeout(async () => {
-            const userData = await fetchUserRoleAndStatus(currentSession.user.id);
-            setRole(userData.role);
+            const userData = await fetchUserData(currentSession.user.id);
+            setBaseRole(userData.baseRole);
             setIsActive(userData.isActive);
+            setPermissions(userData.permissions);
             setLoading(false);
           }, 0);
         } else {
-          setRole(null);
+          setBaseRole(null);
           setIsActive(true);
+          setPermissions([]);
           setLoading(false);
         }
       }
@@ -90,9 +116,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(initialSession?.user ?? null);
       
       if (initialSession?.user) {
-        fetchUserRoleAndStatus(initialSession.user.id).then(userData => {
-          setRole(userData.role);
+        fetchUserData(initialSession.user.id).then(userData => {
+          setBaseRole(userData.baseRole);
           setIsActive(userData.isActive);
+          setPermissions(userData.permissions);
           setLoading(false);
         });
       } else {
@@ -113,13 +140,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    setRole(null);
+    setBaseRole(null);
     setIsActive(true);
+    setPermissions([]);
   };
 
-  const isAdmin = role === 'admin';
-  const isHR = role === 'hr';
-  const isTimekeeper = role === 'timekeeper';
+  const isAdmin = baseRole === 'admin';
+  
+  // Check if user has a specific permission
+  // Admin always has all permissions
+  const hasPermission = (permissionKey: string): boolean => {
+    if (isAdmin) return true;
+    return permissions.includes(permissionKey);
+  };
+
+  // Backward compatibility mappings
+  // Map to legacy role based on permissions
+  const getLegacyRole = (): AppRole | null => {
+    if (isAdmin) return 'admin';
+    // Check if has HR-like permissions
+    if (hasPermission('timekeeping.employees.manage') || hasPermission('timekeeping.reports.export')) {
+      return 'hr';
+    }
+    // Default to timekeeper if they have timekeeping access
+    if (hasPermission('module.timekeeping')) {
+      return 'timekeeper';
+    }
+    return 'timekeeper'; // Default
+  };
+
+  const role = getLegacyRole();
+  const isHR = hasPermission('timekeeping.employees.manage') || hasPermission('timekeeping.reports.export');
+  const isTimekeeper = hasPermission('module.timekeeping') && !isAdmin && !isHR;
   const hasElevatedRole = isAdmin || isHR;
 
   return (
@@ -127,12 +179,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         session,
-        role,
+        baseRole,
         loading,
         isActive,
         signIn,
         signOut,
         isAdmin,
+        hasPermission,
+        permissions,
+        refreshPermissions,
+        // Backward compatibility
+        role,
         isHR,
         isTimekeeper,
         hasElevatedRole,
