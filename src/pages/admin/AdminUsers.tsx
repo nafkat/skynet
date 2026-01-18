@@ -176,16 +176,40 @@ export default function AdminUsers() {
     return null;
   };
 
+  // Check if this is the current user (self-edit)
+  const isSelfEdit = useMemo(() => {
+    return selectedUser?.user_id === user?.id;
+  }, [selectedUser, user]);
+
+  // Check what has changed
+  const baseRoleChanged = useMemo(() => {
+    return draftBaseRole !== savedBaseRole;
+  }, [draftBaseRole, savedBaseRole]);
+
+  const templatesChanged = useMemo(() => {
+    return draftTemplateIds.length !== savedTemplateIds.length ||
+      !draftTemplateIds.every(id => savedTemplateIds.includes(id));
+  }, [draftTemplateIds, savedTemplateIds]);
+
+  const nameChanged = useMemo(() => {
+    return draftFullName.trim() !== savedFullName.trim();
+  }, [draftFullName, savedFullName]);
+
   // Check if there are unsaved changes
   const hasUnsavedChanges = useMemo(() => {
     if (!selectedUser) return false;
-    const baseRoleChanged = draftBaseRole !== savedBaseRole;
-    const templatesChanged = 
-      draftTemplateIds.length !== savedTemplateIds.length ||
-      !draftTemplateIds.every(id => savedTemplateIds.includes(id));
-    const nameChanged = draftFullName.trim() !== savedFullName.trim();
     return baseRoleChanged || templatesChanged || nameChanged;
-  }, [selectedUser, draftBaseRole, savedBaseRole, draftTemplateIds, savedTemplateIds, draftFullName, savedFullName]);
+  }, [selectedUser, baseRoleChanged, templatesChanged, nameChanged]);
+
+  // For self-edit, only name changes are saveable
+  const hasSaveableChanges = useMemo(() => {
+    if (!selectedUser) return false;
+    if (isSelfEdit) {
+      // Self-edit: only name is saveable
+      return nameChanged;
+    }
+    return hasUnsavedChanges;
+  }, [selectedUser, isSelfEdit, nameChanged, hasUnsavedChanges]);
 
   // Check if form is valid (for save button)
   const isFormValid = useMemo(() => {
@@ -452,13 +476,16 @@ export default function AdminUsers() {
       return;
     }
 
+    // Detect self-edit
+    const isSelfEditNow = selectedUser.user_id === user.id;
+
     try {
       setSaving(true);
 
       const changes: string[] = [];
 
-      // Update base role if changed
-      if (draftBaseRole !== savedBaseRole) {
+      // Update base role if changed (SKIP for self-edit)
+      if (draftBaseRole !== savedBaseRole && !isSelfEditNow) {
         const appRole = draftBaseRole === 'admin' ? 'admin' : 'timekeeper';
 
         const { error: roleError } = await supabase
@@ -494,64 +521,66 @@ export default function AdminUsers() {
         changes.push('base role');
       }
 
-      // Update templates if changed
-      const addedTemplates = draftTemplateIds.filter(id => !savedTemplateIds.includes(id));
-      const removedTemplates = savedTemplateIds.filter(id => !draftTemplateIds.includes(id));
+      // Update templates if changed (SKIP for self-edit)
+      if (!isSelfEditNow) {
+        const addedTemplates = draftTemplateIds.filter(id => !savedTemplateIds.includes(id));
+        const removedTemplates = savedTemplateIds.filter(id => !draftTemplateIds.includes(id));
 
-      // Remove templates
-      for (const templateId of removedTemplates) {
-        const { error } = await supabase
-          .from('user_permission_templates')
-          .delete()
-          .eq('user_id', selectedUser.user_id)
-          .eq('template_id', templateId);
-        if (error) throw error;
+        // Remove templates
+        for (const templateId of removedTemplates) {
+          const { error } = await supabase
+            .from('user_permission_templates')
+            .delete()
+            .eq('user_id', selectedUser.user_id)
+            .eq('template_id', templateId);
+          if (error) throw error;
 
-        const template = templates.find(t => t.id === templateId);
-        await supabase
-          .from('permission_audit_logs')
-          .insert({
-            actor_user_id: user.id,
-            target_user_id: selectedUser.user_id,
-            change_type: 'TEMPLATE_REMOVED',
-            details: { template_id: templateId, template_name: template?.name },
+          const template = templates.find(t => t.id === templateId);
+          await supabase
+            .from('permission_audit_logs')
+            .insert({
+              actor_user_id: user.id,
+              target_user_id: selectedUser.user_id,
+              change_type: 'TEMPLATE_REMOVED',
+              details: { template_id: templateId, template_name: template?.name },
+            });
+        }
+
+        // Add templates
+        for (const templateId of addedTemplates) {
+          const { error } = await supabase
+            .from('user_permission_templates')
+            .insert({
+              user_id: selectedUser.user_id,
+              template_id: templateId,
+              assigned_by: user.id,
+            });
+          if (error) throw error;
+
+          const template = templates.find(t => t.id === templateId);
+          await supabase
+            .from('permission_audit_logs')
+            .insert({
+              actor_user_id: user.id,
+              target_user_id: selectedUser.user_id,
+              change_type: 'TEMPLATE_ASSIGNED',
+              details: { template_id: templateId, template_name: template?.name },
           });
+        }
+
+        if (addedTemplates.length > 0 || removedTemplates.length > 0) {
+          changes.push('permission roles');
+
+          // Recompute effective permissions
+          await supabase.rpc('recompute_user_permissions', {
+            _user_id: selectedUser.user_id,
+          });
+        }
       }
 
-      // Add templates
-      for (const templateId of addedTemplates) {
-        const { error } = await supabase
-          .from('user_permission_templates')
-          .insert({
-            user_id: selectedUser.user_id,
-            template_id: templateId,
-            assigned_by: user.id,
-          });
-        if (error) throw error;
-
-        const template = templates.find(t => t.id === templateId);
-        await supabase
-          .from('permission_audit_logs')
-          .insert({
-            actor_user_id: user.id,
-            target_user_id: selectedUser.user_id,
-            change_type: 'TEMPLATE_ASSIGNED',
-            details: { template_id: templateId, template_name: template?.name },
-          });
-      }
-
-      if (addedTemplates.length > 0 || removedTemplates.length > 0) {
-        changes.push('permission roles');
-
-        // Recompute effective permissions
-        await supabase.rpc('recompute_user_permissions', {
-          _user_id: selectedUser.user_id,
-        });
-      }
-
-      // Update name if changed
-      const nameChanged = trimmedName !== savedFullName.trim();
-      if (nameChanged) {
+      // Update name if changed (ALWAYS allowed, including self-edit)
+      const nameActuallyChanged = trimmedName !== savedFullName.trim();
+      if (nameActuallyChanged) {
         const { error: nameError } = await supabase
           .from('profiles')
           .update({ 
@@ -1232,7 +1261,17 @@ export default function AdminUsers() {
                             ? 'Επιλέξτε τους ρόλους δικαιωμάτων για αυτόν τον χρήστη' 
                             : 'Select permission roles for this user'}
                         </p>
-                        <div className="border rounded-md p-3 space-y-2 max-h-48 overflow-y-auto">
+                        {isSelfEdit && (
+                          <p className="text-xs text-amber-600 mb-2">
+                            {language === 'el' 
+                              ? 'Δεν μπορείτε να αλλάξετε τους δικούς σας ρόλους δικαιωμάτων' 
+                              : 'You cannot change your own permission roles'}
+                          </p>
+                        )}
+                        <div className={cn(
+                          "border rounded-md p-3 space-y-2 max-h-48 overflow-y-auto",
+                          isSelfEdit && "opacity-60"
+                        )}>
                           {templates.length === 0 ? (
                             <p className="text-sm text-muted-foreground text-center py-2">
                               {language === 'el' ? 'Δεν υπάρχουν ρόλοι' : 'No roles available'}
@@ -1246,7 +1285,7 @@ export default function AdminUsers() {
                                     id={`user-template-${t.id}`}
                                     checked={isAssigned}
                                     onCheckedChange={(checked) => handleDraftTemplateToggle(t.id, !!checked)}
-                                    disabled={saving}
+                                    disabled={saving || isSelfEdit}
                                   />
                                   <label 
                                     htmlFor={`user-template-${t.id}`}
@@ -1273,7 +1312,7 @@ export default function AdminUsers() {
                       <div className="flex items-center gap-3 pt-2">
                         <Button
                           onClick={handleSaveChanges}
-                          disabled={saving || !hasUnsavedChanges || !isFormValid || selectedUser.user_id === user?.id}
+                          disabled={saving || !hasSaveableChanges || !isFormValid}
                           className="flex-1"
                         >
                           {saving ? (
