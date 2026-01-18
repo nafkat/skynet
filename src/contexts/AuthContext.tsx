@@ -40,15 +40,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchUserData = async (userId: string) => {
     try {
-      // Fetch base_role and active status from profiles
+      // Fetch active status from profiles
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('base_role, is_active')
+        .select('is_active')
         .eq('user_id', userId)
         .maybeSingle();
       
       if (profileError) {
         console.error('Error fetching profile:', profileError);
+      }
+      
+      // Fetch role from user_roles table (secure location)
+      const { data: roleData, error: roleError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .maybeSingle();
+      
+      if (roleError) {
+        console.error('Error fetching role:', roleError);
       }
       
       // Fetch effective permissions from user_permissions cache
@@ -62,8 +73,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error('Error fetching permissions:', permissionsError);
       }
       
+      // Map the role: admin stays admin, anything else becomes employee
+      const role = roleData?.role;
+      const baseRole: BaseRole = role === 'admin' ? 'admin' : 'employee';
+      
       return {
-        baseRole: (profileData?.base_role as BaseRole) || 'employee',
+        baseRole,
         isActive: profileData?.is_active ?? true,
         permissions: (permissionsData || []).map(p => p.permission_key),
       };

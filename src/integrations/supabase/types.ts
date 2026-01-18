@@ -829,7 +829,6 @@ export type Database = {
       }
       profiles: {
         Row: {
-          base_role: string | null
           created_at: string
           display_name: string | null
           full_name: string | null
@@ -840,7 +839,6 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          base_role?: string | null
           created_at?: string
           display_name?: string | null
           full_name?: string | null
@@ -851,7 +849,6 @@ export type Database = {
           user_id: string
         }
         Update: {
-          base_role?: string | null
           created_at?: string
           display_name?: string | null
           full_name?: string | null
@@ -1734,6 +1731,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_user_base_role: { Args: { _user_id: string }; Returns: string }
       get_user_email: { Args: { _user_id: string }; Returns: string }
       has_action_permission: {
         Args: { _action_key: string; _user_id: string }
