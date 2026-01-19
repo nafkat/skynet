@@ -116,6 +116,13 @@ export default function AdminAudit() {
       case 'MODULE_ACCESS': return language === 'el' ? 'Πρόσβαση Module' : 'Module Access';
       case 'ACTION_PERMISSION': return language === 'el' ? 'Δικαίωμα Ενέργειας' : 'Action Permission';
       case 'TEMPLATE_APPLIED': return language === 'el' ? 'Εφαρμογή Ρόλου' : 'Role Applied';
+      case 'TEMPLATE_ASSIGNED': return language === 'el' ? 'Ανάθεση Ρόλου' : 'Role Assigned';
+      case 'TEMPLATE_REMOVED': return language === 'el' ? 'Αφαίρεση Ρόλου' : 'Role Removed';
+      case 'PROFILE_NAME_CHANGE': return language === 'el' ? 'Αλλαγή Ονόματος' : 'Name Change';
+      case 'USER_INVITED': return language === 'el' ? 'Πρόσκληση Χρήστη' : 'User Invited';
+      case 'USER_ACTIVATED': return language === 'el' ? 'Ενεργοποίηση' : 'User Activated';
+      case 'USER_DEACTIVATED': return language === 'el' ? 'Απενεργοποίηση' : 'User Deactivated';
+      case 'INVITE_RESENT': return language === 'el' ? 'Επαναποστολή Πρόσκλησης' : 'Invite Resent';
       default: return type;
     }
   };
@@ -126,6 +133,13 @@ export default function AdminAudit() {
       case 'MODULE_ACCESS': return 'secondary';
       case 'ACTION_PERMISSION': return 'outline';
       case 'TEMPLATE_APPLIED': return 'default';
+      case 'TEMPLATE_ASSIGNED': return 'default';
+      case 'TEMPLATE_REMOVED': return 'destructive';
+      case 'PROFILE_NAME_CHANGE': return 'secondary';
+      case 'USER_INVITED': return 'default';
+      case 'USER_ACTIVATED': return 'default';
+      case 'USER_DEACTIVATED': return 'destructive';
+      case 'INVITE_RESENT': return 'secondary';
       default: return 'outline';
     }
   };
@@ -133,22 +147,39 @@ export default function AdminAudit() {
   const formatDetails = (details: any) => {
     if (!details) return '-';
     
+    // Role change
     if (details.old_role && details.new_role) {
       return `${details.old_role} → ${details.new_role}`;
     }
+    // Module access
     if (details.module_key !== undefined) {
       return `${details.module_key}: ${details.can_access ? '✓' : '✗'}`;
     }
+    // Action permission
     if (details.action_key !== undefined) {
       return `${details.action_key.split('.').pop()}: ${details.allowed ? '✓' : '✗'}`;
     }
+    // Template applied/assigned/removed
     if (details.template_name) {
       return details.template_name;
     }
-    if (details.action === 'STATUS_CHANGE') {
+    // Name change
+    if (details.old_name !== undefined && details.new_name !== undefined) {
+      return `${details.old_name || '(empty)'} → ${details.new_name}`;
+    }
+    // User invited
+    if (details.invited_email) {
+      return `${details.invited_email} (${details.invited_role || 'employee'})`;
+    }
+    // Status change (activated/deactivated)
+    if (details.action === 'STATUS_CHANGE' || details.is_active !== undefined) {
       return details.is_active 
         ? (language === 'el' ? 'Ενεργοποιήθηκε' : 'Activated')
         : (language === 'el' ? 'Απενεργοποιήθηκε' : 'Deactivated');
+    }
+    // Invite resent
+    if (details.resent_to) {
+      return details.resent_to;
     }
     
     return JSON.stringify(details);
@@ -220,6 +251,27 @@ export default function AdminAudit() {
                 </SelectItem>
                 <SelectItem value="TEMPLATE_APPLIED">
                   {language === 'el' ? 'Εφαρμογή Ρόλου' : 'Role Applied'}
+                </SelectItem>
+                <SelectItem value="TEMPLATE_ASSIGNED">
+                  {language === 'el' ? 'Ανάθεση Ρόλου' : 'Role Assigned'}
+                </SelectItem>
+                <SelectItem value="TEMPLATE_REMOVED">
+                  {language === 'el' ? 'Αφαίρεση Ρόλου' : 'Role Removed'}
+                </SelectItem>
+                <SelectItem value="PROFILE_NAME_CHANGE">
+                  {language === 'el' ? 'Αλλαγή Ονόματος' : 'Name Change'}
+                </SelectItem>
+                <SelectItem value="USER_INVITED">
+                  {language === 'el' ? 'Πρόσκληση Χρήστη' : 'User Invited'}
+                </SelectItem>
+                <SelectItem value="USER_ACTIVATED">
+                  {language === 'el' ? 'Ενεργοποίηση' : 'User Activated'}
+                </SelectItem>
+                <SelectItem value="USER_DEACTIVATED">
+                  {language === 'el' ? 'Απενεργοποίηση' : 'User Deactivated'}
+                </SelectItem>
+                <SelectItem value="INVITE_RESENT">
+                  {language === 'el' ? 'Επαναποστολή Πρόσκλησης' : 'Invite Resent'}
                 </SelectItem>
               </SelectContent>
             </Select>
