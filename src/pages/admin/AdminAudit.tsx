@@ -51,11 +51,11 @@ export default function AdminAudit() {
 
       if (error) throw error;
 
-      // Get unique user IDs
+      // Get unique user IDs (filter out nulls)
       const userIds = [...new Set([
         ...(logsData || []).map(l => l.actor_user_id),
         ...(logsData || []).map(l => l.target_user_id),
-      ])];
+      ])].filter((id): id is string => id !== null && id !== undefined);
 
       // Fetch user profiles
       const { data: profiles } = await supabase
