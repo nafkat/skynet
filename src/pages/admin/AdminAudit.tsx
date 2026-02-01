@@ -42,12 +42,9 @@ export default function AdminAudit() {
     try {
       setLoading(true);
 
-      // Fetch audit logs
+      // Fetch audit logs using RPC function (bypasses RLS)
       const { data: logsData, error } = await supabase
-        .from('permission_audit_logs')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(200);
+        .rpc('get_permission_audit_logs', { _limit: 200 });
 
       if (error) throw error;
 

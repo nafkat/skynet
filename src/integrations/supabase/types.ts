@@ -1733,6 +1733,17 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_permission_audit_logs: {
+        Args: { _limit?: number }
+        Returns: {
+          actor_user_id: string
+          change_type: string
+          created_at: string
+          details: Json
+          id: string
+          target_user_id: string
+        }[]
+      }
       get_user_base_role: { Args: { _user_id: string }; Returns: string }
       get_user_email: { Args: { _user_id: string }; Returns: string }
       has_action_permission: {
