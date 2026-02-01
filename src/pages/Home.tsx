@@ -378,10 +378,10 @@ export default function Home() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         {/* Page Title */}
         <div className="text-center mb-10">
-          <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-2">
+          <h2 className="text-3xl sm:text-5xl font-bold mb-3 bg-gradient-to-r from-primary via-orange-400 to-primary bg-[length:200%_auto] animate-[gradient-shift_3s_ease-in-out_infinite] bg-clip-text text-transparent drop-shadow-sm">
             {language === 'el' ? 'Καλώς ήρθατε στο SKYNET' : 'Welcome to SKYNET'}
           </h2>
-          <p className="text-muted-foreground text-lg">
+          <p className="text-muted-foreground text-lg animate-fade-in">
             {language === 'el' 
               ? 'Επιλέξτε μια ενότητα για να ξεκινήσετε' 
               : 'Select a module to get started'}
