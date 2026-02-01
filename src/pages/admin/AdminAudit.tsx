@@ -60,7 +60,8 @@ export default function AdminAudit() {
         .select('user_id, full_name, display_name')
         .in('user_id', userIds);
 
-      const getUserName = (userId: string) => {
+      const getUserName = (userId: string | null) => {
+        if (!userId) return '-';
         const profile = profiles?.find(p => p.user_id === userId);
         return profile?.full_name || profile?.display_name || userId.slice(0, 8) + '...';
       };
