@@ -34,7 +34,8 @@ import {
   Mail,
   AlertTriangle,
   Save,
-  X
+  X,
+  Key
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -148,6 +149,9 @@ export default function AdminUsers() {
 
   // Resend invite state
   const [resendingInvite, setResendingInvite] = useState(false);
+
+  // Password reset state
+  const [sendingPasswordReset, setSendingPasswordReset] = useState(false);
 
   // Apply template modal state
   const [showTemplateModal, setShowTemplateModal] = useState(false);
@@ -433,6 +437,32 @@ export default function AdminUsers() {
       toast.error(error.message || (language === 'el' ? 'Αποτυχία αποστολής πρόσκλησης' : 'Failed to resend invitation'));
     } finally {
       setResendingInvite(false);
+    }
+  };
+
+  // Handle password reset email
+  const handlePasswordReset = async () => {
+    if (!selectedUser || !user) return;
+
+    try {
+      setSendingPasswordReset(true);
+
+      const { error } = await supabase.auth.resetPasswordForEmail(selectedUser.email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (error) throw error;
+
+      toast.success(
+        language === 'el'
+          ? `Email επαναφοράς κωδικού στάλθηκε στο ${selectedUser.email}`
+          : `Password reset email sent to ${selectedUser.email}`
+      );
+    } catch (error: any) {
+      console.error('Error sending reset email:', error);
+      toast.error(error.message || (language === 'el' ? 'Αποτυχία αποστολής email επαναφοράς' : 'Error sending password reset email'));
+    } finally {
+      setSendingPasswordReset(false);
     }
   };
 
@@ -1333,6 +1363,38 @@ export default function AdminUsers() {
                       </div>
 
                       <Separator />
+
+                      {/* Password Reset Section - for active (non-pending) users */}
+                      {!isPendingUser && (
+                        <div className="flex items-center justify-between p-4 rounded-lg border">
+                          <div className="flex items-center gap-3">
+                            <Key className="h-5 w-5 text-muted-foreground" />
+                            <div>
+                              <p className="font-medium">
+                                {language === 'el' ? 'Επαναφορά Κωδικού' : 'Password Reset'}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {language === 'el' 
+                                  ? 'Αποστολή email επαναφοράς κωδικού' 
+                                  : 'Send password reset email'}
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handlePasswordReset}
+                            disabled={sendingPasswordReset}
+                          >
+                            {sendingPasswordReset ? (
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            ) : (
+                              <Mail className="h-4 w-4 mr-2" />
+                            )}
+                            {language === 'el' ? 'Αποστολή' : 'Send'}
+                          </Button>
+                        </div>
+                      )}
 
                       {/* Active Status Toggle */}
                       <div className="flex items-center justify-between p-4 rounded-lg border">
