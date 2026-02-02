@@ -159,7 +159,7 @@ const [searchQuery, setSearchQuery] = useState('');
       const [specialtiesRes, employeesRes, projectsRes, employeeProjectsRes, usersRes] = await Promise.all([
         supabase.from('specialties').select('*').order('code'),
         supabase.from('employees').select(`*, specialties (id, name_en, name_el, code)`).order('employee_code'),
-        supabase.from('projects').select('*').order('project_code'),
+        supabase.from('projects').select('*').eq('status', 'OPEN').order('project_code'),
         supabase.from('employee_allowed_projects').select('employee_id, project_id'),
         // Fetch users with roles (admin, hr, timekeeper)
         supabase.from('user_roles').select('user_id, role').in('role', ['admin', 'hr', 'timekeeper']),
