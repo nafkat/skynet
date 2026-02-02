@@ -26,7 +26,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { Plus, Search, Edit2, ChevronDown, ChevronRight, Archive, Trash2, MoreHorizontal, AlertCircle } from 'lucide-react';
+import { Plus, Search, Edit2, ChevronDown, ChevronRight, Archive, Trash2, MoreHorizontal, AlertCircle, ArrowLeftRight } from 'lucide-react';
 import { ViberLinkCard } from '@/components/ViberLinkCard';
 import {
   DropdownMenu,
@@ -429,6 +429,11 @@ const [searchQuery, setSearchQuery] = useState('');
   };
 
   const handleArchiveClick = (employee: Employee) => {
+    setSelectedEmployee(employee);
+    setArchiveDialogOpen(true);
+  };
+
+  const handleQuickStatusToggle = (employee: Employee) => {
     setSelectedEmployee(employee);
     setArchiveDialogOpen(true);
   };
@@ -939,12 +944,33 @@ const [searchQuery, setSearchQuery] = useState('');
                   </td>
                   <td className="table-cell text-sm">{getRecorderName(employee.assigned_user_id)}</td>
                   <td className="table-cell">
-                    <span className={cn(
-                      'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border',
-                      employee.status === 'active' ? 'badge-active' : 'badge-inactive'
-                    )}>
+                    <button
+                      onClick={() => handleQuickStatusToggle(employee)}
+                      disabled={!hasElevatedRole}
+                      className={cn(
+                        'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium',
+                        'transition-all duration-200',
+                        hasElevatedRole && 'cursor-pointer hover:shadow-sm',
+                        !hasElevatedRole && 'cursor-not-allowed opacity-70',
+                        employee.status === 'active'
+                          ? hasElevatedRole 
+                            ? 'bg-green-100 text-green-700 hover:bg-green-200' 
+                            : 'bg-green-100 text-green-700'
+                          : hasElevatedRole
+                            ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                            : 'bg-red-100 text-red-700'
+                      )}
+                      title={hasElevatedRole 
+                        ? (language === 'el' 
+                            ? `Πατήστε για ${employee.status === 'active' ? 'απενεργοποίηση' : 'ενεργοποίηση'}` 
+                            : `Click to ${employee.status === 'active' ? 'deactivate' : 'activate'}`)
+                        : (language === 'el' ? 'Δεν έχετε δικαίωμα' : 'No permission')
+                      }
+                    >
+                      <span className={cn('w-1.5 h-1.5 rounded-full', employee.status === 'active' ? 'bg-green-500' : 'bg-red-500')} />
                       {employee.status === 'active' ? t('common.active') : t('common.inactive')}
-                    </span>
+                      {hasElevatedRole && <ArrowLeftRight className="h-3 w-3 opacity-60" />}
+                    </button>
                   </td>
                   <td className="table-cell text-right">
                     <DropdownMenu>
