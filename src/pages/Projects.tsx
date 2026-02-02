@@ -20,7 +20,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Plus, Search, Edit2, Building2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Plus, Search, Edit2, Building2, ArrowLeftRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -42,7 +52,7 @@ const isValidGreekAFM = (afm: string): boolean => {
 };
 
 export default function Projects() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { role } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,6 +67,8 @@ export default function Projects() {
   const [customerCompanyAfm, setCustomerCompanyAfm] = useState('');
   const [assignedShipyardCompany, setAssignedShipyardCompany] = useState('');
   const [status, setStatus] = useState<'OPEN' | 'CLOSED'>('OPEN');
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
 
   const canEdit = role === 'admin' || role === 'hr';
 
@@ -96,6 +108,39 @@ export default function Projects() {
     setAssignedShipyardCompany(project.assigned_shipyard_company);
     setStatus(project.status);
     setIsDialogOpen(true);
+  };
+
+  const handleStatusToggle = (project: Project) => {
+    setSelectedProject(project);
+    setStatusDialogOpen(true);
+  };
+
+  const confirmStatusToggle = async () => {
+    if (!selectedProject) return;
+    
+    try {
+      const newStatus = selectedProject.status === 'OPEN' ? 'CLOSED' : 'OPEN';
+      const { error } = await supabase
+        .from('projects')
+        .update({ status: newStatus })
+        .eq('id', selectedProject.id);
+      
+      if (error) throw error;
+      
+      toast.success(
+        newStatus === 'CLOSED'
+          ? (language === 'el' ? 'Το έργο έκλεισε' : 'Project closed')
+          : (language === 'el' ? 'Το έργο άνοιξε ξανά' : 'Project reopened')
+      );
+      
+      fetchProjects();
+    } catch (error: any) {
+      console.error('Error toggling status:', error);
+      toast.error(error.message || 'Error updating project status');
+    } finally {
+      setStatusDialogOpen(false);
+      setSelectedProject(null);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -347,12 +392,27 @@ export default function Projects() {
               )}
             </div>
 
-            <span className={cn(
-              'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border',
-              project.status === 'OPEN' ? 'badge-open' : 'badge-closed'
-            )}>
+            <button
+              onClick={() => handleStatusToggle(project)}
+              disabled={!canEdit}
+              className={cn(
+                'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border',
+                'transition-all duration-200',
+                canEdit && 'cursor-pointer hover:shadow-sm',
+                !canEdit && 'cursor-not-allowed opacity-70',
+                project.status === 'OPEN'
+                  ? canEdit ? 'badge-open hover:bg-green-100' : 'badge-open'
+                  : canEdit ? 'badge-closed hover:bg-red-100' : 'badge-closed'
+              )}
+              title={canEdit
+                ? (language === 'el' ? `Πατήστε για ${project.status === 'OPEN' ? 'κλείσιμο' : 'άνοιγμα'}` : `Click to ${project.status === 'OPEN' ? 'close' : 'reopen'}`)
+                : (language === 'el' ? 'Δεν έχετε δικαίωμα' : 'No permission')
+              }
+            >
+              <span className={cn('w-1.5 h-1.5 rounded-full', project.status === 'OPEN' ? 'bg-green-500' : 'bg-red-500')} />
               {project.status === 'OPEN' ? t('common.open') : t('common.closed')}
-            </span>
+              {canEdit && <ArrowLeftRight className="h-3 w-3 opacity-60" />}
+            </button>
           </div>
         ))}
       </div>
@@ -362,6 +422,26 @@ export default function Projects() {
           {t('common.noData')}
         </div>
       )}
+      <AlertDialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {selectedProject?.status === 'OPEN' ? (language === 'el' ? 'Κλείσιμο Έργου' : 'Close Project') : (language === 'el' ? 'Άνοιγμα Έργου' : 'Reopen Project')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {selectedProject?.status === 'OPEN'
+                ? (language === 'el' ? `Είστε σίγουροι ότι θέλετε να κλείσετε το έργο "${selectedProject?.project_name}"? Δεν θα μπορείτε να καταχωρείτε νέες ώρες σε αυτό.` : `Are you sure you want to close project "${selectedProject?.project_name}"? You won't be able to log new time entries to it.`)
+                : (language === 'el' ? `Είστε σίγουροι ότι θέλετε να ανοίξετε ξανά το έργο "${selectedProject?.project_name}"?` : `Are you sure you want to reopen project "${selectedProject?.project_name}"?`)}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{language === 'el' ? 'Ακύρωση' : 'Cancel'}</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmStatusToggle}>
+              {selectedProject?.status === 'OPEN' ? (language === 'el' ? 'Κλείσιμο' : 'Close') : (language === 'el' ? 'Άνοιγμα' : 'Reopen')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </MainLayout>
   );
 }
