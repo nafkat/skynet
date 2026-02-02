@@ -122,7 +122,7 @@ export default function PayrollExport() {
     const [employeesRes, specialtiesRes, projectsRes] = await Promise.all([
       supabase.from('employees').select('*').eq('status', 'active'),
       supabase.from('specialties').select('*'),
-      supabase.from('projects').select('*'),
+      supabase.from('projects').select('*').eq('status', 'OPEN'),
     ]);
 
     if (employeesRes.data) setEmployees(employeesRes.data);

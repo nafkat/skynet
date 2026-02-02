@@ -126,10 +126,11 @@ export default function TimeEntry() {
         .eq('status', 'active')
         .order('last_name');
 
-      // Projects - RLS filters to open projects for Timekeeper
+      // Projects - only OPEN projects
       const { data: projectsData } = await supabase
         .from('projects')
         .select('id, project_code, project_name')
+        .eq('status', 'OPEN')
         .order('project_code');
 
       // Fetch today's entries only (Europe/Athens timezone)
