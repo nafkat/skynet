@@ -23,7 +23,15 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Clock, Plus, Edit2, AlertCircle, X, Save, FileEdit, Trash2, Users } from 'lucide-react';
+import { Clock, Plus, Edit2, AlertCircle, X, Save, FileEdit, Trash2, Users, AlertTriangle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { usePendingCorrections } from '@/hooks/usePendingCorrections';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { format, subHours } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
@@ -80,6 +88,8 @@ const getTodayAthens = (): string => {
 export default function TimeEntry() {
   const { t, language } = useLanguage();
   const { user, hasElevatedRole, role } = useAuth();
+  const navigate = useNavigate();
+  const { pendingByEmployee } = usePendingCorrections();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [recentEntries, setRecentEntries] = useState<TimeEntryData[]>([]);
@@ -713,7 +723,31 @@ export default function TimeEntry() {
                   <div className="flex items-start justify-between">
                     <div>
                       <p className="font-medium">
-                        {entry.employees.first_name} {entry.employees.last_name}
+                        {pendingByEmployee[entry.employee_id] > 0 ? (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span
+                                  className="inline-flex items-center gap-1 text-destructive cursor-pointer hover:underline"
+                                  onClick={() => navigate('/corrections')}
+                                >
+                                  <AlertTriangle className="h-3.5 w-3.5" />
+                                  {entry.employees.first_name} {entry.employees.last_name}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="font-medium">
+                                  {pendingByEmployee[entry.employee_id]} {language === 'el' ? 'εκκρεμή αιτήματα διόρθωσης' : `pending correction request${pendingByEmployee[entry.employee_id] > 1 ? 's' : ''}`}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {language === 'el' ? 'Κλικ για προβολή' : 'Click to view details'}
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : (
+                          <span>{entry.employees.first_name} {entry.employees.last_name}</span>
+                        )}
                       </p>
                       <p className="text-sm text-muted-foreground">
                         {entry.projects.project_code} - {entry.projects.project_name}
