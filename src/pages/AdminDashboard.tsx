@@ -17,10 +17,14 @@ import {
   DollarSign, 
   FolderOpen, 
   AlertTriangle,
+  AlertCircle,
+  ArrowRight,
   CalendarIcon,
   Users,
   FileSpreadsheet
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { usePendingCorrections } from '@/hooks/usePendingCorrections';
 import { format, startOfWeek, endOfWeek, startOfDay, endOfDay, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -94,6 +98,7 @@ type DateRangeType = 'today' | 'thisWeek' | 'custom';
 export default function AdminDashboard() {
   const { t, language } = useLanguage();
   const { hasElevatedRole, loading: authLoading } = useAuth();
+  const { pendingCount } = usePendingCorrections();
   
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -402,6 +407,35 @@ export default function AdminDashboard() {
 
         {/* Payroll Export Modal */}
         <PayrollExportModal open={payrollModalOpen} onOpenChange={setPayrollModalOpen} />
+
+        {/* Pending Corrections Alert */}
+        {pendingCount > 0 && (
+          <Card className="border-orange-300 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-700">
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                  <div>
+                    <p className="font-medium text-orange-900 dark:text-orange-200">
+                      {language === 'el' ? 'Εκκρεμείς Ενέργειες' : 'Pending Actions'}
+                    </p>
+                    <p className="text-sm text-orange-700 dark:text-orange-300">
+                      {language === 'el'
+                        ? `${pendingCount} αίτημα${pendingCount > 1 ? 'τα' : ''} διόρθωσης περιμένε${pendingCount > 1 ? 'ουν' : 'ι'} έγκριση`
+                        : `${pendingCount} correction request${pendingCount > 1 ? 's' : ''} awaiting approval`}
+                    </p>
+                  </div>
+                </div>
+                <Link to="/corrections">
+                  <Button variant="outline" size="sm" className="gap-2 border-orange-300 text-orange-700 hover:bg-orange-100 dark:border-orange-600 dark:text-orange-300 dark:hover:bg-orange-900/40">
+                    {language === 'el' ? 'Προβολή Αιτημάτων' : 'View Requests'}
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Filters */}
         <Card className="card-elevated">
