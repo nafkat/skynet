@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Smartphone, Copy, RefreshCw, CheckCircle2, XCircle } from 'lucide-react';
+import { Send, Copy, RefreshCw, CheckCircle2, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 
-interface ViberLinkCardProps {
+interface TelegramLinkCardProps {
   employeeId: string;
   hasElevatedRole: boolean;
 }
@@ -25,8 +25,8 @@ interface LinkCode {
   used_at: string | null;
 }
 
-export function ViberLinkCard({ employeeId, hasElevatedRole }: ViberLinkCardProps) {
-  const { t, language } = useLanguage();
+export function TelegramLinkCard({ employeeId, hasElevatedRole }: TelegramLinkCardProps) {
+  const { language } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [contactChannel, setContactChannel] = useState<ContactChannel | null>(null);
@@ -34,19 +34,18 @@ export function ViberLinkCard({ employeeId, hasElevatedRole }: ViberLinkCardProp
 
   useEffect(() => {
     if (employeeId && hasElevatedRole) {
-      fetchViberStatus();
+      fetchTelegramStatus();
     }
   }, [employeeId, hasElevatedRole]);
 
-  const fetchViberStatus = async () => {
+  const fetchTelegramStatus = async () => {
     setLoading(true);
     try {
-      // Check if employee has linked Viber
       const { data: channel, error: channelError } = await supabase
         .from('employee_contact_channels')
         .select('id, channel_identifier, is_verified, updated_at')
         .eq('employee_id', employeeId)
-        .eq('channel_type', 'viber')
+        .eq('channel_type', 'telegram')
         .maybeSingle();
 
       if (channelError) {
@@ -54,7 +53,6 @@ export function ViberLinkCard({ employeeId, hasElevatedRole }: ViberLinkCardProp
       }
       setContactChannel(channel || null);
 
-      // Check for active (unused, non-expired) link code
       const { data: codes, error: codesError } = await supabase
         .from('viber_link_codes')
         .select('id, code, expires_at, used_at')
@@ -69,7 +67,7 @@ export function ViberLinkCard({ employeeId, hasElevatedRole }: ViberLinkCardProp
       }
       setActiveCode(codes && codes.length > 0 ? codes[0] : null);
     } catch (error) {
-      console.error('Error fetching Viber status:', error);
+      console.error('Error fetching Telegram status:', error);
     } finally {
       setLoading(false);
     }
@@ -78,10 +76,7 @@ export function ViberLinkCard({ employeeId, hasElevatedRole }: ViberLinkCardProp
   const generateCode = async () => {
     setGenerating(true);
     try {
-      // Generate 6-digit random code
       const code = Math.floor(100000 + Math.random() * 900000).toString();
-      
-      // Set expiry to 48 hours from now
       const expiresAt = new Date();
       expiresAt.setHours(expiresAt.getHours() + 48);
 
@@ -107,7 +102,7 @@ export function ViberLinkCard({ employeeId, hasElevatedRole }: ViberLinkCardProp
       }
 
       toast.success(language === 'el' ? 'Κωδικός δημιουργήθηκε' : 'Code generated');
-      fetchViberStatus();
+      fetchTelegramStatus();
     } catch (error) {
       console.error('Error generating code:', error);
       toast.error(language === 'el' ? 'Σφάλμα' : 'Error');
@@ -118,7 +113,6 @@ export function ViberLinkCard({ employeeId, hasElevatedRole }: ViberLinkCardProp
 
   const revokeCode = async () => {
     if (!activeCode) return;
-    
     try {
       const { error } = await supabase
         .from('viber_link_codes')
@@ -140,7 +134,7 @@ export function ViberLinkCard({ employeeId, hasElevatedRole }: ViberLinkCardProp
 
   const copyCode = () => {
     if (!activeCode) return;
-    navigator.clipboard.writeText(`LINK ${activeCode.code}`);
+    navigator.clipboard.writeText(`/link ${activeCode.code}`);
     toast.success(language === 'el' ? 'Αντιγράφηκε στο πρόχειρο' : 'Copied to clipboard');
   };
 
@@ -151,16 +145,15 @@ export function ViberLinkCard({ employeeId, hasElevatedRole }: ViberLinkCardProp
     });
   };
 
-  // Only show for elevated roles
   if (!hasElevatedRole) return null;
 
   if (loading) {
     return (
       <div className="space-y-4 border-t pt-4">
         <div className="flex items-center gap-2">
-          <Smartphone className="h-4 w-4" />
+          <Send className="h-4 w-4" />
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-            {language === 'el' ? 'Σύνδεση Viber' : 'Viber Link'}
+            {language === 'el' ? 'Σύνδεση Telegram' : 'Telegram Link'}
           </h3>
         </div>
         <div className="animate-pulse bg-muted h-16 rounded-md"></div>
@@ -171,14 +164,13 @@ export function ViberLinkCard({ employeeId, hasElevatedRole }: ViberLinkCardProp
   return (
     <div className="space-y-4 border-t pt-4">
       <div className="flex items-center gap-2">
-        <Smartphone className="h-4 w-4" />
+        <Send className="h-4 w-4" />
         <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-          {language === 'el' ? 'Σύνδεση Viber' : 'Viber Link'}
+          {language === 'el' ? 'Σύνδεση Telegram' : 'Telegram Link'}
         </h3>
       </div>
 
       {contactChannel?.channel_identifier ? (
-        // Employee is linked
         <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
           <div className="flex items-center gap-2 mb-2">
             <CheckCircle2 className="h-5 w-5 text-green-600" />
@@ -192,7 +184,6 @@ export function ViberLinkCard({ employeeId, hasElevatedRole }: ViberLinkCardProp
           </p>
         </div>
       ) : activeCode ? (
-        // Active code exists
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">
@@ -222,8 +213,8 @@ export function ViberLinkCard({ employeeId, hasElevatedRole }: ViberLinkCardProp
             </p>
             <p>
               {language === 'el' 
-                ? `Ανοίξτε το Viber, βρείτε το SKYNET bot και στείλτε: LINK ${activeCode.code}`
-                : `Open Viber, find the SKYNET bot, and send: LINK ${activeCode.code}`
+                ? `Ανοίξτε το Telegram, βρείτε το @skynet_shipyard_bot και στείλτε: /link ${activeCode.code}`
+                : `Open Telegram, find @skynet_shipyard_bot, and send: /link ${activeCode.code}`
               }
             </p>
           </div>
@@ -233,14 +224,13 @@ export function ViberLinkCard({ employeeId, hasElevatedRole }: ViberLinkCardProp
               <XCircle className="h-4 w-4 mr-1" />
               {language === 'el' ? 'Ανάκληση' : 'Revoke'}
             </Button>
-            <Button variant="outline" size="sm" onClick={fetchViberStatus}>
+            <Button variant="outline" size="sm" onClick={fetchTelegramStatus}>
               <RefreshCw className="h-4 w-4 mr-1" />
               {language === 'el' ? 'Ανανέωση' : 'Refresh'}
             </Button>
           </div>
         </div>
       ) : (
-        // No link and no active code
         <div className="bg-muted/50 border rounded-lg p-4 space-y-3">
           <div className="flex items-center gap-2">
             <XCircle className="h-5 w-5 text-muted-foreground" />
@@ -261,7 +251,7 @@ export function ViberLinkCard({ employeeId, hasElevatedRole }: ViberLinkCardProp
               </>
             ) : (
               <>
-                <Smartphone className="h-4 w-4 mr-2" />
+                <Send className="h-4 w-4 mr-2" />
                 {language === 'el' ? 'Δημιουργία κωδικού σύνδεσης' : 'Generate link code'}
               </>
             )}

@@ -1,6 +1,6 @@
 project_id = "degvwobjdamxjhhhvbiz"
 
-[functions.viber_webhook]
+[functions.telegram_webhook]
 verify_jwt = false
 
 [functions.send_announcements_worker]

@@ -254,7 +254,7 @@ export default function AnnouncementCreate() {
         const deliveryInserts = recipients.map(r => ({
           announcement_id: announcement.id,
           recipient_id: r.id,
-          channel: 'viber',
+          channel: 'telegram',
           status: 'pending' as const,
         }));
 
@@ -311,7 +311,7 @@ export default function AnnouncementCreate() {
                 {t('New Announcement', 'Νέα Ανακοίνωση')}
               </h1>
               <p className="text-sm text-muted-foreground">
-                {t('Create and send announcements via Viber', 'Δημιουργία και αποστολή ανακοινώσεων μέσω Viber')}
+                {t('Create and send announcements via Telegram', 'Δημιουργία και αποστολή ανακοινώσεων μέσω Telegram')}
               </p>
             </div>
           </div>

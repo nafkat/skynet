@@ -5,52 +5,47 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Send a text message via Viber API
-async function sendViberMessage(receiverId: string, text: string, viberToken: string): Promise<{ ok: boolean; error?: string }> {
+async function sendTelegramMessage(chatId: string, text: string, telegramToken: string): Promise<{ ok: boolean; error?: string }> {
   try {
-    console.log(`Sending Viber message to ${receiverId}: ${text.substring(0, 50)}...`);
+    console.log(`Sending Telegram message to ${chatId}: ${text.substring(0, 50)}...`);
     
-    const response = await fetch('https://chatapi.viber.com/pa/send_message', {
+    const response = await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Viber-Auth-Token': viberToken,
       },
       body: JSON.stringify({
-        receiver: receiverId,
-        type: 'text',
+        chat_id: chatId,
         text: text,
-        sender: { name: 'SKYNET' },
+        parse_mode: 'HTML',
       }),
     });
 
     const data = await response.json();
-    console.log('Viber API response:', JSON.stringify(data));
+    console.log('Telegram API response:', JSON.stringify(data));
     
-    if (data.status === 0) {
+    if (data.ok) {
       return { ok: true };
     } else {
-      return { ok: false, error: data.status_message || `Error status: ${data.status}` };
+      return { ok: false, error: data.description || `Error: ${JSON.stringify(data)}` };
     }
   } catch (error) {
-    console.error('Error sending Viber message:', error);
+    console.error('Error sending Telegram message:', error);
     return { ok: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Get environment variables
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const viberToken = Deno.env.get('VIBER_AUTH_TOKEN');
+    const telegramToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
 
-    if (!supabaseUrl || !serviceRoleKey || !viberToken) {
+    if (!supabaseUrl || !serviceRoleKey || !telegramToken) {
       console.error('Missing environment variables');
       return new Response(JSON.stringify({ error: 'Server configuration error' }), {
         status: 500,
@@ -58,12 +53,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Create Supabase client with service role (bypass RLS)
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     console.log('Starting announcement delivery worker...');
 
-    // Fetch up to 50 pending deliveries
     const { data: deliveries, error: fetchError } = await supabase
       .from('announcement_deliveries')
       .select(`
@@ -78,7 +71,7 @@ Deno.serve(async (req) => {
         )
       `)
       .eq('status', 'pending')
-      .eq('channel', 'viber')
+      .eq('channel', 'telegram')
       .lt('attempts', 3)
       .order('created_at', { ascending: true })
       .limit(50);
@@ -100,7 +93,6 @@ Deno.serve(async (req) => {
 
     console.log(`Found ${deliveries.length} pending deliveries to process`);
 
-    // Track results for announcement status updates
     const announcementResults: Record<string, { sent: number; failed: number; total: number }> = {};
 
     let processed = 0;
@@ -112,7 +104,6 @@ Deno.serve(async (req) => {
       const employeeId = (delivery.announcement_recipients as any)?.employee_id;
       const announcementId = delivery.announcement_id;
 
-      // Initialize tracking for this announcement
       if (!announcementResults[announcementId]) {
         announcementResults[announcementId] = { sent: 0, failed: 0, total: 0 };
       }
@@ -134,21 +125,20 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Get viber_user_id from employee_contact_channels
       const { data: contactChannel, error: contactError } = await supabase
         .from('employee_contact_channels')
         .select('channel_identifier, is_verified')
         .eq('employee_id', employeeId)
-        .eq('channel_type', 'viber')
+        .eq('channel_type', 'telegram')
         .single();
 
       if (contactError || !contactChannel?.channel_identifier) {
-        console.log(`Employee ${employeeId} not subscribed to Viber`);
+        console.log(`Employee ${employeeId} not subscribed to Telegram`);
         await supabase
           .from('announcement_deliveries')
           .update({
             status: 'failed',
-            error_message: 'Employee not subscribed to Viber',
+            error_message: 'Employee not subscribed to Telegram',
             attempts: delivery.attempts + 1,
             last_attempt_at: new Date().toISOString(),
           })
@@ -158,7 +148,6 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Get announcement content
       const { data: announcement, error: announcementError } = await supabase
         .from('announcements')
         .select('title, message')
@@ -181,11 +170,9 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Build message text
-      const messageText = `📢 ${announcement.title}\n\n${announcement.message}`;
+      const messageText = `📢 <b>${announcement.title}</b>\n\n${announcement.message}`;
 
-      // Send via Viber
-      const result = await sendViberMessage(contactChannel.channel_identifier, messageText, viberToken);
+      const result = await sendTelegramMessage(contactChannel.channel_identifier, messageText, telegramToken);
 
       if (result.ok) {
         console.log(`Delivery ${delivery.id} sent successfully`);
@@ -217,9 +204,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Update announcement statuses
     for (const [announcementId, results] of Object.entries(announcementResults)) {
-      // Get total delivery count for this announcement
       const { count: totalDeliveries } = await supabase
         .from('announcement_deliveries')
         .select('*', { count: 'exact', head: true })
@@ -243,10 +228,8 @@ Deno.serve(async (req) => {
         .eq('announcement_id', announcementId)
         .eq('status', 'pending');
 
-      // Determine announcement status
       let newStatus: string;
       if (pendingCount && pendingCount > 0) {
-        // Still have pending deliveries
         newStatus = 'pending';
       } else if (sentCount === totalDeliveries) {
         newStatus = 'sent';

@@ -167,7 +167,7 @@ export default function AnnouncementsList() {
                 {t('Announcements', 'Ανακοινώσεις')}
               </h1>
               <p className="text-sm text-muted-foreground">
-                {t('Internal announcements via Viber', 'Εσωτερικές ανακοινώσεις μέσω Viber')}
+                {t('Internal announcements via Telegram', 'Εσωτερικές ανακοινώσεις μέσω Telegram')}
               </p>
             </div>
           </div>
