@@ -27,7 +27,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { Plus, Search, Edit2, ChevronDown, ChevronRight, Archive, Trash2, MoreHorizontal, AlertCircle, AlertTriangle, ArrowLeftRight } from 'lucide-react';
-import { ViberLinkCard } from '@/components/ViberLinkCard';
+import { TelegramLinkCard } from '@/components/TelegramLinkCard';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1005,9 +1005,9 @@ const [searchQuery, setSearchQuery] = useState('');
                   </Collapsible>
                 )}
 
-                {/* Viber Link Section - Admin/HR Only, only when editing */}
+                {/* Telegram Link Section - Admin/HR Only, only when editing */}
                 {hasElevatedRole && editingEmployee && (
-                  <ViberLinkCard 
+                  <TelegramLinkCard 
                     employeeId={editingEmployee.id} 
                     hasElevatedRole={hasElevatedRole} 
                   />

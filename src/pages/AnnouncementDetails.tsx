@@ -204,7 +204,7 @@ export default function AnnouncementDetails() {
         const deliveryInserts = recipients.map(r => ({
           announcement_id: announcement.id,
           recipient_id: r.id,
-          channel: 'viber',
+          channel: 'telegram',
           status: 'pending' as const,
         }));
 
