@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePendingCorrections } from '@/hooks/usePendingCorrections';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
@@ -25,6 +26,7 @@ export function Sidebar() {
   const location = useLocation();
   const { t, language, setLanguage } = useLanguage();
   const { signOut, isAdmin, isHR, hasElevatedRole, role } = useAuth();
+  const { pendingCount } = usePendingCorrections();
 
   // Timekeeper has VERY LIMITED access - only Dashboard and Time Entry
   const isTimekeeperOnly = role === 'timekeeper' && !isAdmin && !isHR;
@@ -178,7 +180,14 @@ export function Sidebar() {
               )}
             >
               <item.icon className="h-5 w-5" />
-              <span className="font-medium">{item.label}</span>
+              <span className="font-medium flex items-center gap-2">
+                {item.label}
+                {item.path === '/corrections' && pendingCount > 0 && (
+                  <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-red-600 rounded-full min-w-[20px]">
+                    {pendingCount}
+                  </span>
+                )}
+              </span>
             </Link>
           );
         })}
