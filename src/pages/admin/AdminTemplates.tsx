@@ -233,6 +233,18 @@ export default function AdminTemplates() {
 
       if (error) throw error;
 
+      // Audit log
+      await supabase.from('permission_audit_logs').insert({
+        actor_user_id: user.id,
+        target_user_id: null,
+        change_type: 'ROLE_CREATED',
+        details: {
+          role_id: data.id,
+          role_name: newTemplateName.trim(),
+          description: newTemplateDescription.trim() || null,
+        },
+      });
+
       toast.success(language === 'el' ? 'Ο ρόλος δημιουργήθηκε' : 'Role created');
       setShowCreateModal(false);
       setNewTemplateName('');
@@ -259,6 +271,19 @@ export default function AdminTemplates() {
 
     try {
       setSaving(true);
+
+      // Audit log before deletion
+      await supabase.from('permission_audit_logs').insert({
+        actor_user_id: user!.id,
+        target_user_id: null,
+        change_type: 'ROLE_DELETED',
+        details: {
+          role_id: selectedTemplate.id,
+          role_name: selectedTemplate.name,
+          description: selectedTemplate.description,
+        },
+      });
+
       const { error } = await supabase
         .from('permission_templates')
         .delete()
@@ -298,7 +323,7 @@ export default function AdminTemplates() {
     try {
       setSaving(true);
 
-      // Save modules
+      // Save modules and log changes
       for (const module of modules) {
         const original = originalModules.find(m => m.module_key === module.module_key);
         if (original?.can_access !== module.can_access) {
@@ -310,10 +335,24 @@ export default function AdminTemplates() {
               can_access: module.can_access,
             }, { onConflict: 'template_id,module_key' });
           if (error) throw error;
+
+          await supabase.from('permission_audit_logs').insert({
+            actor_user_id: user!.id,
+            target_user_id: null,
+            change_type: module.can_access ? 'ROLE_MODULE_GRANTED' : 'ROLE_MODULE_REVOKED',
+            details: {
+              role_id: selectedTemplate.id,
+              role_name: selectedTemplate.name,
+              module_key: module.module_key,
+              module_name: module.name,
+              old_value: original?.can_access || false,
+              new_value: module.can_access,
+            },
+          });
         }
       }
 
-      // Save actions
+      // Save actions and log changes
       for (const action of actions) {
         const original = originalActions.find(a => a.action_key === action.action_key);
         if (original?.allowed !== action.allowed) {
@@ -325,6 +364,20 @@ export default function AdminTemplates() {
               allowed: action.allowed,
             }, { onConflict: 'template_id,action_key' });
           if (error) throw error;
+
+          await supabase.from('permission_audit_logs').insert({
+            actor_user_id: user!.id,
+            target_user_id: null,
+            change_type: action.allowed ? 'ROLE_ACTION_GRANTED' : 'ROLE_ACTION_REVOKED',
+            details: {
+              role_id: selectedTemplate.id,
+              role_name: selectedTemplate.name,
+              action_key: action.action_key,
+              action_description: action.description || action.action_key,
+              old_value: original?.allowed || false,
+              new_value: action.allowed,
+            },
+          });
         }
       }
 

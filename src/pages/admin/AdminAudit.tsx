@@ -120,6 +120,13 @@ export default function AdminAudit() {
       case 'USER_ACTIVATED': return language === 'el' ? 'Ενεργοποίηση' : 'User Activated';
       case 'USER_DEACTIVATED': return language === 'el' ? 'Απενεργοποίηση' : 'User Deactivated';
       case 'INVITE_RESENT': return language === 'el' ? 'Επαναποστολή Πρόσκλησης' : 'Invite Resent';
+      case 'ROLE_CREATED': return language === 'el' ? 'Δημιουργία Ρόλου' : 'Role Created';
+      case 'ROLE_DELETED': return language === 'el' ? 'Διαγραφή Ρόλου' : 'Role Deleted';
+      case 'ROLE_UPDATED': return language === 'el' ? 'Ενημέρωση Ρόλου' : 'Role Updated';
+      case 'ROLE_MODULE_GRANTED': return language === 'el' ? 'Module Ρόλου ✓' : 'Role Module ✓';
+      case 'ROLE_MODULE_REVOKED': return language === 'el' ? 'Module Ρόλου ✗' : 'Role Module ✗';
+      case 'ROLE_ACTION_GRANTED': return language === 'el' ? 'Ενέργεια Ρόλου ✓' : 'Role Action ✓';
+      case 'ROLE_ACTION_REVOKED': return language === 'el' ? 'Ενέργεια Ρόλου ✗' : 'Role Action ✗';
       default: return type;
     }
   };
@@ -137,6 +144,13 @@ export default function AdminAudit() {
       case 'USER_ACTIVATED': return 'default';
       case 'USER_DEACTIVATED': return 'destructive';
       case 'INVITE_RESENT': return 'secondary';
+      case 'ROLE_CREATED': return 'default';
+      case 'ROLE_DELETED': return 'destructive';
+      case 'ROLE_UPDATED': return 'secondary';
+      case 'ROLE_MODULE_GRANTED': return 'default';
+      case 'ROLE_MODULE_REVOKED': return 'destructive';
+      case 'ROLE_ACTION_GRANTED': return 'default';
+      case 'ROLE_ACTION_REVOKED': return 'destructive';
       default: return 'outline';
     }
   };
@@ -159,6 +173,16 @@ export default function AdminAudit() {
     // Template applied/assigned/removed
     if (details.template_name) {
       return details.template_name;
+    }
+    // Role-level changes (module/action grants, creation, deletion)
+    if (details.role_name) {
+      if (details.module_key) {
+        return `${details.role_name}: ${details.module_name || details.module_key}`;
+      }
+      if (details.action_key) {
+        return `${details.role_name}: ${details.action_description || details.action_key}`;
+      }
+      return details.role_name;
     }
     // Name change
     if (details.old_name !== undefined && details.new_name !== undefined) {
@@ -269,6 +293,24 @@ export default function AdminAudit() {
                 </SelectItem>
                 <SelectItem value="INVITE_RESENT">
                   {language === 'el' ? 'Επαναποστολή Πρόσκλησης' : 'Invite Resent'}
+                </SelectItem>
+                <SelectItem value="ROLE_CREATED">
+                  {language === 'el' ? 'Δημιουργία Ρόλου' : 'Role Created'}
+                </SelectItem>
+                <SelectItem value="ROLE_DELETED">
+                  {language === 'el' ? 'Διαγραφή Ρόλου' : 'Role Deleted'}
+                </SelectItem>
+                <SelectItem value="ROLE_MODULE_GRANTED">
+                  {language === 'el' ? 'Module Ρόλου ✓' : 'Role Module ✓'}
+                </SelectItem>
+                <SelectItem value="ROLE_MODULE_REVOKED">
+                  {language === 'el' ? 'Module Ρόλου ✗' : 'Role Module ✗'}
+                </SelectItem>
+                <SelectItem value="ROLE_ACTION_GRANTED">
+                  {language === 'el' ? 'Ενέργεια Ρόλου ✓' : 'Role Action ✓'}
+                </SelectItem>
+                <SelectItem value="ROLE_ACTION_REVOKED">
+                  {language === 'el' ? 'Ενέργεια Ρόλου ✗' : 'Role Action ✗'}
                 </SelectItem>
               </SelectContent>
             </Select>
