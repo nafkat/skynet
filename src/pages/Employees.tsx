@@ -26,7 +26,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { Plus, Search, Edit2, ChevronDown, ChevronRight, Archive, Trash2, MoreHorizontal, AlertCircle, ArrowLeftRight } from 'lucide-react';
+import { Plus, Search, Edit2, ChevronDown, ChevronRight, Archive, Trash2, MoreHorizontal, AlertCircle, AlertTriangle, ArrowLeftRight } from 'lucide-react';
 import { ViberLinkCard } from '@/components/ViberLinkCard';
 import {
   DropdownMenu,
@@ -119,6 +119,11 @@ const [searchQuery, setSearchQuery] = useState('');
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [payrollSectionOpen, setPayrollSectionOpen] = useState(false);
 
+  // Duplicate detection state
+  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
+  const [duplicateInfo, setDuplicateInfo] = useState<any[]>([]);
+  const [pendingEmployeeData, setPendingEmployeeData] = useState<any>(null);
+
   // Form state - Core
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -198,6 +203,90 @@ const [searchQuery, setSearchQuery] = useState('');
     }
   };
 
+  const formatDateToDDMMYYYY = (isoDate: string): string => {
+    if (!isoDate) return '';
+    const [year, month, day] = isoDate.split('-');
+    return `${day}/${month}/${year}`;
+  };
+
+  const formatDateToISO = (ddmmyyyy: string): string | null => {
+    if (!ddmmyyyy) return null;
+    const parts = ddmmyyyy.split('/');
+    if (parts.length !== 3) return null;
+    const [day, month, year] = parts;
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  };
+
+  const getTodayDDMMYYYY = (): string => {
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  const validateHireDate = (dateString: string): boolean => {
+    if (!dateString) return true;
+    const parts = dateString.split('/');
+    if (parts.length !== 3) {
+      toast.error(language === 'el' ? 'Μη έγκυρη μορφή ημερομηνίας (ΗΗ/ΜΜ/ΕΕΕΕ)' : 'Invalid date format (DD/MM/YYYY)');
+      return false;
+    }
+    const [day, month, year] = parts.map(Number);
+    const hireDate = new Date(year, month - 1, day);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (isNaN(hireDate.getTime())) {
+      toast.error(language === 'el' ? 'Μη έγκυρη ημερομηνία' : 'Invalid date');
+      return false;
+    }
+    if (hireDate > today) {
+      toast.error(language === 'el' ? 'Η ημερομηνία πρόσληψης δεν μπορεί να είναι στο μέλλον' : 'Hire date cannot be in the future');
+      return false;
+    }
+    return true;
+  };
+
+  const checkDuplicates = async (formData: { afm: string; idNumber: string; iban: string }) => {
+    const duplicates: any[] = [];
+    const excludeId = editingEmployee?.id;
+
+    if (formData.afm) {
+      const { data } = await supabase
+        .from('employees')
+        .select('employee_code, first_name, last_name, status')
+        .eq('afm', formData.afm.trim())
+        .maybeSingle();
+      if (data && (!excludeId || data.employee_code !== editingEmployee?.employee_code)) {
+        duplicates.push({ field: language === 'el' ? 'ΑΦΜ' : 'Tax Number (AFM)', value: formData.afm, employee: data });
+      }
+    }
+
+    if (formData.idNumber) {
+      const { data } = await supabase
+        .from('employees')
+        .select('employee_code, first_name, last_name, status')
+        .eq('id_number', formData.idNumber.trim())
+        .maybeSingle();
+      if (data && (!excludeId || data.employee_code !== editingEmployee?.employee_code)) {
+        duplicates.push({ field: language === 'el' ? 'Αρ. Ταυτότητας' : 'ID Number', value: formData.idNumber, employee: data });
+      }
+    }
+
+    if (formData.iban) {
+      const { data } = await supabase
+        .from('employees')
+        .select('employee_code, first_name, last_name, status')
+        .eq('iban', formData.iban.trim())
+        .maybeSingle();
+      if (data && (!excludeId || data.employee_code !== editingEmployee?.employee_code)) {
+        duplicates.push({ field: 'IBAN', value: formData.iban, employee: data });
+      }
+    }
+
+    return { hasDuplicates: duplicates.length > 0, duplicates };
+  };
+
   const resetForm = () => {
     setFirstName('');
     setLastName('');
@@ -209,7 +298,7 @@ const [searchQuery, setSearchQuery] = useState('');
     setRegularStart('07:00');
     setRegularEnd('14:00');
     setPhone('');
-    setHireDate('');
+    setHireDate(getTodayDDMMYYYY());
     setNotes('');
     setAllowedProjects([]);
     setAfm('');
@@ -234,7 +323,7 @@ const [searchQuery, setSearchQuery] = useState('');
     setRegularStart(employee.regular_start_time.slice(0, 5));
     setRegularEnd(employee.regular_end_time.slice(0, 5));
     setPhone(employee.phone || '');
-    setHireDate(employee.hire_date || '');
+    setHireDate(employee.hire_date ? formatDateToDDMMYYYY(employee.hire_date) : '');
     setNotes(employee.notes || '');
     setAfm(employee.afm || '');
     setIdType(employee.id_type || '');
@@ -262,96 +351,68 @@ const [searchQuery, setSearchQuery] = useState('');
     return regRate > 0 && allInRate > 0 && otRate > 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const buildEmployeeData = () => {
+    const employeeData: any = {
+      first_name: firstName,
+      last_name: lastName,
+      specialty_id: specialtyId,
+      status,
+      regular_start_time: regularStart,
+      regular_end_time: regularEnd,
+      phone: phone || null,
+      hire_date: formatDateToISO(hireDate) || null,
+      notes: notes || null,
+      assigned_user_id: assignedUserId,
+    };
 
-    if (!firstName || !lastName || !specialtyId) {
-      toast.error(t('employees.requiredFields'));
-      return;
+    if (hasElevatedRole) {
+      employeeData.regular_hourly_rate = parseFloat(regularRate) || 0;
+      employeeData.regular_rate_all_in = parseFloat(regularRateAllIn) || 0;
+      employeeData.overtime_hourly_rate = parseFloat(overtimeRate) || 0;
+      employeeData.afm = afm || null;
+      employeeData.id_type = idType || null;
+      employeeData.id_number = idNumber || null;
+      employeeData.iban = iban || null;
+      employeeData.bank_name = bankName || null;
     }
+    return employeeData;
+  };
 
-    if (!regularStart || !regularEnd) {
-      toast.error(t('employees.scheduleRequired'));
-      return;
-    }
-
-    // Validate assigned recorder
-    if (!assignedUserId) {
-      toast.error(t('employees.recorderRequired'));
-      return;
-    }
-
-    // Validate pay rates for Admin/HR
-    if (hasElevatedRole && !payRatesValid()) {
-      toast.error(t('employees.payRatesRequired'));
-      return;
-    }
-
+  const insertEmployee = async (employeeData?: any) => {
+    const data_to_save = employeeData || buildEmployeeData();
     try {
-      // Base employee data - always included
-      const employeeData: any = {
-        first_name: firstName,
-        last_name: lastName,
-        specialty_id: specialtyId,
-        status,
-        regular_start_time: regularStart,
-        regular_end_time: regularEnd,
-        phone: phone || null,
-        hire_date: hireDate || null,
-        notes: notes || null,
-        assigned_user_id: assignedUserId,
-      };
-
-      // Only include sensitive fields if user has elevated role
-      if (hasElevatedRole) {
-        employeeData.regular_hourly_rate = parseFloat(regularRate) || 0;
-        employeeData.regular_rate_all_in = parseFloat(regularRateAllIn) || 0;
-        employeeData.overtime_hourly_rate = parseFloat(overtimeRate) || 0;
-        employeeData.afm = afm || null;
-        employeeData.id_type = idType || null;
-        employeeData.id_number = idNumber || null;
-        employeeData.iban = iban || null;
-        employeeData.bank_name = bankName || null;
-      }
-
       let employeeId: string;
 
       if (editingEmployee) {
         const { error } = await supabase
           .from('employees')
-          .update(employeeData)
+          .update(data_to_save)
           .eq('id', editingEmployee.id);
-
         if (error) throw error;
         employeeId = editingEmployee.id;
         toast.success(t('employees.updateSuccess'));
       } else {
         const { data, error } = await supabase
           .from('employees')
-          .insert([employeeData])
+          .insert([data_to_save])
           .select('id')
           .single();
-
         if (error) throw error;
         employeeId = data.id;
         toast.success(t('employees.createSuccess'));
       }
 
-      // Update allowed projects - only if Admin (project access is Admin-only)
       if (hasElevatedRole && employeeId) {
-        // Delete existing project assignments
         await supabase
           .from('employee_allowed_projects')
           .delete()
           .eq('employee_id', employeeId);
 
-        // Insert new project assignments if any selected
         if (allowedProjects.length > 0) {
           const projectAssignments = allowedProjects.map(projectId => ({
             employee_id: employeeId,
             project_id: projectId,
           }));
-          
           await supabase
             .from('employee_allowed_projects')
             .insert(projectAssignments);
@@ -365,6 +426,77 @@ const [searchQuery, setSearchQuery] = useState('');
       console.error('Error saving employee:', error);
       toast.error(error.message || t('employees.saveError'));
     }
+  };
+
+  const handleDuplicateConfirm = async () => {
+    setDuplicateDialogOpen(false);
+    if (pendingEmployeeData) {
+      await insertEmployee(pendingEmployeeData);
+    }
+    setDuplicateInfo([]);
+    setPendingEmployeeData(null);
+  };
+
+  const handleDuplicateCancel = () => {
+    setDuplicateDialogOpen(false);
+    setDuplicateInfo([]);
+    setPendingEmployeeData(null);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!firstName || !lastName || !specialtyId) {
+      toast.error(t('employees.requiredFields'));
+      return;
+    }
+
+    if (!regularStart || !regularEnd) {
+      toast.error(t('employees.scheduleRequired'));
+      return;
+    }
+
+    if (!assignedUserId) {
+      toast.error(t('employees.recorderRequired'));
+      return;
+    }
+
+    if (hasElevatedRole && !payRatesValid()) {
+      toast.error(t('employees.payRatesRequired'));
+      return;
+    }
+
+    if (!validateHireDate(hireDate)) {
+      return;
+    }
+
+    const employeeData = buildEmployeeData();
+
+    // Check for duplicates
+    const duplicateCheck = await checkDuplicates({ afm, idNumber, iban });
+
+    if (duplicateCheck.hasDuplicates) {
+      const hasInactiveDuplicate = duplicateCheck.duplicates.some(
+        d => d.employee.status === 'inactive' &&
+          (d.field === 'ΑΦΜ' || d.field === 'Tax Number (AFM)' || d.field === 'Αρ. Ταυτότητας' || d.field === 'ID Number')
+      );
+
+      if (hasInactiveDuplicate) {
+        toast.error(
+          language === 'el'
+            ? 'Το ΑΦΜ ή η Ταυτότητα υπάρχει ήδη σε ανενεργό εργαζόμενο. Δεν επιτρέπεται η επαναχρησιμοποίηση.'
+            : 'Tax Number or ID already exists in an inactive employee. Reuse is not allowed.'
+        );
+        return;
+      }
+
+      setDuplicateInfo(duplicateCheck.duplicates);
+      setPendingEmployeeData(employeeData);
+      setDuplicateDialogOpen(true);
+      return;
+    }
+
+    await insertEmployee(employeeData);
   };
 
   const toggleProject = (projectId: string) => {
@@ -738,10 +870,12 @@ const [searchQuery, setSearchQuery] = useState('');
                     <div className="space-y-2">
                       <Label>{t('employees.hireDate')}</Label>
                       <Input
-                        type="date"
+                        type="text"
                         value={hireDate}
                         onChange={(e) => setHireDate(e.target.value)}
                         className="input-tablet"
+                        placeholder="DD/MM/YYYY"
+                        maxLength={10}
                       />
                     </div>
                   </div>
@@ -1071,6 +1205,58 @@ const [searchQuery, setSearchQuery] = useState('');
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {t('employees.delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Duplicate Employee Detection Dialog */}
+      <AlertDialog open={duplicateDialogOpen} onOpenChange={setDuplicateDialogOpen}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              {language === 'el' ? 'Πιθανό Διπλότυπο Εργαζομένου' : 'Potential Duplicate Employee'}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  {language === 'el'
+                    ? 'Τα παρακάτω στοιχεία ταυτίζονται με υπάρχοντα εργαζόμενο:'
+                    : 'The following information matches an existing employee:'}
+                </p>
+                {duplicateInfo.map((dup: any, index: number) => (
+                  <div key={index} className="flex items-start gap-3 p-3 rounded-lg border border-amber-200 bg-amber-50">
+                    <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+                    <div className="space-y-1 text-sm">
+                      <p className="font-medium text-foreground">{dup.field}: {dup.value}</p>
+                      <p className="text-muted-foreground">
+                        {language === 'el' ? 'Υπάρχει στον εργαζόμενο' : 'Exists in employee'}:{' '}
+                        <span className="font-semibold text-foreground">{dup.employee.first_name} {dup.employee.last_name}</span>{' '}
+                        ({dup.employee.employee_code})
+                      </p>
+                      <p className="text-xs">
+                        Status: {dup.employee.status === 'active'
+                          ? (language === 'el' ? 'Ενεργός' : 'Active')
+                          : (language === 'el' ? 'Ανενεργός' : 'Inactive')}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+                <p className="text-sm font-medium text-foreground">
+                  {language === 'el'
+                    ? 'Είστε σίγουροι ότι θέλετε να συνεχίσετε;'
+                    : 'Are you sure you want to continue?'}
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleDuplicateCancel}>
+              {language === 'el' ? 'Άκυρο' : 'Cancel'}
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleDuplicateConfirm}>
+              {language === 'el' ? 'Ναι, Συνέχεια' : 'Yes, Continue'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
