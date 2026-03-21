@@ -60,6 +60,9 @@ interface EmployeeMessage {
   created_at: string;
   replied_at: string | null;
   replied_by: string | null;
+  reopened_at: string | null;
+  reopened_by: string | null;
+  reopen_count: number;
   employees?: {
     first_name: string;
     last_name: string;
