@@ -421,6 +421,7 @@ export type Database = {
           admin_attachment_url: string | null
           admin_reply: string | null
           attachment_file_id: string | null
+          attachment_name: string | null
           attachment_url: string | null
           created_at: string
           employee_id: string
@@ -438,6 +439,7 @@ export type Database = {
           admin_attachment_url?: string | null
           admin_reply?: string | null
           attachment_file_id?: string | null
+          attachment_name?: string | null
           attachment_url?: string | null
           created_at?: string
           employee_id: string
@@ -455,6 +457,7 @@ export type Database = {
           admin_attachment_url?: string | null
           admin_reply?: string | null
           attachment_file_id?: string | null
+          attachment_name?: string | null
           attachment_url?: string | null
           created_at?: string
           employee_id?: string

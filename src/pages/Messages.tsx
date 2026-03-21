@@ -49,6 +49,8 @@ interface EmployeeMessage {
   message_text: string | null;
   message_type: string;
   attachment_file_id: string | null;
+  attachment_url: string | null;
+  attachment_name: string | null;
   status: string;
   admin_reply: string | null;
   admin_attachment_url: string | null;
@@ -360,16 +362,48 @@ export default function Messages() {
                 </p>
               </div>
 
-              {selectedMessage.attachment_file_id && (
+              {selectedMessage.attachment_url ? (
+                <div className="flex items-center gap-3 bg-muted/30 p-3 rounded-lg">
+                  {selectedMessage.message_type === 'image' ? (
+                    <>
+                      <Image className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                      <img
+                        src={selectedMessage.attachment_url}
+                        alt={selectedMessage.attachment_name || 'Image'}
+                        className="max-w-xs max-h-48 rounded-md object-cover"
+                      />
+                    </>
+                  ) : (
+                    <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {selectedMessage.attachment_name || t('Attachment', 'Συνημμένο')}
+                    </p>
+                  </div>
+                  <a
+                    href={selectedMessage.attachment_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    download={selectedMessage.attachment_name || undefined}
+                    className="flex-shrink-0"
+                  >
+                    <Button variant="outline" size="sm">
+                      <Download className="h-4 w-4 mr-1" />
+                      {t('Download', 'Λήψη')}
+                    </Button>
+                  </a>
+                </div>
+              ) : selectedMessage.attachment_file_id ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/30 p-3 rounded-lg">
                   {selectedMessage.message_type === 'image' ? (
                     <Image className="h-4 w-4" />
                   ) : (
                     <FileText className="h-4 w-4" />
                   )}
-                  <span>{t('Attachment received via Telegram', 'Συνημμένο ελήφθη μέσω Telegram')}</span>
+                  <span>{t('Attachment received via Telegram (not downloadable - older message)', 'Συνημμένο ελήφθη μέσω Telegram (μη διαθέσιμο - παλαιότερο μήνυμα)')}</span>
                 </div>
-              )}
+              ) : null}
 
               <p className="text-xs text-muted-foreground">
                 {new Date(selectedMessage.created_at).toLocaleString(language === 'el' ? 'el-GR' : 'en-GB')}
