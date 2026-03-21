@@ -380,6 +380,12 @@ export default function Messages() {
                   {t('Mark Resolved', 'Επιλυμένο')}
                 </Button>
               )}
+              {selectedMessage.status === 'resolved' && (
+                <Button variant="outline" size="sm" onClick={handleReopen}>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  {t('Reopen', 'Επαναφορά')}
+                </Button>
+              )}
             </div>
           </div>
 
