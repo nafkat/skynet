@@ -22,7 +22,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 type ModuleStatus = 'active' | 'coming_soon';
-type ModuleSection = 'operations' | 'system';
+type ModuleSection = 'operations' | 'communications' | 'system';
 
 interface ModuleTile {
   id: string;
