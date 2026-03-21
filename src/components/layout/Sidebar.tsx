@@ -15,11 +15,13 @@ import {
   ClipboardList,
   Home,
   Megaphone,
-  Shield
+  Shield,
+  MessageSquare
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePendingCorrections } from '@/hooks/usePendingCorrections';
+import { useUnreadMessageCount } from '@/hooks/useEmployeeMessages';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
@@ -33,6 +35,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { t, language, setLanguage } = useLanguage();
   const { signOut, isAdmin, isHR, hasElevatedRole, role } = useAuth();
   const { pendingCount } = usePendingCorrections();
+  const { unreadCount: messageUnreadCount } = useUnreadMessageCount();
 
   // Auto-close on navigation (mobile only)
   useEffect(() => {
@@ -68,6 +71,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     { path: '/admin/payroll-export', icon: FileSpreadsheet, label: language === 'el' ? 'Εξαγωγή Μισθοδοσίας' : 'Payroll Export', show: hasElevatedRole },
     { path: '/admin/audit', icon: ClipboardList, label: language === 'el' ? 'Ημερολόγιο Ελέγχου' : 'Audit Log', show: hasElevatedRole },
     { path: '/announcements', icon: Megaphone, label: language === 'el' ? 'Ανακοινώσεις' : 'Announcements', show: hasElevatedRole },
+    { path: '/messages', icon: MessageSquare, label: language === 'el' ? 'Μηνύματα' : 'Messages', show: hasElevatedRole },
   ];
 
   const contextNavItems = isHomeContext ? globalNavItems : timekeepingNavItems;
@@ -136,8 +140,13 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 <span className="font-medium flex items-center gap-2">
                   {item.label}
                   {item.path === '/corrections' && pendingCount > 0 && (
-                    <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-red-600 rounded-full min-w-[20px]">
+                    <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-destructive rounded-full min-w-[20px]">
                       {pendingCount}
+                    </span>
+                  )}
+                  {item.path === '/messages' && messageUnreadCount > 0 && (
+                    <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-destructive rounded-full min-w-[20px] animate-pulse">
+                      {messageUnreadCount}
                     </span>
                   )}
                 </span>
