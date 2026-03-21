@@ -154,23 +154,28 @@ Deno.serve(async (req) => {
     let msgType = 'text';
     let msgText = messageText || '';
     let attachmentFileId: string | null = null;
+    let attachmentFileName: string | null = null;
 
     if (payload.message.photo) {
       msgType = 'image';
       const photos = payload.message.photo;
-      attachmentFileId = photos[photos.length - 1].file_id; // highest resolution
+      attachmentFileId = photos[photos.length - 1].file_id;
       msgText = payload.message.caption || '';
+      attachmentFileName = `photo_${Date.now()}.jpg`;
     } else if (payload.message.document) {
       msgType = 'file';
       attachmentFileId = payload.message.document.file_id;
+      attachmentFileName = payload.message.document.file_name || `document_${Date.now()}`;
       msgText = payload.message.caption || payload.message.document.file_name || '';
     } else if (payload.message.voice) {
       msgType = 'file';
       attachmentFileId = payload.message.voice.file_id;
+      attachmentFileName = `voice_${Date.now()}.ogg`;
       msgText = msgText || '🎤 Voice message';
     } else if (payload.message.video) {
       msgType = 'file';
       attachmentFileId = payload.message.video.file_id;
+      attachmentFileName = payload.message.video.file_name || `video_${Date.now()}.mp4`;
       msgText = payload.message.caption || '🎥 Video';
     }
 
@@ -179,6 +184,54 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
+
+    // Download and store attachment if present
+    let attachmentUrl: string | null = null;
+
+    if (attachmentFileId) {
+      try {
+        // Get file path from Telegram
+        const fileInfoResp = await fetch(
+          `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getFile?file_id=${attachmentFileId}`
+        );
+        const fileInfoData = await fileInfoResp.json();
+
+        if (fileInfoData.ok && fileInfoData.result.file_path) {
+          // Download file from Telegram
+          const fileDownloadUrl = `https://api.telegram.org/file/bot${TELEGRAM_BOT_TOKEN}/${fileInfoData.result.file_path}`;
+          const fileResp = await fetch(fileDownloadUrl);
+
+          if (fileResp.ok) {
+            const fileBlob = await fileResp.blob();
+            const messageId = crypto.randomUUID();
+            const storagePath = `${channelData.employee_id}/${messageId}/${attachmentFileName}`;
+
+            const { error: uploadError } = await supabase.storage
+              .from('employee-attachments')
+              .upload(storagePath, fileBlob, {
+                contentType: fileBlob.type || 'application/octet-stream',
+                upsert: false,
+              });
+
+            if (!uploadError) {
+              const { data: urlData } = supabase.storage
+                .from('employee-attachments')
+                .getPublicUrl(storagePath);
+              attachmentUrl = urlData.publicUrl;
+              console.log('Attachment uploaded:', attachmentUrl);
+            } else {
+              console.error('Storage upload error:', uploadError);
+            }
+          } else {
+            console.error('Failed to download file from Telegram');
+          }
+        } else {
+          console.error('Failed to get file info:', fileInfoData);
+        }
+      } catch (dlErr) {
+        console.error('Error downloading/uploading attachment:', dlErr);
+      }
     }
 
     // Store message in database
@@ -190,6 +243,8 @@ Deno.serve(async (req) => {
         message_text: msgText,
         message_type: msgType,
         attachment_file_id: attachmentFileId,
+        attachment_url: attachmentUrl,
+        attachment_name: attachmentFileName,
         status: 'unread',
       });
 
