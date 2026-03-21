@@ -35,6 +35,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { t, language, setLanguage } = useLanguage();
   const { signOut, isAdmin, isHR, hasElevatedRole, role } = useAuth();
   const { pendingCount } = usePendingCorrections();
+  const { unreadCount: messageUnreadCount } = useUnreadMessageCount();
 
   // Auto-close on navigation (mobile only)
   useEffect(() => {
