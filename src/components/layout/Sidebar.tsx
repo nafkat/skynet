@@ -80,7 +80,49 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     { path: '/admin/audit', icon: ClipboardList, label: language === 'el' ? 'Ημερολόγιο Ελέγχου' : 'Audit Log', show: hasElevatedRole },
   ];
 
-  const contextNavItems = isHomeContext ? globalNavItems : timekeepingNavItems;
+  const renderNavItem = (item: typeof operationsNavItems[0]) => {
+    const isActive = location.pathname === item.path;
+    return (
+      <Link
+        key={item.path}
+        to={item.path}
+        className={cn(
+          'nav-item',
+          isActive && 'active'
+        )}
+      >
+        <item.icon className="h-5 w-5" />
+        <span className="font-medium flex items-center gap-2">
+          {item.label}
+          {item.path === '/corrections' && pendingCount > 0 && (
+            <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-destructive rounded-full min-w-[20px]">
+              {pendingCount}
+            </span>
+          )}
+          {item.path === '/messages' && messageUnreadCount > 0 && (
+            <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-destructive rounded-full min-w-[20px] animate-pulse">
+              {messageUnreadCount}
+            </span>
+          )}
+        </span>
+      </Link>
+    );
+  };
+
+  const renderSection = (title: string, items: typeof operationsNavItems) => {
+    const visibleItems = items.filter(item => item.show);
+    if (visibleItems.length === 0) return null;
+    return (
+      <>
+        <div className="px-3 pt-4 pb-1">
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            {title}
+          </span>
+        </div>
+        {visibleItems.map(renderNavItem)}
+      </>
+    );
+  };
 
   const getRoleLabel = () => {
     if (isAdmin) return language === 'el' ? 'Διαχειριστής' : 'Admin';
@@ -129,36 +171,18 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             <span className="font-medium">{persistentNavItem.label}</span>
           </Link>
 
-          <div className="my-2 border-t border-sidebar-border" />
-
-          {contextNavItems.filter(item => item.show).map((item) => {
-            const isActive = location.pathname === item.path;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={cn(
-                  'nav-item',
-                  isActive && 'active'
-                )}
-              >
-                <item.icon className="h-5 w-5" />
-                <span className="font-medium flex items-center gap-2">
-                  {item.label}
-                  {item.path === '/corrections' && pendingCount > 0 && (
-                    <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-destructive rounded-full min-w-[20px]">
-                      {pendingCount}
-                    </span>
-                  )}
-                  {item.path === '/messages' && messageUnreadCount > 0 && (
-                    <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-destructive rounded-full min-w-[20px] animate-pulse">
-                      {messageUnreadCount}
-                    </span>
-                  )}
-                </span>
-              </Link>
-            );
-          })}
+          {isHomeContext ? (
+            <>
+              <div className="my-2 border-t border-sidebar-border" />
+              {globalNavItems.filter(item => item.show).map(renderNavItem)}
+            </>
+          ) : (
+            <>
+              {renderSection(language === 'el' ? 'Λειτουργίες' : 'Operations', operationsNavItems)}
+              {renderSection(language === 'el' ? 'Επικοινωνίες' : 'Communications', communicationsNavItems)}
+              {renderSection(language === 'el' ? 'Σύστημα' : 'System', systemNavItems)}
+            </>
+          )}
         </nav>
 
         {/* Footer */}
