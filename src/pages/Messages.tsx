@@ -564,7 +564,11 @@ export default function Messages() {
                 </Button>
               </CardContent>
             </Card>
-          ) : null}
+        </div>
+      </MainLayout>
+    );
+  }
+
   return (
     <MainLayout>
       <div className="space-y-6">
