@@ -11,9 +11,7 @@ async function sendTelegramMessage(chatId: string, text: string, telegramToken: 
     
     const response = await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         chat_id: chatId,
         text: text,
@@ -33,6 +31,165 @@ async function sendTelegramMessage(chatId: string, text: string, telegramToken: 
     console.error('Error sending Telegram message:', error);
     return { ok: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
+}
+
+async function sendTelegramDocument(
+  chatId: string,
+  fileBytes: Uint8Array,
+  fileName: string,
+  caption: string,
+  telegramToken: string
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    console.log(`Sending Telegram document "${fileName}" to ${chatId}...`);
+
+    const formData = new FormData();
+    formData.append('chat_id', chatId);
+    formData.append('document', new Blob([fileBytes]), fileName);
+    // Telegram caption max is 1024 chars
+    if (caption) {
+      formData.append('caption', caption.substring(0, 1024));
+      formData.append('parse_mode', 'HTML');
+    }
+
+    const response = await fetch(`https://api.telegram.org/bot${telegramToken}/sendDocument`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+    console.log('Telegram sendDocument response:', JSON.stringify(data));
+
+    if (data.ok) {
+      return { ok: true };
+    } else {
+      return { ok: false, error: data.description || `Error: ${JSON.stringify(data)}` };
+    }
+  } catch (error) {
+    console.error('Error sending Telegram document:', error);
+    return { ok: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
+async function sendTelegramPhoto(
+  chatId: string,
+  fileBytes: Uint8Array,
+  fileName: string,
+  caption: string,
+  telegramToken: string
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    console.log(`Sending Telegram photo "${fileName}" to ${chatId}...`);
+
+    const formData = new FormData();
+    formData.append('chat_id', chatId);
+    formData.append('photo', new Blob([fileBytes]), fileName);
+    if (caption) {
+      formData.append('caption', caption.substring(0, 1024));
+      formData.append('parse_mode', 'HTML');
+    }
+
+    const response = await fetch(`https://api.telegram.org/bot${telegramToken}/sendPhoto`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+    console.log('Telegram sendPhoto response:', JSON.stringify(data));
+
+    if (data.ok) {
+      return { ok: true };
+    } else {
+      return { ok: false, error: data.description || `Error: ${JSON.stringify(data)}` };
+    }
+  } catch (error) {
+    console.error('Error sending Telegram photo:', error);
+    return { ok: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
+interface Attachment {
+  id: string;
+  file_name: string;
+  file_path: string;
+  mime_type: string | null;
+}
+
+// Cache for announcement data to avoid repeated queries
+const announcementCache: Record<string, { title: string; message: string; attachments: Attachment[] }> = {};
+
+async function getAnnouncementWithAttachments(
+  supabase: any,
+  announcementId: string
+): Promise<{ title: string; message: string; attachments: Attachment[] } | null> {
+  if (announcementCache[announcementId]) {
+    return announcementCache[announcementId];
+  }
+
+  const { data: announcement, error: announcementError } = await supabase
+    .from('announcements')
+    .select('title, message')
+    .eq('id', announcementId)
+    .single();
+
+  if (announcementError || !announcement) {
+    console.error(`Announcement ${announcementId} not found`);
+    return null;
+  }
+
+  const { data: attachments, error: attachError } = await supabase
+    .from('announcement_attachments')
+    .select('id, file_name, file_path, mime_type')
+    .eq('announcement_id', announcementId);
+
+  if (attachError) {
+    console.error(`Error fetching attachments for ${announcementId}:`, attachError);
+  }
+
+  const result = {
+    title: announcement.title,
+    message: announcement.message,
+    attachments: attachments || [],
+  };
+
+  announcementCache[announcementId] = result;
+  return result;
+}
+
+async function downloadFile(supabase: any, filePath: string): Promise<Uint8Array | null> {
+  try {
+    const { data, error } = await supabase.storage
+      .from('announcements')
+      .download(filePath);
+
+    if (error) {
+      console.error(`Error downloading file ${filePath}:`, error);
+      return null;
+    }
+
+    const arrayBuffer = await data.arrayBuffer();
+    return new Uint8Array(arrayBuffer);
+  } catch (error) {
+    console.error(`Exception downloading file ${filePath}:`, error);
+    return null;
+  }
+}
+
+function isImageMimeType(mimeType: string | null): boolean {
+  if (!mimeType) return false;
+  return mimeType.startsWith('image/') && !mimeType.includes('svg');
+}
+
+async function markDeliveryFailed(supabase: any, deliveryId: string, errorMessage: string, attempts: number) {
+  await supabase
+    .from('announcement_deliveries')
+    .update({
+      status: 'failed',
+      error_message: errorMessage,
+      attempts: attempts + 1,
+      last_attempt_at: new Date().toISOString(),
+    })
+    .eq('id', deliveryId);
 }
 
 Deno.serve(async (req) => {
@@ -111,20 +268,13 @@ Deno.serve(async (req) => {
 
       if (!employeeId) {
         console.error(`No employee_id found for delivery ${delivery.id}`);
-        await supabase
-          .from('announcement_deliveries')
-          .update({
-            status: 'failed',
-            error_message: 'No employee found for recipient',
-            attempts: delivery.attempts + 1,
-            last_attempt_at: new Date().toISOString(),
-          })
-          .eq('id', delivery.id);
+        await markDeliveryFailed(supabase, delivery.id, 'No employee found for recipient', delivery.attempts);
         failed++;
         announcementResults[announcementId].failed++;
         continue;
       }
 
+      // Get contact channel
       const { data: contactChannel, error: contactError } = await supabase
         .from('employee_contact_channels')
         .select('channel_identifier, is_verified')
@@ -134,47 +284,82 @@ Deno.serve(async (req) => {
 
       if (contactError || !contactChannel?.channel_identifier) {
         console.log(`Employee ${employeeId} not subscribed to Telegram`);
-        await supabase
-          .from('announcement_deliveries')
-          .update({
-            status: 'failed',
-            error_message: 'Employee not subscribed to Telegram',
-            attempts: delivery.attempts + 1,
-            last_attempt_at: new Date().toISOString(),
-          })
-          .eq('id', delivery.id);
+        await markDeliveryFailed(supabase, delivery.id, 'Employee not subscribed to Telegram', delivery.attempts);
         failed++;
         announcementResults[announcementId].failed++;
         continue;
       }
 
-      const { data: announcement, error: announcementError } = await supabase
-        .from('announcements')
-        .select('title, message')
-        .eq('id', announcementId)
-        .single();
+      // Get announcement with attachments
+      const announcementData = await getAnnouncementWithAttachments(supabase, announcementId);
 
-      if (announcementError || !announcement) {
-        console.error(`Announcement ${announcementId} not found`);
-        await supabase
-          .from('announcement_deliveries')
-          .update({
-            status: 'failed',
-            error_message: 'Announcement not found',
-            attempts: delivery.attempts + 1,
-            last_attempt_at: new Date().toISOString(),
-          })
-          .eq('id', delivery.id);
+      if (!announcementData) {
+        await markDeliveryFailed(supabase, delivery.id, 'Announcement not found', delivery.attempts);
         failed++;
         announcementResults[announcementId].failed++;
         continue;
       }
 
-      const messageText = `📢 <b>${announcement.title}</b>\n\n${announcement.message}`;
+      const chatId = contactChannel.channel_identifier;
+      const messageText = `📢 <b>${announcementData.title}</b>\n\n${announcementData.message}`;
+      let allSucceeded = true;
+      let lastError = '';
 
-      const result = await sendTelegramMessage(contactChannel.channel_identifier, messageText, telegramToken);
+      if (announcementData.attachments.length === 0) {
+        // No attachments - send text only
+        const result = await sendTelegramMessage(chatId, messageText, telegramToken);
+        if (!result.ok) {
+          allSucceeded = false;
+          lastError = result.error || 'Unknown error';
+        }
+      } else {
+        // Has attachments - send first attachment with caption, rest without
+        for (let i = 0; i < announcementData.attachments.length; i++) {
+          const attachment = announcementData.attachments[i];
+          const caption = i === 0 ? messageText : '';
 
-      if (result.ok) {
+          // Download file from storage
+          const fileBytes = await downloadFile(supabase, attachment.file_path);
+
+          if (!fileBytes) {
+            console.error(`Failed to download attachment: ${attachment.file_path}`);
+            // If first attachment fails, send text message instead
+            if (i === 0) {
+              const textResult = await sendTelegramMessage(chatId, messageText, telegramToken);
+              if (!textResult.ok) {
+                allSucceeded = false;
+                lastError = textResult.error || 'Failed to send text fallback';
+              }
+            }
+            continue;
+          }
+
+          // Send as photo if image, otherwise as document
+          let result: { ok: boolean; error?: string };
+          if (isImageMimeType(attachment.mime_type)) {
+            result = await sendTelegramPhoto(chatId, fileBytes, attachment.file_name, caption, telegramToken);
+            // If photo fails (e.g. too large), retry as document
+            if (!result.ok) {
+              console.log(`Photo send failed, retrying as document: ${result.error}`);
+              result = await sendTelegramDocument(chatId, fileBytes, attachment.file_name, caption, telegramToken);
+            }
+          } else {
+            result = await sendTelegramDocument(chatId, fileBytes, attachment.file_name, caption, telegramToken);
+          }
+
+          if (!result.ok) {
+            allSucceeded = false;
+            lastError = result.error || 'Unknown error';
+            console.error(`Failed to send attachment ${attachment.file_name}: ${lastError}`);
+            // If first attachment failed, try sending text at least
+            if (i === 0) {
+              await sendTelegramMessage(chatId, messageText, telegramToken);
+            }
+          }
+        }
+      }
+
+      if (allSucceeded) {
         console.log(`Delivery ${delivery.id} sent successfully`);
         await supabase
           .from('announcement_deliveries')
@@ -189,12 +374,12 @@ Deno.serve(async (req) => {
         sent++;
         announcementResults[announcementId].sent++;
       } else {
-        console.error(`Delivery ${delivery.id} failed: ${result.error}`);
+        console.error(`Delivery ${delivery.id} failed: ${lastError}`);
         await supabase
           .from('announcement_deliveries')
           .update({
             status: 'failed',
-            error_message: result.error || 'Unknown error',
+            error_message: lastError || 'Unknown error',
             attempts: delivery.attempts + 1,
             last_attempt_at: new Date().toISOString(),
           })
@@ -204,6 +389,7 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Update announcement statuses
     for (const [announcementId, results] of Object.entries(announcementResults)) {
       const { count: totalDeliveries } = await supabase
         .from('announcement_deliveries')
