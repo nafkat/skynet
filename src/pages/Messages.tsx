@@ -286,6 +286,37 @@ export default function Messages() {
     }
   };
 
+  const handleReopen = async () => {
+    if (!selectedMessage || !user) return;
+
+    try {
+      const { error } = await supabase
+        .from('employee_messages')
+        .update({
+          status: 'reopened',
+          reopened_at: new Date().toISOString(),
+          reopened_by: user.id,
+          reopen_count: (selectedMessage.reopen_count || 0) + 1,
+        })
+        .eq('id', selectedMessage.id);
+
+      if (error) throw error;
+
+      toast.success(t('Conversation reopened', 'Η συνομιλία ξανάνοιξε'));
+      setSelectedMessage(prev => prev ? {
+        ...prev,
+        status: 'reopened',
+        reopened_at: new Date().toISOString(),
+        reopened_by: user.id,
+        reopen_count: (prev.reopen_count || 0) + 1,
+      } : null);
+      fetchMessages();
+    } catch (error) {
+      console.error('Error reopening:', error);
+      toast.error(t('Failed to reopen', 'Αποτυχία επαναλειτουργίας'));
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'unread':
