@@ -173,6 +173,16 @@ function AppRoutes() {
         } 
       />
       
+      {/* Messages - Admin and HR only */}
+      <Route 
+        path="/messages" 
+        element={
+          <ProtectedRoute requiredRoles={['admin', 'hr']}>
+            <Messages />
+          </ProtectedRoute>
+        } 
+      />
+      
       {/* Timekeeper Dashboard */}
       <Route 
         path="/dashboard" 
