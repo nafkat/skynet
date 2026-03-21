@@ -327,6 +327,8 @@ export default function Messages() {
         return <Badge className="bg-blue-500 text-white">{t('Replied', 'Απαντήθηκε')}</Badge>;
       case 'resolved':
         return <Badge className="bg-green-600 text-white">{t('Resolved', 'Επιλύθηκε')}</Badge>;
+      case 'reopened':
+        return <Badge className="bg-orange-500 text-white">{t('Reopened', 'Ξανάνοιξε')}</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
