@@ -37,6 +37,7 @@ import {
   Paperclip,
   X,
   Download,
+  RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
@@ -59,6 +60,9 @@ interface EmployeeMessage {
   created_at: string;
   replied_at: string | null;
   replied_by: string | null;
+  reopened_at: string | null;
+  reopened_by: string | null;
+  reopen_count: number;
   employees?: {
     first_name: string;
     last_name: string;
@@ -166,7 +170,7 @@ export default function Messages() {
 
     if (activeTab === 'all') return matchesSearch;
     if (activeTab === 'unread') return matchesSearch && msg.status === 'unread';
-    if (activeTab === 'replied') return matchesSearch && msg.status === 'replied';
+    if (activeTab === 'replied') return matchesSearch && (msg.status === 'replied' || msg.status === 'reopened');
     if (activeTab === 'resolved') return matchesSearch && msg.status === 'resolved';
     return matchesSearch;
   });
@@ -282,6 +286,37 @@ export default function Messages() {
     }
   };
 
+  const handleReopen = async () => {
+    if (!selectedMessage || !user) return;
+
+    try {
+      const { error } = await supabase
+        .from('employee_messages')
+        .update({
+          status: 'reopened',
+          reopened_at: new Date().toISOString(),
+          reopened_by: user.id,
+          reopen_count: (selectedMessage.reopen_count || 0) + 1,
+        })
+        .eq('id', selectedMessage.id);
+
+      if (error) throw error;
+
+      toast.success(t('Conversation reopened', 'Η συνομιλία ξανάνοιξε'));
+      setSelectedMessage(prev => prev ? {
+        ...prev,
+        status: 'reopened',
+        reopened_at: new Date().toISOString(),
+        reopened_by: user.id,
+        reopen_count: (prev.reopen_count || 0) + 1,
+      } : null);
+      fetchMessages();
+    } catch (error) {
+      console.error('Error reopening:', error);
+      toast.error(t('Failed to reopen', 'Αποτυχία επαναλειτουργίας'));
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'unread':
@@ -292,6 +327,8 @@ export default function Messages() {
         return <Badge className="bg-blue-500 text-white">{t('Replied', 'Απαντήθηκε')}</Badge>;
       case 'resolved':
         return <Badge className="bg-green-600 text-white">{t('Resolved', 'Επιλύθηκε')}</Badge>;
+      case 'reopened':
+        return <Badge className="bg-orange-500 text-white">{t('Reopened', 'Ξανάνοιξε')}</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -341,6 +378,12 @@ export default function Messages() {
                 <Button variant="outline" size="sm" onClick={handleMarkResolved}>
                   <CheckCircle className="h-4 w-4 mr-2" />
                   {t('Mark Resolved', 'Επιλυμένο')}
+                </Button>
+              )}
+              {selectedMessage.status === 'resolved' && (
+                <Button variant="outline" size="sm" onClick={handleReopen}>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  {t('Reopen', 'Επαναφορά')}
                 </Button>
               )}
             </div>
