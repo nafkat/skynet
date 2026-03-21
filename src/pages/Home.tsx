@@ -186,6 +186,7 @@ export default function Home() {
 
   // Group by section
   const operationsModules = visibleModules.filter(m => m.section === 'operations');
+  const communicationsModules = visibleModules.filter(m => m.section === 'communications');
   const systemModules = visibleModules.filter(m => m.section === 'system');
 
   // Loading state
