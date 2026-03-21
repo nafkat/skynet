@@ -170,7 +170,7 @@ export default function Messages() {
 
     if (activeTab === 'all') return matchesSearch;
     if (activeTab === 'unread') return matchesSearch && msg.status === 'unread';
-    if (activeTab === 'replied') return matchesSearch && msg.status === 'replied';
+    if (activeTab === 'replied') return matchesSearch && (msg.status === 'replied' || msg.status === 'reopened');
     if (activeTab === 'resolved') return matchesSearch && msg.status === 'resolved';
     return matchesSearch;
   });
