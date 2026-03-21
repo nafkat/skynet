@@ -428,6 +428,9 @@ export type Database = {
           id: string
           message_text: string | null
           message_type: string
+          reopen_count: number | null
+          reopened_at: string | null
+          reopened_by: string | null
           replied_at: string | null
           replied_by: string | null
           status: string
@@ -446,6 +449,9 @@ export type Database = {
           id?: string
           message_text?: string | null
           message_type?: string
+          reopen_count?: number | null
+          reopened_at?: string | null
+          reopened_by?: string | null
           replied_at?: string | null
           replied_by?: string | null
           status?: string
@@ -464,6 +470,9 @@ export type Database = {
           id?: string
           message_text?: string | null
           message_type?: string
+          reopen_count?: number | null
+          reopened_at?: string | null
+          reopened_by?: string | null
           replied_at?: string | null
           replied_by?: string | null
           status?: string
