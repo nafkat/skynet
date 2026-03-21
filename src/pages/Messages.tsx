@@ -499,7 +499,7 @@ export default function Messages() {
           )}
 
           {/* Reply Form */}
-          {selectedMessage.status !== 'resolved' && (
+          {selectedMessage.status !== 'resolved' && selectedMessage.status !== 'read' || selectedMessage.status === 'reopened' ? (
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">
