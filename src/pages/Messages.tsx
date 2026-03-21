@@ -79,6 +79,8 @@ export default function Messages() {
   const [activeTab, setActiveTab] = useState('all');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [previousMessageIds, setPreviousMessageIds] = useState<Set<string>>(new Set());
+  const [replyFile, setReplyFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const t = (en: string, el_text: string) => (language === 'el' ? el_text : en);
 
