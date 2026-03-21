@@ -45,7 +45,7 @@ export function useEmployeeMessages() {
 
       if (error) throw error;
       setMessages((data as any[]) || []);
-      setUnreadCount((data as any[])?.filter((m: any) => m.status === 'unread').length || 0);
+      setUnreadCount((data as any[])?.filter((m: any) => m.status === 'unread' || m.status === 'reopened').length || 0);
     } catch (error) {
       console.error('Error fetching messages:', error);
     } finally {
