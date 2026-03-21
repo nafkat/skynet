@@ -564,7 +564,7 @@ export default function Messages() {
                 </Button>
               </CardContent>
             </Card>
-          ) : null}
+          )}
         </div>
       </MainLayout>
     );
