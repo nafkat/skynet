@@ -417,6 +417,19 @@ export default function Home() {
           </section>
         )}
 
+        {/* Communications Section */}
+        {communicationsModules.length > 0 && (
+          <section className="mb-12">
+            <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+              <MessageCircle className="h-5 w-5 text-primary" />
+              {language === 'el' ? 'Επικοινωνίες' : 'Communications'}
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {communicationsModules.map(renderTile)}
+            </div>
+          </section>
+        )}
+
         {/* System Section (Admin Only) */}
         {systemModules.length > 0 && (
           <section className="mb-12">

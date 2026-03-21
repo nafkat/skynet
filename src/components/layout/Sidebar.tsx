@@ -59,7 +59,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     { path: '/settings', icon: Settings, label: t('nav.settings'), show: isAdmin },
   ];
 
-  const timekeepingNavItems = [
+  const operationsNavItems = [
     { path: '/admin/dashboard', icon: LayoutDashboard, label: language === 'el' ? 'Διοικητικός Πίνακας' : 'Admin Dashboard', show: hasElevatedRole },
     { path: '/dashboard', icon: LayoutDashboard, label: t('nav.dashboard'), show: isTimekeeperOnly },
     { path: '/time-entry', icon: Clock, label: t('nav.timeEntry'), show: true },
@@ -69,9 +69,15 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     { path: '/corrections', icon: GitPullRequest, label: t('nav.corrections'), show: hasElevatedRole },
     { path: '/reports', icon: FileBarChart, label: t('nav.reports'), show: hasElevatedRole },
     { path: '/admin/payroll-export', icon: FileSpreadsheet, label: language === 'el' ? 'Εξαγωγή Μισθοδοσίας' : 'Payroll Export', show: hasElevatedRole },
-    { path: '/admin/audit', icon: ClipboardList, label: language === 'el' ? 'Ημερολόγιο Ελέγχου' : 'Audit Log', show: hasElevatedRole },
+  ];
+
+  const communicationsNavItems = [
     { path: '/announcements', icon: Megaphone, label: language === 'el' ? 'Ανακοινώσεις' : 'Announcements', show: hasElevatedRole },
     { path: '/messages', icon: MessageSquare, label: language === 'el' ? 'Μηνύματα' : 'Messages', show: hasElevatedRole },
+  ];
+
+  const systemNavItems = [
+    { path: '/admin/audit', icon: ClipboardList, label: language === 'el' ? 'Ημερολόγιο Ελέγχου' : 'Audit Log', show: hasElevatedRole },
   ];
 
   const contextNavItems = isHomeContext ? globalNavItems : timekeepingNavItems;
