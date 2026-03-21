@@ -174,8 +174,7 @@ export default function Messages() {
   const handleSelectMessage = async (msg: EmployeeMessage) => {
     setSelectedMessage(msg);
     setReplyText('');
-
-    // Mark as read if unread
+    setReplyFile(null);
     if (msg.status === 'unread') {
       await supabase
         .from('employee_messages')
