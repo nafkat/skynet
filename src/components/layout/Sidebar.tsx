@@ -15,11 +15,13 @@ import {
   ClipboardList,
   Home,
   Megaphone,
-  Shield
+  Shield,
+  MessageSquare
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePendingCorrections } from '@/hooks/usePendingCorrections';
+import { useUnreadMessageCount } from '@/hooks/useEmployeeMessages';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
