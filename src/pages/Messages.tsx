@@ -386,12 +386,34 @@ export default function Messages() {
                   {t('Admin Reply', 'Απάντηση Διαχειριστή')}
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-3">
                 <p className="whitespace-pre-wrap bg-blue-50 dark:bg-blue-950/30 p-4 rounded-lg">
                   {selectedMessage.admin_reply}
                 </p>
+                {selectedMessage.admin_attachment_url && (
+                  <div className="flex items-center gap-3 bg-blue-50 dark:bg-blue-950/30 p-3 rounded-lg">
+                    {selectedMessage.admin_attachment_type?.startsWith('image/') ? (
+                      <Image className="h-5 w-5 text-blue-500 flex-shrink-0" />
+                    ) : (
+                      <FileText className="h-5 w-5 text-blue-500 flex-shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{selectedMessage.admin_attachment_name}</p>
+                    </div>
+                    <a
+                      href={selectedMessage.admin_attachment_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-shrink-0"
+                    >
+                      <Button variant="ghost" size="icon">
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    </a>
+                  </div>
+                )}
                 {selectedMessage.replied_at && (
-                  <p className="text-xs text-muted-foreground mt-2">
+                  <p className="text-xs text-muted-foreground">
                     {new Date(selectedMessage.replied_at).toLocaleString(language === 'el' ? 'el-GR' : 'en-GB')}
                   </p>
                 )}
@@ -414,16 +436,54 @@ export default function Messages() {
                   onChange={(e) => setReplyText(e.target.value)}
                   rows={4}
                 />
+
+                {/* File attachment */}
+                <div className="space-y-2">
+                  {replyFile ? (
+                    <div className="flex items-center gap-3 bg-muted/50 p-3 rounded-lg">
+                      {replyFile.type.startsWith('image/') ? (
+                        <Image className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                      ) : (
+                        <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{replyFile.name}</p>
+                        <p className="text-xs text-muted-foreground">{formatFileSize(replyFile.size)}</p>
+                      </div>
+                      <Button variant="ghost" size="icon" onClick={() => setReplyFile(null)}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        className="hidden"
+                        onChange={handleFileSelect}
+                        accept="*/*"
+                      />
+                      <Button variant="outline" size="sm" asChild>
+                        <span>
+                          <Paperclip className="h-4 w-4 mr-2" />
+                          {t('Attach File', 'Επισύναψη Αρχείου')}
+                        </span>
+                      </Button>
+                    </label>
+                  )}
+                </div>
+
                 <Button
                   onClick={handleSendReply}
-                  disabled={!replyText.trim() || sending}
+                  disabled={(!replyText.trim() && !replyFile) || sending}
                 >
                   {sending ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   ) : (
                     <Send className="h-4 w-4 mr-2" />
                   )}
-                  {t('Send via Telegram', 'Αποστολή μέσω Telegram')}
+                  {uploading
+                    ? t('Uploading...', 'Μεταφόρτωση...')
+                    : t('Send via Telegram', 'Αποστολή μέσω Telegram')}
                 </Button>
               </CardContent>
             </Card>
