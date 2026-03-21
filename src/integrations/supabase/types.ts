@@ -414,6 +414,66 @@ export type Database = {
           },
         ]
       }
+      employee_messages: {
+        Row: {
+          admin_reply: string | null
+          attachment_file_id: string | null
+          attachment_url: string | null
+          created_at: string
+          employee_id: string
+          id: string
+          message_text: string | null
+          message_type: string
+          replied_at: string | null
+          replied_by: string | null
+          status: string
+          telegram_chat_id: number
+        }
+        Insert: {
+          admin_reply?: string | null
+          attachment_file_id?: string | null
+          attachment_url?: string | null
+          created_at?: string
+          employee_id: string
+          id?: string
+          message_text?: string | null
+          message_type?: string
+          replied_at?: string | null
+          replied_by?: string | null
+          status?: string
+          telegram_chat_id: number
+        }
+        Update: {
+          admin_reply?: string | null
+          attachment_file_id?: string | null
+          attachment_url?: string | null
+          created_at?: string
+          employee_id?: string
+          id?: string
+          message_text?: string | null
+          message_type?: string
+          replied_at?: string | null
+          replied_by?: string | null
+          status?: string
+          telegram_chat_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_messages_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_messages_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees_limited"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employees: {
         Row: {
           afm: string | null
