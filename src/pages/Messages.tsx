@@ -183,15 +183,60 @@ export default function Messages() {
     }
   };
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error(t('File too large. Max 10MB.', 'Το αρχείο είναι πολύ μεγάλο. Μέγ. 10MB.'));
+      return;
+    }
+    setReplyFile(file);
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
   const handleSendReply = async () => {
-    if (!selectedMessage || !replyText.trim()) return;
+    if (!selectedMessage || (!replyText.trim() && !replyFile)) return;
 
     setSending(true);
     try {
+      let attachmentUrl: string | null = null;
+      let attachmentName: string | null = null;
+      let attachmentType: string | null = null;
+
+      // Upload file if present
+      if (replyFile) {
+        setUploading(true);
+        const filePath = `replies/${selectedMessage.id}/${Date.now()}_${replyFile.name}`;
+        const { error: uploadError } = await supabase.storage
+          .from('message-attachments')
+          .upload(filePath, replyFile);
+
+        if (uploadError) {
+          throw new Error(t('File upload failed', 'Αποτυχία μεταφόρτωσης αρχείου'));
+        }
+
+        const { data: urlData } = supabase.storage
+          .from('message-attachments')
+          .getPublicUrl(filePath);
+
+        attachmentUrl = urlData.publicUrl;
+        attachmentName = replyFile.name;
+        attachmentType = replyFile.type;
+        setUploading(false);
+      }
+
       const { data, error } = await supabase.functions.invoke('send_telegram_reply', {
         body: {
           message_id: selectedMessage.id,
-          reply_text: replyText.trim(),
+          reply_text: replyText.trim() || (replyFile ? `📎 ${replyFile.name}` : ''),
+          attachment_url: attachmentUrl,
+          attachment_name: attachmentName,
+          attachment_type: attachmentType,
         },
       });
 
@@ -199,13 +244,22 @@ export default function Messages() {
 
       toast.success(t('Reply sent successfully', 'Η απάντηση στάλθηκε'));
       setReplyText('');
-      setSelectedMessage(prev => prev ? { ...prev, status: 'replied', admin_reply: replyText } : null);
+      setReplyFile(null);
+      setSelectedMessage(prev => prev ? {
+        ...prev,
+        status: 'replied',
+        admin_reply: replyText || `📎 ${attachmentName}`,
+        admin_attachment_url: attachmentUrl,
+        admin_attachment_name: attachmentName,
+        admin_attachment_type: attachmentType,
+      } : null);
       fetchMessages();
     } catch (error: any) {
       console.error('Error sending reply:', error);
       toast.error(error.message || t('Failed to send reply', 'Αποτυχία αποστολής απάντησης'));
     } finally {
       setSending(false);
+      setUploading(false);
     }
   };
 
