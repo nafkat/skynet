@@ -71,6 +71,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     { path: '/admin/payroll-export', icon: FileSpreadsheet, label: language === 'el' ? 'Εξαγωγή Μισθοδοσίας' : 'Payroll Export', show: hasElevatedRole },
     { path: '/admin/audit', icon: ClipboardList, label: language === 'el' ? 'Ημερολόγιο Ελέγχου' : 'Audit Log', show: hasElevatedRole },
     { path: '/announcements', icon: Megaphone, label: language === 'el' ? 'Ανακοινώσεις' : 'Announcements', show: hasElevatedRole },
+    { path: '/messages', icon: MessageSquare, label: language === 'el' ? 'Μηνύματα' : 'Messages', show: hasElevatedRole },
   ];
 
   const contextNavItems = isHomeContext ? globalNavItems : timekeepingNavItems;
