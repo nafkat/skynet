@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
@@ -11,29 +11,15 @@ import {
   Home,
   LogOut,
   Globe,
-  Shield
+  Shield,
+  Menu,
+  X
 } from 'lucide-react';
 
 const navigationItems = [
-  { 
-    path: '/admin', 
-    icon: Users, 
-    labelEn: 'Users', 
-    labelEl: 'Χρήστες', 
-    exact: true 
-  },
-  { 
-    path: '/admin/templates', 
-    icon: FileStack, 
-    labelEn: 'Roles', 
-    labelEl: 'Ρόλοι' 
-  },
-  { 
-    path: '/admin/audit', 
-    icon: ClipboardList, 
-    labelEn: 'Audit', 
-    labelEl: 'Έλεγχος' 
-  },
+  { path: '/admin', icon: Users, labelEn: 'Users', labelEl: 'Χρήστες', exact: true },
+  { path: '/admin/templates', icon: FileStack, labelEn: 'Roles', labelEl: 'Ρόλοι' },
+  { path: '/admin/audit', icon: ClipboardList, labelEn: 'Audit', labelEl: 'Έλεγχος' },
 ];
 
 export default function AdminLayout() {
@@ -41,22 +27,28 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const { signOut, isAdmin, loading } = useAuth();
   const { language, setLanguage } = useLanguage();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const handleClose = useCallback(() => setIsSidebarOpen(false), []);
 
-  // Redirect non-admin users
   useEffect(() => {
     if (!loading && !isAdmin) {
       navigate('/home');
     }
   }, [loading, isAdmin, navigate]);
 
+  // Auto-close on navigation (mobile)
+  useEffect(() => {
+    if (window.innerWidth < 768) {
+      handleClose();
+    }
+  }, [location.pathname, handleClose]);
+
   const toggleLanguage = () => {
     setLanguage(language === 'en' ? 'el' : 'en');
   };
 
   const isActiveRoute = (path: string, exact?: boolean) => {
-    if (exact) {
-      return location.pathname === path;
-    }
+    if (exact) return location.pathname === path;
     return location.pathname.startsWith(path);
   };
 
@@ -68,24 +60,39 @@ export default function AdminLayout() {
     );
   }
 
-  if (!isAdmin) {
-    return null;
-  }
+  if (!isAdmin) return null;
 
   return (
     <div className="flex min-h-screen bg-background">
+      {/* Hamburger button - mobile only */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="fixed top-4 left-4 z-50 md:hidden"
+        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+      >
+        {isSidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+      </Button>
+
+      {/* Backdrop overlay for mobile */}
+      {isSidebarOpen && (
+        <div className="fixed inset-0 z-30 bg-black/50 md:hidden" onClick={handleClose} />
+      )}
+
       {/* Sidebar */}
-      <aside className="fixed left-0 top-0 z-40 h-screen w-72 bg-sidebar border-r border-sidebar-border flex flex-col">
-        {/* Header */}
+      <aside className={cn(
+        'fixed left-0 top-0 z-40 h-screen w-72 bg-sidebar border-r border-sidebar-border flex flex-col',
+        'transition-transform duration-300 ease-in-out',
+        'md:translate-x-0',
+        isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      )}>
         <div className="p-6 border-b border-sidebar-border">
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary text-primary-foreground">
               <Shield className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-xl font-bold tracking-tight text-sidebar-foreground">
-                SKYNET
-              </h1>
+              <h1 className="text-xl font-bold tracking-tight text-sidebar-foreground">SKYNET</h1>
               <p className="text-sm text-muted-foreground">
                 {language === 'el' ? 'Κονσόλα Διαχειριστή' : 'Admin Console'}
               </p>
@@ -93,13 +100,8 @@ export default function AdminLayout() {
           </div>
         </div>
 
-        {/* Navigation */}
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto scrollbar-thin">
-          {/* Back to Home */}
-          <Link
-            to="/home"
-            className="nav-item mb-4"
-          >
+          <Link to="/home" className="nav-item mb-4">
             <Home className="h-5 w-5" />
             <span className="font-medium">{language === 'el' ? 'Αρχική' : 'Home'}</span>
           </Link>
@@ -112,10 +114,7 @@ export default function AdminLayout() {
               <Link
                 key={item.path}
                 to={item.path}
-                className={cn(
-                  'nav-item',
-                  isActive && 'active'
-                )}
+                className={cn('nav-item', isActive && 'active')}
               >
                 <item.icon className="h-5 w-5" />
                 <span className="font-medium">
@@ -126,13 +125,8 @@ export default function AdminLayout() {
           })}
         </nav>
 
-        {/* Footer */}
         <div className="p-4 border-t border-sidebar-border space-y-2">
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-3 h-12 px-4"
-            onClick={toggleLanguage}
-          >
+          <Button variant="ghost" className="w-full justify-start gap-3 h-12 px-4" onClick={toggleLanguage}>
             <Globe className="h-5 w-5" />
             <span>{language === 'en' ? 'Ελληνικά' : 'English'}</span>
           </Button>
@@ -148,8 +142,8 @@ export default function AdminLayout() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 ml-72">
-        <div className="p-6">
+      <main className="flex-1 md:ml-72">
+        <div className="p-6 pt-16 md:pt-6">
           <Outlet />
         </div>
       </main>
