@@ -64,6 +64,7 @@ const modules: ModuleTile[] = [
     permissionKey: 'module.procurement',
     section: 'operations',
   },
+  // ===== COMMUNICATIONS SECTION =====
   {
     id: 'announcements',
     title: 'Announcements',
@@ -74,7 +75,19 @@ const modules: ModuleTile[] = [
     status: 'active',
     route: '/announcements',
     permissionKey: 'module.announcements',
-    section: 'operations',
+    section: 'communications',
+  },
+  {
+    id: 'messages',
+    title: 'Messages',
+    titleEl: 'Μηνύματα',
+    description: 'Two-way messaging with employees via Telegram.',
+    descriptionEl: 'Αμφίδρομη επικοινωνία με εργαζόμενους μέσω Telegram.',
+    icon: MessageSquare,
+    status: 'active',
+    route: '/messages',
+    permissionKey: 'module.announcements',
+    section: 'communications',
   },
   {
     id: 'costing',
