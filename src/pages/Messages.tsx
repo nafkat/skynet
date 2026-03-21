@@ -48,6 +48,9 @@ interface EmployeeMessage {
   attachment_file_id: string | null;
   status: string;
   admin_reply: string | null;
+  admin_attachment_url: string | null;
+  admin_attachment_name: string | null;
+  admin_attachment_type: string | null;
   created_at: string;
   replied_at: string | null;
   replied_by: string | null;
