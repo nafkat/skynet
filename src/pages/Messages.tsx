@@ -34,6 +34,9 @@ import {
   Image,
   FileText,
   User,
+  Paperclip,
+  X,
+  Download,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
@@ -48,6 +51,9 @@ interface EmployeeMessage {
   attachment_file_id: string | null;
   status: string;
   admin_reply: string | null;
+  admin_attachment_url: string | null;
+  admin_attachment_name: string | null;
+  admin_attachment_type: string | null;
   created_at: string;
   replied_at: string | null;
   replied_by: string | null;
@@ -73,6 +79,8 @@ export default function Messages() {
   const [activeTab, setActiveTab] = useState('all');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [previousMessageIds, setPreviousMessageIds] = useState<Set<string>>(new Set());
+  const [replyFile, setReplyFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const t = (en: string, el_text: string) => (language === 'el' ? el_text : en);
 
@@ -166,8 +174,7 @@ export default function Messages() {
   const handleSelectMessage = async (msg: EmployeeMessage) => {
     setSelectedMessage(msg);
     setReplyText('');
-
-    // Mark as read if unread
+    setReplyFile(null);
     if (msg.status === 'unread') {
       await supabase
         .from('employee_messages')
@@ -176,15 +183,60 @@ export default function Messages() {
     }
   };
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error(t('File too large. Max 10MB.', 'Το αρχείο είναι πολύ μεγάλο. Μέγ. 10MB.'));
+      return;
+    }
+    setReplyFile(file);
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
   const handleSendReply = async () => {
-    if (!selectedMessage || !replyText.trim()) return;
+    if (!selectedMessage || (!replyText.trim() && !replyFile)) return;
 
     setSending(true);
     try {
+      let attachmentUrl: string | null = null;
+      let attachmentName: string | null = null;
+      let attachmentType: string | null = null;
+
+      // Upload file if present
+      if (replyFile) {
+        setUploading(true);
+        const filePath = `replies/${selectedMessage.id}/${Date.now()}_${replyFile.name}`;
+        const { error: uploadError } = await supabase.storage
+          .from('message-attachments')
+          .upload(filePath, replyFile);
+
+        if (uploadError) {
+          throw new Error(t('File upload failed', 'Αποτυχία μεταφόρτωσης αρχείου'));
+        }
+
+        const { data: urlData } = supabase.storage
+          .from('message-attachments')
+          .getPublicUrl(filePath);
+
+        attachmentUrl = urlData.publicUrl;
+        attachmentName = replyFile.name;
+        attachmentType = replyFile.type;
+        setUploading(false);
+      }
+
       const { data, error } = await supabase.functions.invoke('send_telegram_reply', {
         body: {
           message_id: selectedMessage.id,
-          reply_text: replyText.trim(),
+          reply_text: replyText.trim() || (replyFile ? `📎 ${replyFile.name}` : ''),
+          attachment_url: attachmentUrl,
+          attachment_name: attachmentName,
+          attachment_type: attachmentType,
         },
       });
 
@@ -192,13 +244,22 @@ export default function Messages() {
 
       toast.success(t('Reply sent successfully', 'Η απάντηση στάλθηκε'));
       setReplyText('');
-      setSelectedMessage(prev => prev ? { ...prev, status: 'replied', admin_reply: replyText } : null);
+      setReplyFile(null);
+      setSelectedMessage(prev => prev ? {
+        ...prev,
+        status: 'replied',
+        admin_reply: replyText || `📎 ${attachmentName}`,
+        admin_attachment_url: attachmentUrl,
+        admin_attachment_name: attachmentName,
+        admin_attachment_type: attachmentType,
+      } : null);
       fetchMessages();
     } catch (error: any) {
       console.error('Error sending reply:', error);
       toast.error(error.message || t('Failed to send reply', 'Αποτυχία αποστολής απάντησης'));
     } finally {
       setSending(false);
+      setUploading(false);
     }
   };
 
@@ -325,12 +386,34 @@ export default function Messages() {
                   {t('Admin Reply', 'Απάντηση Διαχειριστή')}
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-3">
                 <p className="whitespace-pre-wrap bg-blue-50 dark:bg-blue-950/30 p-4 rounded-lg">
                   {selectedMessage.admin_reply}
                 </p>
+                {selectedMessage.admin_attachment_url && (
+                  <div className="flex items-center gap-3 bg-blue-50 dark:bg-blue-950/30 p-3 rounded-lg">
+                    {selectedMessage.admin_attachment_type?.startsWith('image/') ? (
+                      <Image className="h-5 w-5 text-blue-500 flex-shrink-0" />
+                    ) : (
+                      <FileText className="h-5 w-5 text-blue-500 flex-shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{selectedMessage.admin_attachment_name}</p>
+                    </div>
+                    <a
+                      href={selectedMessage.admin_attachment_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-shrink-0"
+                    >
+                      <Button variant="ghost" size="icon">
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    </a>
+                  </div>
+                )}
                 {selectedMessage.replied_at && (
-                  <p className="text-xs text-muted-foreground mt-2">
+                  <p className="text-xs text-muted-foreground">
                     {new Date(selectedMessage.replied_at).toLocaleString(language === 'el' ? 'el-GR' : 'en-GB')}
                   </p>
                 )}
@@ -353,16 +436,54 @@ export default function Messages() {
                   onChange={(e) => setReplyText(e.target.value)}
                   rows={4}
                 />
+
+                {/* File attachment */}
+                <div className="space-y-2">
+                  {replyFile ? (
+                    <div className="flex items-center gap-3 bg-muted/50 p-3 rounded-lg">
+                      {replyFile.type.startsWith('image/') ? (
+                        <Image className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                      ) : (
+                        <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{replyFile.name}</p>
+                        <p className="text-xs text-muted-foreground">{formatFileSize(replyFile.size)}</p>
+                      </div>
+                      <Button variant="ghost" size="icon" onClick={() => setReplyFile(null)}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        className="hidden"
+                        onChange={handleFileSelect}
+                        accept="*/*"
+                      />
+                      <Button variant="outline" size="sm" asChild>
+                        <span>
+                          <Paperclip className="h-4 w-4 mr-2" />
+                          {t('Attach File', 'Επισύναψη Αρχείου')}
+                        </span>
+                      </Button>
+                    </label>
+                  )}
+                </div>
+
                 <Button
                   onClick={handleSendReply}
-                  disabled={!replyText.trim() || sending}
+                  disabled={(!replyText.trim() && !replyFile) || sending}
                 >
                   {sending ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   ) : (
                     <Send className="h-4 w-4 mr-2" />
                   )}
-                  {t('Send via Telegram', 'Αποστολή μέσω Telegram')}
+                  {uploading
+                    ? t('Uploading...', 'Μεταφόρτωση...')
+                    : t('Send via Telegram', 'Αποστολή μέσω Telegram')}
                 </Button>
               </CardContent>
             </Card>

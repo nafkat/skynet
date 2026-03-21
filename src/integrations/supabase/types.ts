@@ -416,6 +416,9 @@ export type Database = {
       }
       employee_messages: {
         Row: {
+          admin_attachment_name: string | null
+          admin_attachment_type: string | null
+          admin_attachment_url: string | null
           admin_reply: string | null
           attachment_file_id: string | null
           attachment_url: string | null
@@ -430,6 +433,9 @@ export type Database = {
           telegram_chat_id: number
         }
         Insert: {
+          admin_attachment_name?: string | null
+          admin_attachment_type?: string | null
+          admin_attachment_url?: string | null
           admin_reply?: string | null
           attachment_file_id?: string | null
           attachment_url?: string | null
@@ -444,6 +450,9 @@ export type Database = {
           telegram_chat_id: number
         }
         Update: {
+          admin_attachment_name?: string | null
+          admin_attachment_type?: string | null
+          admin_attachment_url?: string | null
           admin_reply?: string | null
           attachment_file_id?: string | null
           attachment_url?: string | null

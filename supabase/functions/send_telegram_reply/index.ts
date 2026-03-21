@@ -47,10 +47,10 @@ Deno.serve(async (req) => {
 
     const adminUserId = claimsData.claims.sub;
 
-    const { message_id, reply_text } = await req.json();
+    const { message_id, reply_text, attachment_url, attachment_name, attachment_type } = await req.json();
 
-    if (!message_id || !reply_text) {
-      return new Response(JSON.stringify({ error: 'message_id and reply_text are required' }), {
+    if (!message_id || (!reply_text && !attachment_url)) {
+      return new Response(JSON.stringify({ error: 'message_id and reply_text or attachment are required' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -95,39 +95,112 @@ Deno.serve(async (req) => {
       .single();
 
     const adminName = adminProfile?.display_name || adminProfile?.full_name || 'Admin';
+    const chatId = message.telegram_chat_id;
 
-    // Send reply via Telegram
-    const telegramText = `💬 <b>Reply from ${adminName}:</b>\n\n${reply_text}`;
-    
-    const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: message.telegram_chat_id,
-        text: telegramText,
-        parse_mode: 'HTML',
-      }),
-    });
+    let telegramOk = false;
 
-    const telegramData = await response.json();
-    
-    if (!telegramData.ok) {
-      console.error('Telegram send failed:', telegramData);
-      return new Response(JSON.stringify({ error: 'Failed to send Telegram message', details: telegramData.description }), {
+    if (attachment_url) {
+      // Send attachment via Telegram
+      const caption = reply_text
+        ? `💬 <b>Reply from ${adminName}:</b>\n\n${reply_text}`
+        : `💬 <b>Reply from ${adminName}</b>`;
+
+      const isImage = attachment_type?.startsWith('image/');
+      const method = isImage ? 'sendPhoto' : 'sendDocument';
+      const fileField = isImage ? 'photo' : 'document';
+
+      try {
+        // Download the file from the public URL
+        const fileResponse = await fetch(attachment_url);
+        if (!fileResponse.ok) {
+          throw new Error('Failed to download attachment');
+        }
+        const fileBlob = await fileResponse.blob();
+
+        const formData = new FormData();
+        formData.append('chat_id', chatId.toString());
+        formData.append(fileField, new File([fileBlob], attachment_name || 'file', { type: attachment_type || 'application/octet-stream' }));
+        formData.append('caption', caption.substring(0, 1024));
+        formData.append('parse_mode', 'HTML');
+
+        const tgResponse = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/${method}`, {
+          method: 'POST',
+          body: formData,
+        });
+
+        const tgData = await tgResponse.json();
+        if (tgData.ok) {
+          telegramOk = true;
+        } else {
+          console.error(`Telegram ${method} failed:`, tgData);
+          // Fallback: send as document if photo failed
+          if (isImage) {
+            const formData2 = new FormData();
+            formData2.append('chat_id', chatId.toString());
+            formData2.append('document', new File([fileBlob], attachment_name || 'file', { type: attachment_type || 'application/octet-stream' }));
+            formData2.append('caption', caption.substring(0, 1024));
+            formData2.append('parse_mode', 'HTML');
+
+            const tgResponse2 = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument`, {
+              method: 'POST',
+              body: formData2,
+            });
+            const tgData2 = await tgResponse2.json();
+            telegramOk = tgData2.ok;
+            if (!tgData2.ok) console.error('Telegram sendDocument fallback failed:', tgData2);
+          }
+        }
+      } catch (dlError) {
+        console.error('Error downloading/sending attachment:', dlError);
+        // Fallback: send text-only reply with link
+        const fallbackText = `💬 <b>Reply from ${adminName}:</b>\n\n${reply_text || ''}\n\n📎 <a href="${attachment_url}">${attachment_name || 'Attachment'}</a>`;
+        const fallbackResp = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: chatId, text: fallbackText, parse_mode: 'HTML' }),
+        });
+        const fallbackData = await fallbackResp.json();
+        telegramOk = fallbackData.ok;
+      }
+    } else {
+      // Text-only reply
+      const telegramText = `💬 <b>Reply from ${adminName}:</b>\n\n${reply_text}`;
+      const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, text: telegramText, parse_mode: 'HTML' }),
+      });
+      const telegramData = await response.json();
+      telegramOk = telegramData.ok;
+      if (!telegramData.ok) {
+        console.error('Telegram send failed:', telegramData);
+      }
+    }
+
+    if (!telegramOk) {
+      return new Response(JSON.stringify({ error: 'Failed to send Telegram message' }), {
         status: 502,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     // Update message record
+    const updateData: Record<string, any> = {
+      status: 'replied',
+      admin_reply: reply_text || `📎 ${attachment_name || 'Attachment'}`,
+      replied_at: new Date().toISOString(),
+      replied_by: adminUserId,
+    };
+
+    if (attachment_url) {
+      updateData.admin_attachment_url = attachment_url;
+      updateData.admin_attachment_name = attachment_name;
+      updateData.admin_attachment_type = attachment_type;
+    }
+
     const { error: updateError } = await supabase
       .from('employee_messages')
-      .update({
-        status: 'replied',
-        admin_reply: reply_text,
-        replied_at: new Date().toISOString(),
-        replied_by: adminUserId,
-      })
+      .update(updateData)
       .eq('id', message_id);
 
     if (updateError) {
