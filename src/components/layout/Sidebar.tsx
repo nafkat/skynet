@@ -140,8 +140,13 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 <span className="font-medium flex items-center gap-2">
                   {item.label}
                   {item.path === '/corrections' && pendingCount > 0 && (
-                    <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-red-600 rounded-full min-w-[20px]">
+                    <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-destructive rounded-full min-w-[20px]">
                       {pendingCount}
+                    </span>
+                  )}
+                  {item.path === '/messages' && messageUnreadCount > 0 && (
+                    <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-destructive rounded-full min-w-[20px] animate-pulse">
+                      {messageUnreadCount}
                     </span>
                   )}
                 </span>
