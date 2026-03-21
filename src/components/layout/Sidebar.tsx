@@ -59,7 +59,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     { path: '/settings', icon: Settings, label: t('nav.settings'), show: isAdmin },
   ];
 
-  const timekeepingNavItems = [
+  const operationsNavItems = [
     { path: '/admin/dashboard', icon: LayoutDashboard, label: language === 'el' ? 'Διοικητικός Πίνακας' : 'Admin Dashboard', show: hasElevatedRole },
     { path: '/dashboard', icon: LayoutDashboard, label: t('nav.dashboard'), show: isTimekeeperOnly },
     { path: '/time-entry', icon: Clock, label: t('nav.timeEntry'), show: true },
@@ -69,12 +69,60 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     { path: '/corrections', icon: GitPullRequest, label: t('nav.corrections'), show: hasElevatedRole },
     { path: '/reports', icon: FileBarChart, label: t('nav.reports'), show: hasElevatedRole },
     { path: '/admin/payroll-export', icon: FileSpreadsheet, label: language === 'el' ? 'Εξαγωγή Μισθοδοσίας' : 'Payroll Export', show: hasElevatedRole },
-    { path: '/admin/audit', icon: ClipboardList, label: language === 'el' ? 'Ημερολόγιο Ελέγχου' : 'Audit Log', show: hasElevatedRole },
+  ];
+
+  const communicationsNavItems = [
     { path: '/announcements', icon: Megaphone, label: language === 'el' ? 'Ανακοινώσεις' : 'Announcements', show: hasElevatedRole },
     { path: '/messages', icon: MessageSquare, label: language === 'el' ? 'Μηνύματα' : 'Messages', show: hasElevatedRole },
   ];
 
-  const contextNavItems = isHomeContext ? globalNavItems : timekeepingNavItems;
+  const systemNavItems = [
+    { path: '/admin/audit', icon: ClipboardList, label: language === 'el' ? 'Ημερολόγιο Ελέγχου' : 'Audit Log', show: hasElevatedRole },
+  ];
+
+  const renderNavItem = (item: typeof operationsNavItems[0]) => {
+    const isActive = location.pathname === item.path;
+    return (
+      <Link
+        key={item.path}
+        to={item.path}
+        className={cn(
+          'nav-item',
+          isActive && 'active'
+        )}
+      >
+        <item.icon className="h-5 w-5" />
+        <span className="font-medium flex items-center gap-2">
+          {item.label}
+          {item.path === '/corrections' && pendingCount > 0 && (
+            <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-destructive rounded-full min-w-[20px]">
+              {pendingCount}
+            </span>
+          )}
+          {item.path === '/messages' && messageUnreadCount > 0 && (
+            <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-destructive rounded-full min-w-[20px] animate-pulse">
+              {messageUnreadCount}
+            </span>
+          )}
+        </span>
+      </Link>
+    );
+  };
+
+  const renderSection = (title: string, items: typeof operationsNavItems) => {
+    const visibleItems = items.filter(item => item.show);
+    if (visibleItems.length === 0) return null;
+    return (
+      <>
+        <div className="px-3 pt-4 pb-1">
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            {title}
+          </span>
+        </div>
+        {visibleItems.map(renderNavItem)}
+      </>
+    );
+  };
 
   const getRoleLabel = () => {
     if (isAdmin) return language === 'el' ? 'Διαχειριστής' : 'Admin';
@@ -123,36 +171,18 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             <span className="font-medium">{persistentNavItem.label}</span>
           </Link>
 
-          <div className="my-2 border-t border-sidebar-border" />
-
-          {contextNavItems.filter(item => item.show).map((item) => {
-            const isActive = location.pathname === item.path;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={cn(
-                  'nav-item',
-                  isActive && 'active'
-                )}
-              >
-                <item.icon className="h-5 w-5" />
-                <span className="font-medium flex items-center gap-2">
-                  {item.label}
-                  {item.path === '/corrections' && pendingCount > 0 && (
-                    <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-destructive rounded-full min-w-[20px]">
-                      {pendingCount}
-                    </span>
-                  )}
-                  {item.path === '/messages' && messageUnreadCount > 0 && (
-                    <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-destructive rounded-full min-w-[20px] animate-pulse">
-                      {messageUnreadCount}
-                    </span>
-                  )}
-                </span>
-              </Link>
-            );
-          })}
+          {isHomeContext ? (
+            <>
+              <div className="my-2 border-t border-sidebar-border" />
+              {globalNavItems.filter(item => item.show).map(renderNavItem)}
+            </>
+          ) : (
+            <>
+              {renderSection(language === 'el' ? 'Λειτουργίες' : 'Operations', operationsNavItems)}
+              {renderSection(language === 'el' ? 'Επικοινωνίες' : 'Communications', communicationsNavItems)}
+              {renderSection(language === 'el' ? 'Σύστημα' : 'System', systemNavItems)}
+            </>
+          )}
         </nav>
 
         {/* Footer */}

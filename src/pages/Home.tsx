@@ -12,7 +12,9 @@ import {
   Globe,
   Home as HomeIcon,
   Settings,
-  Lock
+  Lock,
+  MessageSquare,
+  MessageCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -20,7 +22,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 type ModuleStatus = 'active' | 'coming_soon';
-type ModuleSection = 'operations' | 'system';
+type ModuleSection = 'operations' | 'communications' | 'system';
 
 interface ModuleTile {
   id: string;
@@ -62,6 +64,7 @@ const modules: ModuleTile[] = [
     permissionKey: 'module.procurement',
     section: 'operations',
   },
+  // ===== COMMUNICATIONS SECTION =====
   {
     id: 'announcements',
     title: 'Announcements',
@@ -72,7 +75,19 @@ const modules: ModuleTile[] = [
     status: 'active',
     route: '/announcements',
     permissionKey: 'module.announcements',
-    section: 'operations',
+    section: 'communications',
+  },
+  {
+    id: 'messages',
+    title: 'Messages',
+    titleEl: 'Μηνύματα',
+    description: 'Two-way messaging with employees via Telegram.',
+    descriptionEl: 'Αμφίδρομη επικοινωνία με εργαζόμενους μέσω Telegram.',
+    icon: MessageSquare,
+    status: 'active',
+    route: '/messages',
+    permissionKey: 'module.announcements',
+    section: 'communications',
   },
   {
     id: 'costing',
@@ -171,6 +186,7 @@ export default function Home() {
 
   // Group by section
   const operationsModules = visibleModules.filter(m => m.section === 'operations');
+  const communicationsModules = visibleModules.filter(m => m.section === 'communications');
   const systemModules = visibleModules.filter(m => m.section === 'system');
 
   // Loading state
@@ -397,6 +413,19 @@ export default function Home() {
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {operationsModules.map(renderTile)}
+            </div>
+          </section>
+        )}
+
+        {/* Communications Section */}
+        {communicationsModules.length > 0 && (
+          <section className="mb-12">
+            <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+              <MessageCircle className="h-5 w-5 text-primary" />
+              {language === 'el' ? 'Επικοινωνίες' : 'Communications'}
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {communicationsModules.map(renderTile)}
             </div>
           </section>
         )}
