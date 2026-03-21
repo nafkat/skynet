@@ -499,7 +499,7 @@ export default function Messages() {
           )}
 
           {/* Reply Form */}
-          {selectedMessage.status !== 'resolved' && selectedMessage.status !== 'read' || selectedMessage.status === 'reopened' ? (
+          {(selectedMessage.status !== 'resolved' || selectedMessage.status === 'reopened') && selectedMessage.status !== 'read' ? (
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">
@@ -564,12 +564,7 @@ export default function Messages() {
                 </Button>
               </CardContent>
             </Card>
-          )}
-        </div>
-      </MainLayout>
-    );
-  }
-
+          ) : null}
   return (
     <MainLayout>
       <div className="space-y-6">

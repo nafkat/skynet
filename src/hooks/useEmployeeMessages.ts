@@ -94,7 +94,7 @@ export function useUnreadMessageCount() {
       const { count, error } = await supabase
         .from('employee_messages')
         .select('*', { count: 'exact', head: true })
-        .eq('status', 'unread');
+        .in('status', ['unread', 'reopened']);
 
       if (error) throw error;
       setUnreadCount(count || 0);
