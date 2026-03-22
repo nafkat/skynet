@@ -305,6 +305,9 @@ export default function RequestOfferDetails() {
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold tracking-tight">{requestOffer.ro_number}</h1>
               {getStatusBadge(requestOffer.status)}
+              {(requestOffer as any).priority === 'urgent' && (
+                <Badge variant="destructive">{language === 'el' ? 'Επείγον' : 'Urgent'}</Badge>
+              )}
             </div>
             <p className="text-muted-foreground">{requestOffer.title}</p>
           </div>
