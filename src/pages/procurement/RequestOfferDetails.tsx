@@ -397,6 +397,9 @@ export default function RequestOfferDetails() {
                     <p className="font-medium">{(requestOffer as any).contact_person} {(requestOffer as any).contact_phone ? `(${(requestOffer as any).contact_phone})` : ''}</p>
                   </div>
                 )}
+              </div>
+
+              <Separator />
 
               <div>
                 <p className="text-sm text-muted-foreground mb-1">{language === 'el' ? 'Περιγραφή' : 'Description'}</p>
