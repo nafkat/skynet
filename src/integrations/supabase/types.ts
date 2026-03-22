@@ -1198,15 +1198,22 @@ export type Database = {
       }
       request_offers: {
         Row: {
+          contact_person: string | null
+          contact_phone: string | null
           created_at: string | null
           created_by: string | null
+          delivery_location: string | null
           description: string
           id: string
           message_to_recipients: string | null
+          needed_by: string | null
+          priority: string | null
           project_name: string | null
           qty: number | null
+          response_deadline: string | null
           ro_number: string | null
           sent_at: string | null
+          special_instructions: string | null
           status: string | null
           title: string
           type: string
@@ -1214,15 +1221,22 @@ export type Database = {
           vessel_or_job: string | null
         }
         Insert: {
+          contact_person?: string | null
+          contact_phone?: string | null
           created_at?: string | null
           created_by?: string | null
+          delivery_location?: string | null
           description: string
           id?: string
           message_to_recipients?: string | null
+          needed_by?: string | null
+          priority?: string | null
           project_name?: string | null
           qty?: number | null
+          response_deadline?: string | null
           ro_number?: string | null
           sent_at?: string | null
+          special_instructions?: string | null
           status?: string | null
           title: string
           type: string
@@ -1230,15 +1244,22 @@ export type Database = {
           vessel_or_job?: string | null
         }
         Update: {
+          contact_person?: string | null
+          contact_phone?: string | null
           created_at?: string | null
           created_by?: string | null
+          delivery_location?: string | null
           description?: string
           id?: string
           message_to_recipients?: string | null
+          needed_by?: string | null
+          priority?: string | null
           project_name?: string | null
           qty?: number | null
+          response_deadline?: string | null
           ro_number?: string | null
           sent_at?: string | null
+          special_instructions?: string | null
           status?: string | null
           title?: string
           type?: string

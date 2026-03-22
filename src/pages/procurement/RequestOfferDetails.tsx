@@ -18,7 +18,8 @@ import {
   X,
   Clock,
   FileText,
-  XCircle
+  XCircle,
+  CopyPlus
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -36,6 +37,13 @@ interface RequestOffer {
   message_to_recipients: string | null;
   created_at: string;
   sent_at: string | null;
+  priority?: string;
+  response_deadline?: string | null;
+  needed_by?: string | null;
+  delivery_location?: string | null;
+  contact_person?: string | null;
+  contact_phone?: string | null;
+  special_instructions?: string | null;
 }
 
 interface Recipient {
@@ -297,11 +305,18 @@ export default function RequestOfferDetails() {
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold tracking-tight">{requestOffer.ro_number}</h1>
               {getStatusBadge(requestOffer.status)}
+              {(requestOffer as any).priority === 'urgent' && (
+                <Badge variant="destructive">{language === 'el' ? 'Επείγον' : 'Urgent'}</Badge>
+              )}
             </div>
             <p className="text-muted-foreground">{requestOffer.title}</p>
           </div>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => navigate(`/procurement/request-offers/new?duplicate=${id}`)}>
+            <CopyPlus className="h-4 w-4 mr-2" />
+            {language === 'el' ? 'Αντιγραφή' : 'Duplicate'}
+          </Button>
           {requestOffer.status === 'draft' && (
             <Button onClick={handleSend} disabled={sending}>
               {sending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
@@ -358,6 +373,30 @@ export default function RequestOfferDetails() {
                     <p className="font-medium">{requestOffer.qty} {requestOffer.uom || ''}</p>
                   </div>
                 )}
+                {(requestOffer as any).response_deadline && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">{language === 'el' ? 'Προθεσμία Απάντησης' : 'Response Deadline'}</p>
+                    <p className="font-medium">{format(new Date((requestOffer as any).response_deadline), 'dd/MM/yyyy')}</p>
+                  </div>
+                )}
+                {(requestOffer as any).needed_by && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">{language === 'el' ? 'Απαιτείται Μέχρι' : 'Needed By'}</p>
+                    <p className="font-medium">{format(new Date((requestOffer as any).needed_by), 'dd/MM/yyyy')}</p>
+                  </div>
+                )}
+                {(requestOffer as any).delivery_location && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">{language === 'el' ? 'Τοποθεσία Παράδοσης' : 'Delivery Location'}</p>
+                    <p className="font-medium">{(requestOffer as any).delivery_location}</p>
+                  </div>
+                )}
+                {(requestOffer as any).contact_person && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">{language === 'el' ? 'Υπεύθυνος' : 'Contact Person'}</p>
+                    <p className="font-medium">{(requestOffer as any).contact_person} {(requestOffer as any).contact_phone ? `(${(requestOffer as any).contact_phone})` : ''}</p>
+                  </div>
+                )}
               </div>
 
               <Separator />
@@ -366,6 +405,16 @@ export default function RequestOfferDetails() {
                 <p className="text-sm text-muted-foreground mb-1">{language === 'el' ? 'Περιγραφή' : 'Description'}</p>
                 <p className="whitespace-pre-wrap">{requestOffer.description}</p>
               </div>
+
+              {(requestOffer as any).special_instructions && (
+                <>
+                  <Separator />
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">{language === 'el' ? 'Ειδικές Οδηγίες' : 'Special Instructions'}</p>
+                    <p className="whitespace-pre-wrap">{(requestOffer as any).special_instructions}</p>
+                  </div>
+                </>
+              )}
 
               {requestOffer.message_to_recipients && (
                 <>
