@@ -37,6 +37,13 @@ interface RequestOffer {
   message_to_recipients: string | null;
   created_at: string;
   sent_at: string | null;
+  priority?: string;
+  response_deadline?: string | null;
+  needed_by?: string | null;
+  delivery_location?: string | null;
+  contact_person?: string | null;
+  contact_phone?: string | null;
+  special_instructions?: string | null;
 }
 
 interface Recipient {
