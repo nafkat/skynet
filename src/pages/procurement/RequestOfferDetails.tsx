@@ -303,6 +303,10 @@ export default function RequestOfferDetails() {
           </div>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => navigate(`/procurement/request-offers/new?duplicate=${id}`)}>
+            <CopyPlus className="h-4 w-4 mr-2" />
+            {language === 'el' ? 'Αντιγραφή' : 'Duplicate'}
+          </Button>
           {requestOffer.status === 'draft' && (
             <Button onClick={handleSend} disabled={sending}>
               {sending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}

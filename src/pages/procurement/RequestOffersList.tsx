@@ -186,13 +186,24 @@ export default function RequestOffersList() {
                     </TableCell>
                     <TableCell>{ro.recipients_count}</TableCell>
                     <TableCell className="text-right">
-                      <Button 
-                        size="sm" 
-                        variant="ghost"
-                        onClick={() => navigate(`/procurement/request-offers/${ro.id}`)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
+                      <div className="flex justify-end gap-1">
+                        <Button 
+                          size="sm" 
+                          variant="ghost"
+                          onClick={() => navigate(`/procurement/request-offers/${ro.id}`)}
+                          title={language === 'el' ? 'Προβολή' : 'View'}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="ghost"
+                          onClick={() => navigate(`/procurement/request-offers/new?duplicate=${ro.id}`)}
+                          title={language === 'el' ? 'Αντιγραφή' : 'Duplicate'}
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
