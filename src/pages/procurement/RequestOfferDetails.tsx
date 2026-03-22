@@ -373,9 +373,30 @@ export default function RequestOfferDetails() {
                     <p className="font-medium">{requestOffer.qty} {requestOffer.uom || ''}</p>
                   </div>
                 )}
-              </div>
-
-              <Separator />
+                {(requestOffer as any).response_deadline && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">{language === 'el' ? 'Προθεσμία Απάντησης' : 'Response Deadline'}</p>
+                    <p className="font-medium">{format(new Date((requestOffer as any).response_deadline), 'dd/MM/yyyy')}</p>
+                  </div>
+                )}
+                {(requestOffer as any).needed_by && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">{language === 'el' ? 'Απαιτείται Μέχρι' : 'Needed By'}</p>
+                    <p className="font-medium">{format(new Date((requestOffer as any).needed_by), 'dd/MM/yyyy')}</p>
+                  </div>
+                )}
+                {(requestOffer as any).delivery_location && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">{language === 'el' ? 'Τοποθεσία Παράδοσης' : 'Delivery Location'}</p>
+                    <p className="font-medium">{(requestOffer as any).delivery_location}</p>
+                  </div>
+                )}
+                {(requestOffer as any).contact_person && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">{language === 'el' ? 'Υπεύθυνος' : 'Contact Person'}</p>
+                    <p className="font-medium">{(requestOffer as any).contact_person} {(requestOffer as any).contact_phone ? `(${(requestOffer as any).contact_phone})` : ''}</p>
+                  </div>
+                )}
 
               <div>
                 <p className="text-sm text-muted-foreground mb-1">{language === 'el' ? 'Περιγραφή' : 'Description'}</p>
