@@ -3,7 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { 
   FileText, 
@@ -20,60 +19,30 @@ export default function ProcurementReports() {
     try {
       setExporting(reportType);
       
-      let data: any[] = [];
+      let data: Record<string, unknown>[] = [];
       let filename = '';
 
-      if (reportType === 'pr') {
-        const { data: prData, error } = await supabase
-          .from('purchase_requests')
-          .select(`
-            pr_number,
-            type,
-            description,
-            qty,
-            uom,
-            priority,
-            status,
-            created_at,
-            project:projects(project_code, project_name)
-          `)
+      if (reportType === 'ro') {
+        const { data: roData, error } = await supabase
+          .from('request_offers')
+          .select('*')
           .order('created_at', { ascending: false });
 
         if (error) throw error;
-        data = (prData || []).map(pr => ({
-          'PR Number': pr.pr_number,
-          'Type': pr.type,
-          'Project': pr.project?.project_code,
-          'Description': pr.description,
-          'Qty': pr.qty,
-          'UOM': pr.uom,
-          'Priority': pr.priority,
-          'Status': pr.status,
-          'Created': pr.created_at,
+        data = (roData || []).map(ro => ({
+          'RO Number': ro.ro_number,
+          'Type': ro.type,
+          'Title': ro.title,
+          'Description': ro.description,
+          'Qty': ro.qty,
+          'UOM': ro.uom,
+          'Priority': ro.priority,
+          'Status': ro.status,
+          'Project': ro.project_name,
+          'Needed By': ro.needed_by,
+          'Created': ro.created_at,
         }));
-        filename = 'purchase_requests.csv';
-      } else if (reportType === 'po') {
-        const { data: poData, error } = await supabase
-          .from('purchase_orders')
-          .select(`
-            po_number,
-            status,
-            created_at,
-            purchase_request:purchase_requests(pr_number, description),
-            supplier:suppliers(name)
-          `)
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-        data = (poData || []).map(po => ({
-          'PO Number': po.po_number,
-          'PR Number': po.purchase_request?.pr_number,
-          'Supplier': po.supplier?.name,
-          'Description': po.purchase_request?.description,
-          'Status': po.status,
-          'Created': po.created_at,
-        }));
-        filename = 'purchase_orders.csv';
+        filename = 'request_offers.csv';
       } else if (reportType === 'suppliers') {
         const { data: suppData, error } = await supabase
           .from('suppliers')
@@ -88,11 +57,13 @@ export default function ProcurementReports() {
           'Phone': s.phone,
           'Country': s.country,
           'Category': s.category,
+          'Type': s.supplier_type,
+          'VAT': s.vat_number,
+          'Preferred': s.is_preferred ? 'Yes' : 'No',
         }));
         filename = 'suppliers.csv';
       }
 
-      // Convert to CSV
       if (data.length === 0) {
         toast.info(language === 'el' ? 'Δεν υπάρχουν δεδομένα' : 'No data available');
         return;
@@ -104,7 +75,6 @@ export default function ProcurementReports() {
         ...data.map(row => headers.map(h => `"${row[h] || ''}"`).join(','))
       ].join('\n');
 
-      // Download
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
@@ -122,20 +92,12 @@ export default function ProcurementReports() {
 
   const reports = [
     {
-      id: 'pr',
-      title: language === 'el' ? 'Αιτήματα Αγορών' : 'Purchase Requests',
+      id: 'ro',
+      title: language === 'el' ? 'Αιτήματα Προσφορών' : 'Request Offers',
       description: language === 'el' 
-        ? 'Λίστα όλων των αιτημάτων με κατάσταση και έργο' 
-        : 'List of all requests with status and project',
+        ? 'Λίστα όλων των αιτημάτων προσφορών με κατάσταση' 
+        : 'List of all request offers with status',
       icon: FileText,
-    },
-    {
-      id: 'po',
-      title: language === 'el' ? 'Εντολές Αγοράς' : 'Purchase Orders',
-      description: language === 'el' 
-        ? 'Λίστα εντολών με προμηθευτές και κατάσταση' 
-        : 'List of orders with suppliers and status',
-      icon: FileSpreadsheet,
     },
     {
       id: 'suppliers',
@@ -143,13 +105,12 @@ export default function ProcurementReports() {
       description: language === 'el' 
         ? 'Κατάλογος προμηθευτών με στοιχεία επικοινωνίας' 
         : 'Supplier directory with contact details',
-      icon: FileText,
+      icon: FileSpreadsheet,
     },
   ];
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">
           {language === 'el' ? 'Αναφορές' : 'Reports'}
@@ -161,8 +122,7 @@ export default function ProcurementReports() {
         </p>
       </div>
 
-      {/* Report Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {reports.map((report) => (
           <Card key={report.id}>
             <CardHeader>
