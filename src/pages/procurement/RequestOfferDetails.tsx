@@ -18,7 +18,8 @@ import {
   X,
   Clock,
   FileText,
-  XCircle
+  XCircle,
+  CopyPlus
 } from 'lucide-react';
 import { format } from 'date-fns';
 
