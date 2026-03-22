@@ -14,7 +14,8 @@ import {
   Loader2,
   Eye,
   Send,
-  FileText
+  FileText,
+  Copy
 } from 'lucide-react';
 import { format } from 'date-fns';
 
