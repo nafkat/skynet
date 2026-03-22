@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -11,18 +11,18 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 import { 
-  Loader2,
-  Upload,
-  X,
-  Star,
-  Search,
-  Building2,
-  Wrench,
-  ArrowLeft,
-  Save,
-  Send
+  Loader2, Upload, X, Star, Search, Building2, Wrench,
+  ArrowLeft, Save, Send, CalendarIcon, AlertCircle, Eye,
+  FileText, Image, FileSpreadsheet, File
 } from 'lucide-react';
 
 interface Supplier {
@@ -34,55 +34,184 @@ interface Supplier {
   email: string | null;
   contact_name: string | null;
   is_preferred: boolean;
+  category: string | null;
 }
 
 interface UploadedFile {
   file: File;
   name: string;
+  size: number;
+}
+
+interface FormErrors {
+  title?: string;
+  description?: string;
+  contact_phone?: string;
+  recipients?: string;
+  files?: string;
+}
+
+const MAX_TOTAL_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function getFileIcon(name: string) {
+  const ext = name.split('.').pop()?.toLowerCase();
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext || ''))
+    return <Image className="h-4 w-4 text-blue-500" />;
+  if (['xls', 'xlsx', 'csv'].includes(ext || ''))
+    return <FileSpreadsheet className="h-4 w-4 text-green-600" />;
+  if (['pdf'].includes(ext || ''))
+    return <FileText className="h-4 w-4 text-red-500" />;
+  return <File className="h-4 w-4 text-muted-foreground" />;
 }
 
 export default function RequestOfferCreate() {
   const { language } = useLanguage();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const duplicateFromId = searchParams.get('duplicate');
   
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [draftId, setDraftId] = useState<string | null>(null);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   // Form state
   const [formData, setFormData] = useState({
     type: 'material' as 'material' | 'service',
+    priority: 'normal' as 'normal' | 'urgent',
     project_name: '',
     vessel_or_job: '',
     title: '',
     description: '',
+    special_instructions: '',
     qty: '',
     uom: '',
+    response_deadline: undefined as Date | undefined,
+    needed_by: undefined as Date | undefined,
+    delivery_location: '',
+    contact_person: '',
+    contact_phone: '',
     message_to_recipients: ''
   });
+  
+  const [errors, setErrors] = useState<FormErrors>({});
   
   // Recipients
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [selectedSuppliers, setSelectedSuppliers] = useState<string[]>([]);
   const [supplierSearch, setSupplierSearch] = useState('');
   const [showPreferredFirst, setShowPreferredFirst] = useState(true);
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   
   // Attachments
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
 
+  const totalFileSize = useMemo(() => 
+    uploadedFiles.reduce((sum, f) => sum + f.size, 0), [uploadedFiles]
+  );
+
   useEffect(() => {
     fetchSuppliers();
   }, []);
+
+  // Load duplicate data
+  useEffect(() => {
+    if (duplicateFromId) {
+      loadDuplicateData(duplicateFromId);
+    }
+  }, [duplicateFromId]);
+
+  // Auto-save draft every 30 seconds
+  useEffect(() => {
+    autoSaveTimerRef.current = setInterval(() => {
+      if (formData.title.trim() && !sending) {
+        autoSaveDraft();
+      }
+    }, 30000);
+    return () => {
+      if (autoSaveTimerRef.current) clearInterval(autoSaveTimerRef.current);
+    };
+  }, [formData, selectedSuppliers, draftId]);
+
+  const loadDuplicateData = async (id: string) => {
+    try {
+      setLoading(true);
+      const { data: ro, error } = await supabase
+        .from('request_offers')
+        .select('*')
+        .eq('id', id)
+        .single();
+      if (error) throw error;
+
+      setFormData({
+        type: ro.type as 'material' | 'service',
+        priority: (ro as any).priority || 'normal',
+        project_name: ro.project_name || '',
+        vessel_or_job: ro.vessel_or_job || '',
+        title: ro.title,
+        description: ro.description,
+        special_instructions: (ro as any).special_instructions || '',
+        qty: ro.qty ? String(ro.qty) : '',
+        uom: ro.uom || '',
+        response_deadline: (ro as any).response_deadline ? new Date((ro as any).response_deadline) : undefined,
+        needed_by: (ro as any).needed_by ? new Date((ro as any).needed_by) : undefined,
+        delivery_location: (ro as any).delivery_location || '',
+        contact_person: (ro as any).contact_person || '',
+        contact_phone: (ro as any).contact_phone || '',
+        message_to_recipients: ro.message_to_recipients || ''
+      });
+
+      // Load recipients
+      const { data: recs } = await supabase
+        .from('request_offer_recipients')
+        .select('supplier_id')
+        .eq('request_offer_id', id);
+      if (recs) {
+        setSelectedSuppliers(recs.map(r => r.supplier_id!));
+      }
+
+      toast.success(language === 'el' ? 'Αίτημα αντιγράφηκε. Ελέγξτε και στείλτε.' : 'Request offer duplicated. Review and send.');
+    } catch (error) {
+      console.error('Error loading duplicate:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const autoSaveDraft = async () => {
+    if (!user) return;
+    try {
+      const payload = buildPayload('draft');
+      if (draftId) {
+        await supabase.from('request_offers').update(payload).eq('id', draftId);
+      } else {
+        const { data } = await supabase.from('request_offers').insert({ ...payload, created_by: user.id }).select('id').single();
+        if (data) setDraftId(data.id);
+      }
+      setLastSavedAt(new Date());
+    } catch (e) {
+      // Silent fail for auto-save
+    }
+  };
 
   const fetchSuppliers = async () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
         .from('suppliers')
-        .select('id, name, supplier_type, country, vat_number, email, contact_name, is_preferred')
+        .select('id, name, supplier_type, country, vat_number, email, contact_name, is_preferred, category')
         .order('name');
-
       if (error) throw error;
       setSuppliers(data || []);
     } catch (error) {
@@ -96,12 +225,18 @@ export default function RequestOfferCreate() {
   const filteredSuppliers = useMemo(() => {
     let result = suppliers.filter(s => {
       const searchLower = supplierSearch.toLowerCase();
-      return (
+      const matchesSearch = (
         s.name?.toLowerCase().includes(searchLower) ||
         s.email?.toLowerCase().includes(searchLower) ||
         s.contact_name?.toLowerCase().includes(searchLower) ||
         s.vat_number?.toLowerCase().includes(searchLower)
       );
+      if (!matchesSearch) return false;
+
+      if (categoryFilter === 'materials') return s.category === 'materials' || s.category === 'both';
+      if (categoryFilter === 'services') return s.category === 'services' || s.category === 'both';
+      if (categoryFilter === 'both') return s.category === 'both';
+      return true;
     });
     
     if (showPreferredFirst) {
@@ -113,7 +248,7 @@ export default function RequestOfferCreate() {
     }
     
     return result;
-  }, [suppliers, supplierSearch, showPreferredFirst]);
+  }, [suppliers, supplierSearch, showPreferredFirst, categoryFilter]);
 
   const toggleSupplier = (supplierId: string) => {
     setSelectedSuppliers(prev => 
@@ -121,6 +256,7 @@ export default function RequestOfferCreate() {
         ? prev.filter(id => id !== supplierId)
         : [...prev, supplierId]
     );
+    if (errors.recipients) setErrors(prev => ({ ...prev, recipients: undefined }));
   };
 
   const selectPreferredByType = (type: 'supplier' | 'subcontractor') => {
@@ -130,43 +266,92 @@ export default function RequestOfferCreate() {
     setSelectedSuppliers(prev => [...new Set([...prev, ...preferred])]);
   };
 
+  // Drag & drop handlers
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = e.dataTransfer.files;
+    if (files) addFiles(Array.from(files));
+  }, [uploadedFiles]);
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (files) {
-      const newFiles = Array.from(files).map(file => ({
-        file,
-        name: file.name
-      }));
-      setUploadedFiles(prev => [...prev, ...newFiles]);
-    }
+    if (files) addFiles(Array.from(files));
     e.target.value = '';
+  };
+
+  const addFiles = (files: File[]) => {
+    const newFiles: UploadedFile[] = files.map(file => ({
+      file, name: file.name, size: file.size
+    }));
+    const newTotal = totalFileSize + newFiles.reduce((s, f) => s + f.size, 0);
+    if (newTotal > MAX_TOTAL_FILE_SIZE) {
+      setErrors(prev => ({ ...prev, files: language === 'el' ? 'Το συνολικό μέγεθος αρχείων υπερβαίνει τα 10 MB' : 'Total file size exceeds 10 MB limit' }));
+      return;
+    }
+    setErrors(prev => ({ ...prev, files: undefined }));
+    setUploadedFiles(prev => [...prev, ...newFiles]);
   };
 
   const removeFile = (index: number) => {
     setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+    setErrors(prev => ({ ...prev, files: undefined }));
+  };
+
+  // Validation
+  const validateField = (field: string, value: string) => {
+    switch (field) {
+      case 'title':
+        if (!value.trim()) return language === 'el' ? 'Εισάγετε τίτλο (τουλάχιστον 3 χαρακτήρες)' : 'Please enter a title (minimum 3 characters)';
+        if (value.trim().length < 3) return language === 'el' ? 'Ο τίτλος πρέπει να έχει τουλάχιστον 3 χαρακτήρες' : 'Title must be at least 3 characters';
+        return undefined;
+      case 'description':
+        if (!value.trim()) return language === 'el' ? 'Εισάγετε περιγραφή (τουλάχιστον 10 χαρακτήρες)' : 'Please enter a description (minimum 10 characters)';
+        if (value.trim().length < 10) return language === 'el' ? 'Η περιγραφή πρέπει να έχει τουλάχιστον 10 χαρακτήρες' : 'Description must be at least 10 characters';
+        return undefined;
+      case 'contact_phone':
+        if (value && !/^\+?[\d\s\-()]{7,20}$/.test(value.trim())) return language === 'el' ? 'Μορφή τηλεφώνου: +30 210 1234567' : 'Phone number format: +30 210 1234567';
+        return undefined;
+      default:
+        return undefined;
+    }
+  };
+
+  const handleBlur = (field: string) => {
+    const error = validateField(field, (formData as any)[field]);
+    setErrors(prev => ({ ...prev, [field]: error }));
   };
 
   const validateForm = () => {
-    if (!formData.title.trim()) {
-      toast.error(language === 'el' ? 'Ο τίτλος είναι υποχρεωτικός' : 'Title is required');
-      return false;
-    }
-    if (!formData.description.trim()) {
-      toast.error(language === 'el' ? 'Η περιγραφή είναι υποχρεωτική' : 'Description is required');
-      return false;
-    }
-    return true;
+    const newErrors: FormErrors = {};
+    const titleErr = validateField('title', formData.title);
+    if (titleErr) newErrors.title = titleErr;
+    const descErr = validateField('description', formData.description);
+    if (descErr) newErrors.description = descErr;
+    const phoneErr = validateField('contact_phone', formData.contact_phone);
+    if (phoneErr) newErrors.contact_phone = phoneErr;
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const validateForSend = () => {
     if (!validateForm()) return false;
     
     if (selectedSuppliers.length === 0) {
-      toast.error(language === 'el' ? 'Επιλέξτε τουλάχιστον έναν παραλήπτη' : 'Select at least one recipient');
+      setErrors(prev => ({ ...prev, recipients: language === 'el' ? 'Επιλέξτε τουλάχιστον έναν παραλήπτη' : 'Please select at least one recipient' }));
       return false;
     }
     
-    // Check all selected suppliers have email
     const suppliersWithoutEmail = selectedSuppliers.filter(id => {
       const supplier = suppliers.find(s => s.id === id);
       return !supplier?.email;
@@ -177,7 +362,8 @@ export default function RequestOfferCreate() {
       toast.error(
         language === 'el' 
           ? `Οι παρακάτω παραλήπτες δεν έχουν email: ${names}` 
-          : `The following recipients have no email: ${names}`
+          : `The following recipients have no email: ${names}`,
+        { duration: 10000 }
       );
       return false;
     }
@@ -185,75 +371,79 @@ export default function RequestOfferCreate() {
     return true;
   };
 
+  const buildPayload = (status: string) => ({
+    type: formData.type,
+    priority: formData.priority,
+    project_name: formData.project_name || null,
+    vessel_or_job: formData.vessel_or_job || null,
+    title: formData.title,
+    description: formData.description,
+    special_instructions: formData.special_instructions || null,
+    qty: formData.qty ? parseFloat(formData.qty) : null,
+    uom: formData.uom || null,
+    response_deadline: formData.response_deadline ? format(formData.response_deadline, 'yyyy-MM-dd') : null,
+    needed_by: formData.needed_by ? format(formData.needed_by, 'yyyy-MM-dd') : null,
+    delivery_location: formData.delivery_location || null,
+    contact_person: formData.contact_person || null,
+    contact_phone: formData.contact_phone || null,
+    message_to_recipients: formData.message_to_recipients || null,
+    status
+  });
+
+  const saveRecordsAndFiles = async (roId: string) => {
+    // Insert recipients
+    if (selectedSuppliers.length > 0) {
+      // Clear existing recipients first (for draft updates)
+      await supabase.from('request_offer_recipients').delete().eq('request_offer_id', roId);
+      
+      const recipients = selectedSuppliers.map(supplierId => ({
+        request_offer_id: roId,
+        supplier_id: supplierId,
+        email_used: suppliers.find(s => s.id === supplierId)?.email || null,
+        status: 'pending'
+      }));
+      const { error: recError } = await supabase.from('request_offer_recipients').insert(recipients);
+      if (recError) throw recError;
+    }
+
+    // Upload attachments
+    const attachmentPaths: string[] = [];
+    if (uploadedFiles.length > 0) {
+      for (const uploadedFile of uploadedFiles) {
+        const filePath = `request-offers/${roId}/${Date.now()}-${uploadedFile.name}`;
+        const { error: uploadError } = await supabase.storage.from('procurement').upload(filePath, uploadedFile.file);
+        if (uploadError) { console.error('Error uploading file:', uploadError); continue; }
+        await supabase.from('request_offer_attachments').insert({
+          request_offer_id: roId,
+          file_path: filePath,
+          filename: uploadedFile.name,
+          uploaded_by: user?.id
+        });
+        attachmentPaths.push(filePath);
+      }
+    }
+    return attachmentPaths;
+  };
+
   const handleSaveDraft = async () => {
     if (!validateForm()) return;
-    
     try {
       setSaving(true);
-      
-      // Create request offer
-      const { data: ro, error: roError } = await supabase
-        .from('request_offers')
-        .insert({
-          type: formData.type,
-          project_name: formData.project_name || null,
-          vessel_or_job: formData.vessel_or_job || null,
-          title: formData.title,
-          description: formData.description,
-          qty: formData.qty ? parseFloat(formData.qty) : null,
-          uom: formData.uom || null,
-          message_to_recipients: formData.message_to_recipients || null,
-          status: 'draft',
-          created_by: user?.id
-        })
-        .select()
-        .single();
-
-      if (roError) throw roError;
-
-      // Insert recipients
-      if (selectedSuppliers.length > 0) {
-        const recipients = selectedSuppliers.map(supplierId => ({
-          request_offer_id: ro.id,
-          supplier_id: supplierId,
-          email_used: suppliers.find(s => s.id === supplierId)?.email || null,
-          status: 'pending'
-        }));
-
-        const { error: recError } = await supabase
-          .from('request_offer_recipients')
-          .insert(recipients);
-
-        if (recError) throw recError;
+      let roId = draftId;
+      if (roId) {
+        const { error } = await supabase.from('request_offers').update(buildPayload('draft')).eq('id', roId);
+        if (error) throw error;
+      } else {
+        const { data: ro, error } = await supabase
+          .from('request_offers')
+          .insert({ ...buildPayload('draft'), created_by: user?.id })
+          .select().single();
+        if (error) throw error;
+        roId = ro.id;
       }
-
-      // Upload attachments
-      if (uploadedFiles.length > 0) {
-        for (const uploadedFile of uploadedFiles) {
-          const filePath = `request-offers/${ro.id}/${Date.now()}-${uploadedFile.name}`;
-          
-          const { error: uploadError } = await supabase.storage
-            .from('procurement')
-            .upload(filePath, uploadedFile.file);
-
-          if (uploadError) {
-            console.error('Error uploading file:', uploadError);
-            continue;
-          }
-
-          await supabase
-            .from('request_offer_attachments')
-            .insert({
-              request_offer_id: ro.id,
-              file_path: filePath,
-              filename: uploadedFile.name,
-              uploaded_by: user?.id
-            });
-        }
-      }
-
+      await saveRecordsAndFiles(roId!);
       toast.success(language === 'el' ? 'Αποθηκεύτηκε ως πρόχειρο' : 'Saved as draft');
-      navigate(`/procurement/request-offers/${ro.id}`);
+      navigate(`/procurement/request-offers/${roId}`);
     } catch (error: any) {
       console.error('Error saving draft:', error);
       toast.error(error.message || (language === 'el' ? 'Αποτυχία αποθήκευσης' : 'Failed to save'));
@@ -264,82 +454,28 @@ export default function RequestOfferCreate() {
 
   const handleSend = async () => {
     if (!validateForSend()) return;
-    
     try {
       setSending(true);
-      
-      // Create request offer
-      const { data: ro, error: roError } = await supabase
-        .from('request_offers')
-        .insert({
-          type: formData.type,
-          project_name: formData.project_name || null,
-          vessel_or_job: formData.vessel_or_job || null,
-          title: formData.title,
-          description: formData.description,
-          qty: formData.qty ? parseFloat(formData.qty) : null,
-          uom: formData.uom || null,
-          message_to_recipients: formData.message_to_recipients || null,
-          status: 'draft',
-          created_by: user?.id
-        })
-        .select()
-        .single();
-
-      if (roError) throw roError;
-
-      // Insert recipients
-      const recipients = selectedSuppliers.map(supplierId => ({
-        request_offer_id: ro.id,
-        supplier_id: supplierId,
-        email_used: suppliers.find(s => s.id === supplierId)?.email || null,
-        status: 'pending'
-      }));
-
-      const { error: recError } = await supabase
-        .from('request_offer_recipients')
-        .insert(recipients);
-
-      if (recError) throw recError;
-
-      // Upload attachments
-      const attachmentPaths: string[] = [];
-      if (uploadedFiles.length > 0) {
-        for (const uploadedFile of uploadedFiles) {
-          const filePath = `request-offers/${ro.id}/${Date.now()}-${uploadedFile.name}`;
-          
-          const { error: uploadError } = await supabase.storage
-            .from('procurement')
-            .upload(filePath, uploadedFile.file);
-
-          if (uploadError) {
-            console.error('Error uploading file:', uploadError);
-            continue;
-          }
-
-          await supabase
-            .from('request_offer_attachments')
-            .insert({
-              request_offer_id: ro.id,
-              file_path: filePath,
-              filename: uploadedFile.name,
-              uploaded_by: user?.id
-            });
-            
-          attachmentPaths.push(filePath);
-        }
+      let roId = draftId;
+      if (roId) {
+        const { error } = await supabase.from('request_offers').update(buildPayload('draft')).eq('id', roId);
+        if (error) throw error;
+      } else {
+        const { data: ro, error } = await supabase
+          .from('request_offers')
+          .insert({ ...buildPayload('draft'), created_by: user?.id })
+          .select().single();
+        if (error) throw error;
+        roId = ro.id;
       }
+      await saveRecordsAndFiles(roId!);
 
-      // Call edge function to send emails
       const { data: sendResult, error: sendError } = await supabase.functions
-        .invoke('send_request_offer_email', {
-          body: { request_offer_id: ro.id }
-        });
+        .invoke('send_request_offer_email', { body: { request_offer_id: roId } });
 
       if (sendError) {
-        console.error('Error sending emails:', sendError);
         toast.error(language === 'el' ? 'Αποθηκεύτηκε αλλά η αποστολή email απέτυχε' : 'Saved but email sending failed');
-        navigate(`/procurement/request-offers/${ro.id}`);
+        navigate(`/procurement/request-offers/${roId}`);
         return;
       }
 
@@ -348,7 +484,7 @@ export default function RequestOfferCreate() {
           ? `Απεστάλη σε ${sendResult?.sent_count || 0} παραλήπτες` 
           : `Sent to ${sendResult?.sent_count || 0} recipients`
       );
-      navigate(`/procurement/request-offers/${ro.id}`);
+      navigate(`/procurement/request-offers/${roId}`);
     } catch (error: any) {
       console.error('Error sending:', error);
       toast.error(error.message || (language === 'el' ? 'Αποτυχία αποστολής' : 'Failed to send'));
@@ -366,7 +502,9 @@ export default function RequestOfferCreate() {
     }
   };
 
-  if (loading) {
+  const t = (en: string, el: string) => language === 'el' ? el : en;
+
+  if (loading && !duplicateFromId) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -377,30 +515,39 @@ export default function RequestOfferCreate() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate('/procurement/request-offers')}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
             <h1 className="text-2xl font-bold tracking-tight">
-              {language === 'el' ? 'Νέο Αίτημα Προσφοράς' : 'New Request Offer'}
+              {duplicateFromId ? t('Duplicate Request Offer', 'Αντιγραφή Αιτήματος Προσφοράς') : t('New Request Offer', 'Νέο Αίτημα Προσφοράς')}
             </h1>
             <p className="text-muted-foreground">
-              {language === 'el' ? 'Δημιουργήστε και στείλτε αίτημα προσφοράς' : 'Create and send a request for offer'}
+              {t('Create and send a request for offer', 'Δημιουργήστε και στείλτε αίτημα προσφοράς')}
             </p>
+            {lastSavedAt && (
+              <p className="text-xs text-muted-foreground mt-1">
+                {t('Draft saved at', 'Πρόχειρο αποθηκεύτηκε στις')} {format(lastSavedAt, 'HH:mm')}
+              </p>
+            )}
           </div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handleSaveDraft} disabled={saving || sending}>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <Button variant="outline" onClick={() => setShowPreview(true)} disabled={saving || sending} className="flex-1 sm:flex-none">
+            <Eye className="h-4 w-4 mr-2" />
+            {t('Preview', 'Προεπισκόπηση')}
+          </Button>
+          <Button variant="outline" onClick={handleSaveDraft} disabled={saving || sending} className="flex-1 sm:flex-none">
             {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             <Save className="h-4 w-4 mr-2" />
-            {language === 'el' ? 'Αποθήκευση' : 'Save Draft'}
+            {t('Save Draft', 'Αποθήκευση')}
           </Button>
-          <Button onClick={handleSend} disabled={saving || sending}>
+          <Button onClick={handleSend} disabled={saving || sending} className="flex-1 sm:flex-none">
             {sending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             <Send className="h-4 w-4 mr-2" />
-            {language === 'el' ? 'Αποστολή' : 'Send Request'}
+            {t('Send Request', 'Αποστολή')}
           </Button>
         </div>
       </div>
@@ -408,123 +555,205 @@ export default function RequestOfferCreate() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column - Request Details */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Request Details */}
           <Card>
             <CardHeader>
-              <CardTitle>{language === 'el' ? 'Στοιχεία Αιτήματος' : 'Request Details'}</CardTitle>
+              <CardTitle>{t('Request Details', 'Στοιχεία Αιτήματος')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Type */}
                 <div className="space-y-2">
-                  <Label>{language === 'el' ? 'Τύπος' : 'Type'} *</Label>
-                  <Select 
-                    value={formData.type} 
-                    onValueChange={(v: 'material' | 'service') => setFormData({ ...formData, type: v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
+                  <Label>{t('Type', 'Τύπος')} <span className="text-destructive">*</span></Label>
+                  <Select value={formData.type} onValueChange={(v: 'material' | 'service') => setFormData({ ...formData, type: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="material">{language === 'el' ? 'Υλικό' : 'Material'}</SelectItem>
-                      <SelectItem value="service">{language === 'el' ? 'Υπηρεσία' : 'Service'}</SelectItem>
+                      <SelectItem value="material">{t('Material', 'Υλικό')}</SelectItem>
+                      <SelectItem value="service">{t('Service', 'Υπηρεσία')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
+                {/* Priority */}
                 <div className="space-y-2">
-                  <Label>{language === 'el' ? 'Έργο' : 'Project Name'}</Label>
-                  <Input
-                    value={formData.project_name}
-                    onChange={(e) => setFormData({ ...formData, project_name: e.target.value })}
-                    placeholder={language === 'el' ? 'π.χ. Ανακαίνιση Σκάφους' : 'e.g. Vessel Renovation'}
-                  />
+                  <Label>{t('Priority', 'Προτεραιότητα')}</Label>
+                  <Select value={formData.priority} onValueChange={(v: 'normal' | 'urgent') => setFormData({ ...formData, priority: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="normal">{t('Normal', 'Κανονική')}</SelectItem>
+                      <SelectItem value="urgent">{t('Urgent', 'Επείγον')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {formData.priority === 'urgent' && (
+                    <Badge variant="destructive" className="text-xs">{t('Urgent', 'Επείγον')}</Badge>
+                  )}
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>{language === 'el' ? 'Σκάφος / Εργασία' : 'Vessel / Job'}</Label>
-                <Input
-                  value={formData.vessel_or_job}
-                  onChange={(e) => setFormData({ ...formData, vessel_or_job: e.target.value })}
-                  placeholder={language === 'el' ? 'π.χ. M/Y SKYNET' : 'e.g. M/Y SKYNET'}
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>{t('Project Name', 'Έργο')}</Label>
+                  <Input value={formData.project_name} onChange={(e) => setFormData({ ...formData, project_name: e.target.value })} placeholder={t('e.g. Vessel Renovation', 'π.χ. Ανακαίνιση Σκάφους')} />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('Vessel / Job', 'Σκάφος / Εργασία')}</Label>
+                  <Input value={formData.vessel_or_job} onChange={(e) => setFormData({ ...formData, vessel_or_job: e.target.value })} placeholder={t('e.g. M/Y SKYNET', 'π.χ. M/Y SKYNET')} />
+                </div>
               </div>
 
+              {/* Title */}
               <div className="space-y-2">
-                <Label>{language === 'el' ? 'Τίτλος' : 'Title'} *</Label>
+                <Label>{t('Title', 'Τίτλος')} <span className="text-destructive">*</span></Label>
                 <Input
                   value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  placeholder={language === 'el' ? 'Σύντομος τίτλος αιτήματος' : 'Short request title'}
+                  onChange={(e) => { setFormData({ ...formData, title: e.target.value }); if (errors.title) setErrors(prev => ({ ...prev, title: undefined })); }}
+                  onBlur={() => handleBlur('title')}
+                  placeholder={t('Short request title', 'Σύντομος τίτλος αιτήματος')}
+                  className={cn(errors.title && 'border-destructive')}
                 />
+                {errors.title && <p className="text-sm text-destructive flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.title}</p>}
               </div>
 
+              {/* Description */}
               <div className="space-y-2">
-                <Label>{language === 'el' ? 'Περιγραφή' : 'Description'} *</Label>
+                <Label>{t('Description', 'Περιγραφή')} <span className="text-destructive">*</span></Label>
                 <Textarea
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  onChange={(e) => { setFormData({ ...formData, description: e.target.value }); if (errors.description) setErrors(prev => ({ ...prev, description: undefined })); }}
+                  onBlur={() => handleBlur('description')}
                   rows={5}
-                  placeholder={language === 'el' ? 'Αναλυτική περιγραφή...' : 'Detailed description...'}
+                  placeholder={t('Detailed description...', 'Αναλυτική περιγραφή...')}
+                  className={cn(errors.description && 'border-destructive')}
+                />
+                {errors.description && <p className="text-sm text-destructive flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.description}</p>}
+              </div>
+
+              {/* Special Instructions */}
+              <div className="space-y-2">
+                <Label>{t('Special Instructions', 'Ειδικές Οδηγίες')}</Label>
+                <Textarea
+                  value={formData.special_instructions}
+                  onChange={(e) => setFormData({ ...formData, special_instructions: e.target.value })}
+                  rows={3}
+                  placeholder={t('Any special requirements or instructions...', 'Ειδικές απαιτήσεις ή οδηγίες...')}
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>{language === 'el' ? 'Ποσότητα' : 'Quantity'}</Label>
-                  <Input
-                    type="number"
-                    value={formData.qty}
-                    onChange={(e) => setFormData({ ...formData, qty: e.target.value })}
-                    placeholder="0"
-                  />
+                  <Label>{t('Quantity', 'Ποσότητα')}</Label>
+                  <Input type="number" value={formData.qty} onChange={(e) => setFormData({ ...formData, qty: e.target.value })} placeholder="0" />
                 </div>
                 <div className="space-y-2">
-                  <Label>{language === 'el' ? 'Μονάδα Μέτρησης' : 'Unit of Measure'}</Label>
+                  <Label>{t('Unit of Measure', 'Μονάδα Μέτρησης')}</Label>
+                  <Input value={formData.uom} onChange={(e) => setFormData({ ...formData, uom: e.target.value })} placeholder={t('e.g. pcs, kg, m', 'π.χ. τεμ, kg, m')} />
+                </div>
+              </div>
+
+              {/* Dates */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>{t('Response Deadline', 'Προθεσμία Απάντησης')}</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !formData.response_deadline && "text-muted-foreground")}>
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {formData.response_deadline ? format(formData.response_deadline, 'dd/MM/yyyy') : t('Pick a date', 'Επιλέξτε ημερομηνία')}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar mode="single" selected={formData.response_deadline} onSelect={(d) => setFormData({ ...formData, response_deadline: d })} initialFocus className="p-3 pointer-events-auto" />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('Needed By', 'Απαιτείται Μέχρι')}</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !formData.needed_by && "text-muted-foreground")}>
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {formData.needed_by ? format(formData.needed_by, 'dd/MM/yyyy') : t('Pick a date', 'Επιλέξτε ημερομηνία')}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar mode="single" selected={formData.needed_by} onSelect={(d) => setFormData({ ...formData, needed_by: d })} initialFocus className="p-3 pointer-events-auto" />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+
+              {/* Contact & Location */}
+              <div className="space-y-2">
+                <Label>{t('Delivery Location', 'Τοποθεσία Παράδοσης')}</Label>
+                <Input value={formData.delivery_location} onChange={(e) => setFormData({ ...formData, delivery_location: e.target.value })} placeholder={t('e.g. Shipyard A, Dock 3', 'π.χ. Ναυπηγείο Α, Ντοκ 3')} />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>{t('Contact Person', 'Υπεύθυνος Επικοινωνίας')}</Label>
+                  <Input value={formData.contact_person} onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('Contact Phone', 'Τηλέφωνο Επικοινωνίας')}</Label>
                   <Input
-                    value={formData.uom}
-                    onChange={(e) => setFormData({ ...formData, uom: e.target.value })}
-                    placeholder={language === 'el' ? 'π.χ. τεμ, kg, m' : 'e.g. pcs, kg, m'}
+                    value={formData.contact_phone}
+                    onChange={(e) => { setFormData({ ...formData, contact_phone: e.target.value }); if (errors.contact_phone) setErrors(prev => ({ ...prev, contact_phone: undefined })); }}
+                    onBlur={() => handleBlur('contact_phone')}
+                    placeholder={t('e.g. +30 210 1234567', 'π.χ. +30 210 1234567')}
+                    className={cn(errors.contact_phone && 'border-destructive')}
                   />
+                  {errors.contact_phone && <p className="text-sm text-destructive flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.contact_phone}</p>}
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Attachments */}
+          {/* Attachments with drag & drop */}
           <Card>
             <CardHeader>
-              <CardTitle>{language === 'el' ? 'Συνημμένα' : 'Attachments'}</CardTitle>
-              <CardDescription>
-                {language === 'el' ? 'Επισυνάψτε σχέδια, φωτογραφίες ή έγγραφα' : 'Attach drawings, photos or documents'}
-              </CardDescription>
+              <CardTitle>{t('Attachments', 'Συνημμένα')}</CardTitle>
+              <CardDescription>{t('Attach drawings, photos or documents', 'Επισυνάψτε σχέδια, φωτογραφίες ή έγγραφα')}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <label className="flex items-center justify-center w-full h-32 border-2 border-dashed border-muted-foreground/25 rounded-lg cursor-pointer hover:border-primary/50 transition-colors">
+                <label
+                  className={cn(
+                    "flex items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer transition-colors",
+                    isDragging ? "border-primary bg-primary/5" : "border-muted-foreground/25 hover:border-primary/50"
+                  )}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                >
                   <div className="text-center">
                     <Upload className="h-8 w-8 mx-auto text-muted-foreground" />
                     <p className="mt-2 text-sm text-muted-foreground">
-                      {language === 'el' ? 'Κάντε κλικ για να επιλέξετε αρχεία' : 'Click to select files'}
+                      {t('Drag files here or click to browse', 'Σύρετε αρχεία ή κάντε κλικ')}
                     </p>
                   </div>
-                  <input
-                    type="file"
-                    multiple
-                    className="hidden"
-                    onChange={handleFileUpload}
-                  />
+                  <input type="file" multiple className="hidden" onChange={handleFileUpload} />
                 </label>
+
+                {errors.files && <p className="text-sm text-destructive flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.files}</p>}
 
                 {uploadedFiles.length > 0 && (
                   <div className="space-y-2">
                     {uploadedFiles.map((file, index) => (
-                      <div key={index} className="flex items-center justify-between p-2 bg-muted rounded-lg">
-                        <span className="text-sm truncate">{file.name}</span>
+                      <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {getFileIcon(file.name)}
+                          <span className="text-sm truncate">{file.name}</span>
+                          <span className="text-xs text-muted-foreground flex-shrink-0">{formatFileSize(file.size)}</span>
+                        </div>
                         <Button size="sm" variant="ghost" onClick={() => removeFile(index)}>
                           <X className="h-4 w-4" />
                         </Button>
                       </div>
                     ))}
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-muted-foreground">
+                        {t('Total', 'Σύνολο')}: {formatFileSize(totalFileSize)} / 10 MB
+                      </span>
+                      <Progress value={(totalFileSize / MAX_TOTAL_FILE_SIZE) * 100} className="h-2 flex-1" />
+                    </div>
                   </div>
                 )}
               </div>
@@ -534,17 +763,15 @@ export default function RequestOfferCreate() {
           {/* Message */}
           <Card>
             <CardHeader>
-              <CardTitle>{language === 'el' ? 'Μήνυμα προς Παραλήπτες' : 'Message to Recipients'}</CardTitle>
-              <CardDescription>
-                {language === 'el' ? 'Προαιρετικό μήνυμα που θα συμπεριληφθεί στο email' : 'Optional message to include in the email'}
-              </CardDescription>
+              <CardTitle>{t('Message to Recipients', 'Μήνυμα προς Παραλήπτες')}</CardTitle>
+              <CardDescription>{t('Optional message to include in the email', 'Προαιρετικό μήνυμα που θα συμπεριληφθεί στο email')}</CardDescription>
             </CardHeader>
             <CardContent>
               <Textarea
                 value={formData.message_to_recipients}
                 onChange={(e) => setFormData({ ...formData, message_to_recipients: e.target.value })}
                 rows={4}
-                placeholder={language === 'el' ? 'Πρόσθετες οδηγίες ή σημειώσεις...' : 'Additional instructions or notes...'}
+                placeholder={t('Additional instructions or notes...', 'Πρόσθετες οδηγίες ή σημειώσεις...')}
               />
             </CardContent>
           </Card>
@@ -555,35 +782,36 @@ export default function RequestOfferCreate() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
-                <span>{language === 'el' ? 'Παραλήπτες' : 'Recipients'}</span>
-                <Badge variant="secondary">{selectedSuppliers.length}</Badge>
+                <span>{t('Recipients', 'Παραλήπτες')}</span>
+                <Badge variant="secondary">
+                  {selectedSuppliers.length} {t('selected', 'επιλέχθηκαν')}
+                </Badge>
               </CardTitle>
-              <CardDescription>
-                {language === 'el' ? 'Επιλέξτε προμηθευτές ή υπεργολάβους' : 'Select suppliers or subcontractors'}
-              </CardDescription>
+              <CardDescription>{t('Select suppliers or subcontractors', 'Επιλέξτε προμηθευτές ή υπεργολάβους')}</CardDescription>
+              {errors.recipients && <p className="text-sm text-destructive flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.recipients}</p>}
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Category filter */}
+              <Tabs value={categoryFilter} onValueChange={setCategoryFilter}>
+                <TabsList className="w-full grid grid-cols-4">
+                  <TabsTrigger value="all" className="text-xs">{t('All', 'Όλα')}</TabsTrigger>
+                  <TabsTrigger value="materials" className="text-xs">{t('Materials', 'Υλικά')}</TabsTrigger>
+                  <TabsTrigger value="services" className="text-xs">{t('Services', 'Υπηρεσίες')}</TabsTrigger>
+                  <TabsTrigger value="both" className="text-xs">{t('Both', 'Και τα δύο')}</TabsTrigger>
+                </TabsList>
+              </Tabs>
+
               {/* Quick select buttons */}
               <div className="flex gap-2">
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  onClick={() => selectPreferredByType('supplier')}
-                  className="flex-1"
-                >
+                <Button size="sm" variant="outline" onClick={() => selectPreferredByType('supplier')} className="flex-1">
                   <Building2 className="h-4 w-4 mr-1" />
                   <Star className="h-3 w-3 mr-1 text-yellow-500" />
-                  {language === 'el' ? 'Προμηθευτές' : 'Suppliers'}
+                  {t('Suppliers', 'Προμηθευτές')}
                 </Button>
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  onClick={() => selectPreferredByType('subcontractor')}
-                  className="flex-1"
-                >
+                <Button size="sm" variant="outline" onClick={() => selectPreferredByType('subcontractor')} className="flex-1">
                   <Wrench className="h-4 w-4 mr-1" />
                   <Star className="h-3 w-3 mr-1 text-yellow-500" />
-                  {language === 'el' ? 'Υπεργολάβοι' : 'Subcontractors'}
+                  {t('Subcontractors', 'Υπεργολάβοι')}
                 </Button>
               </div>
 
@@ -591,7 +819,7 @@ export default function RequestOfferCreate() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder={language === 'el' ? 'Αναζήτηση (όνομα, email, ΑΦΜ)...' : 'Search (name, email, VAT)...'}
+                  placeholder={t('Search (name, email, VAT)...', 'Αναζήτηση (όνομα, email, ΑΦΜ)...')}
                   value={supplierSearch}
                   onChange={(e) => setSupplierSearch(e.target.value)}
                   className="pl-9"
@@ -600,13 +828,9 @@ export default function RequestOfferCreate() {
 
               {/* Preferred first toggle */}
               <div className="flex items-center gap-2">
-                <Checkbox
-                  id="preferred-first"
-                  checked={showPreferredFirst}
-                  onCheckedChange={(checked) => setShowPreferredFirst(!!checked)}
-                />
+                <Checkbox id="preferred-first" checked={showPreferredFirst} onCheckedChange={(checked) => setShowPreferredFirst(!!checked)} />
                 <label htmlFor="preferred-first" className="text-sm text-muted-foreground cursor-pointer">
-                  {language === 'el' ? 'Προτιμώμενοι πρώτα' : 'Preferred first'}
+                  {t('Preferred first', 'Προτιμώμενοι πρώτα')}
                 </label>
               </div>
 
@@ -617,61 +841,147 @@ export default function RequestOfferCreate() {
                   return (
                     <div
                       key={supplier.id}
-                      className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                        isSelected 
-                          ? 'bg-primary/10 border-primary' 
-                          : 'hover:bg-muted border-transparent bg-muted/50'
-                      }`}
+                      className={cn(
+                        "p-3 rounded-lg border cursor-pointer transition-colors min-h-[44px]",
+                        isSelected ? 'bg-primary/10 border-primary' : 'hover:bg-muted border-transparent bg-muted/50'
+                      )}
                       onClick={() => toggleSupplier(supplier.id)}
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="font-medium truncate">{supplier.name}</span>
-                            {supplier.is_preferred && (
-                              <Star className="h-3 w-3 text-yellow-500 fill-yellow-500 flex-shrink-0" />
-                            )}
+                            {supplier.is_preferred && <Star className="h-3 w-3 text-yellow-500 fill-yellow-500 flex-shrink-0" />}
                           </div>
                           <div className="text-xs text-muted-foreground mt-1">
-                            <Badge variant="outline" className="text-xs mr-1">
-                              {getSupplierTypeLabel(supplier.supplier_type)}
-                            </Badge>
-                            {supplier.country && supplier.vat_number && (
-                              <span>{supplier.country} - {supplier.vat_number}</span>
-                            )}
+                            <Badge variant="outline" className="text-xs mr-1">{getSupplierTypeLabel(supplier.supplier_type)}</Badge>
+                            {supplier.country && supplier.vat_number && <span>{supplier.country} - {supplier.vat_number}</span>}
                           </div>
-                          {supplier.email && (
-                            <p className="text-xs text-muted-foreground mt-1 truncate">{supplier.email}</p>
-                          )}
+                          {supplier.email && <p className="text-xs text-muted-foreground mt-1 truncate">{supplier.email}</p>}
                         </div>
                         <Checkbox checked={isSelected} className="mt-1" />
                       </div>
                     </div>
                   );
                 })}
-
                 {filteredSuppliers.length === 0 && (
-                  <p className="text-center text-muted-foreground py-4">
-                    {language === 'el' ? 'Δεν βρέθηκαν προμηθευτές' : 'No suppliers found'}
-                  </p>
+                  <p className="text-center text-muted-foreground py-4">{t('No suppliers found', 'Δεν βρέθηκαν προμηθευτές')}</p>
                 )}
               </div>
 
-              {/* Clear selection */}
               {selectedSuppliers.length > 0 && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="w-full"
-                  onClick={() => setSelectedSuppliers([])}
-                >
-                  {language === 'el' ? 'Καθαρισμός επιλογής' : 'Clear selection'}
+                <Button variant="ghost" size="sm" className="w-full" onClick={() => setSelectedSuppliers([])}>
+                  {t('Clear selection', 'Καθαρισμός επιλογής')}
                 </Button>
               )}
             </CardContent>
           </Card>
         </div>
       </div>
+
+      {/* Mobile sticky buttons */}
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 p-4 bg-background border-t z-40 flex gap-2">
+        <Button variant="outline" onClick={handleSaveDraft} disabled={saving || sending} className="flex-1">
+          <Save className="h-4 w-4 mr-1" />
+          {t('Save', 'Αποθ.')}
+        </Button>
+        <Button onClick={handleSend} disabled={saving || sending} className="flex-1">
+          <Send className="h-4 w-4 mr-1" />
+          {t('Send', 'Αποστολή')}
+        </Button>
+      </div>
+      <div className="sm:hidden h-16" /> {/* Spacer for sticky buttons */}
+
+      {/* Preview Modal */}
+      <Dialog open={showPreview} onOpenChange={setShowPreview}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{t('Email Preview', 'Προεπισκόπηση Email')}</DialogTitle>
+            <DialogDescription>{t('Review before sending', 'Ελέγξτε πριν την αποστολή')}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="p-4 bg-muted rounded-lg space-y-3">
+              <div className="flex justify-between">
+                <span className="text-sm font-medium">{t('Subject', 'Θέμα')}:</span>
+                <span className="text-sm">{formData.title || '—'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm font-medium">{t('Type', 'Τύπος')}:</span>
+                <span className="text-sm">{formData.type === 'material' ? t('Material', 'Υλικό') : t('Service', 'Υπηρεσία')}</span>
+              </div>
+              {formData.priority === 'urgent' && (
+                <div className="flex justify-between">
+                  <span className="text-sm font-medium">{t('Priority', 'Προτεραιότητα')}:</span>
+                  <Badge variant="destructive">{t('Urgent', 'Επείγον')}</Badge>
+                </div>
+              )}
+              {formData.project_name && <div className="flex justify-between"><span className="text-sm font-medium">{t('Project', 'Έργο')}:</span><span className="text-sm">{formData.project_name}</span></div>}
+              {formData.vessel_or_job && <div className="flex justify-between"><span className="text-sm font-medium">{t('Vessel/Job', 'Σκάφος/Εργασία')}:</span><span className="text-sm">{formData.vessel_or_job}</span></div>}
+              {formData.qty && <div className="flex justify-between"><span className="text-sm font-medium">{t('Quantity', 'Ποσότητα')}:</span><span className="text-sm">{formData.qty} {formData.uom}</span></div>}
+              {formData.response_deadline && <div className="flex justify-between"><span className="text-sm font-medium">{t('Response Deadline', 'Προθεσμία')}:</span><span className="text-sm">{format(formData.response_deadline, 'dd/MM/yyyy')}</span></div>}
+              {formData.needed_by && <div className="flex justify-between"><span className="text-sm font-medium">{t('Needed By', 'Απαιτείται Μέχρι')}:</span><span className="text-sm">{format(formData.needed_by, 'dd/MM/yyyy')}</span></div>}
+              {formData.delivery_location && <div className="flex justify-between"><span className="text-sm font-medium">{t('Delivery Location', 'Τοποθεσία')}:</span><span className="text-sm">{formData.delivery_location}</span></div>}
+              {formData.contact_person && <div className="flex justify-between"><span className="text-sm font-medium">{t('Contact', 'Επικοινωνία')}:</span><span className="text-sm">{formData.contact_person} {formData.contact_phone}</span></div>}
+            </div>
+
+            <div>
+              <p className="text-sm font-medium mb-1">{t('Description', 'Περιγραφή')}</p>
+              <p className="text-sm whitespace-pre-wrap bg-muted p-3 rounded-lg">{formData.description || '—'}</p>
+            </div>
+
+            {formData.special_instructions && (
+              <div>
+                <p className="text-sm font-medium mb-1">{t('Special Instructions', 'Ειδικές Οδηγίες')}</p>
+                <p className="text-sm whitespace-pre-wrap bg-muted p-3 rounded-lg">{formData.special_instructions}</p>
+              </div>
+            )}
+
+            {formData.message_to_recipients && (
+              <div>
+                <p className="text-sm font-medium mb-1">{t('Message to Recipients', 'Μήνυμα')}</p>
+                <p className="text-sm whitespace-pre-wrap bg-muted p-3 rounded-lg">{formData.message_to_recipients}</p>
+              </div>
+            )}
+
+            <div>
+              <p className="text-sm font-medium mb-2">{t('Recipients', 'Παραλήπτες')} ({selectedSuppliers.length})</p>
+              <div className="space-y-1">
+                {selectedSuppliers.map(id => {
+                  const s = suppliers.find(sup => sup.id === id);
+                  return s ? (
+                    <div key={id} className="text-sm flex justify-between bg-muted p-2 rounded">
+                      <span>{s.name}</span>
+                      <span className="text-muted-foreground">{s.email || t('No email', 'Χωρίς email')}</span>
+                    </div>
+                  ) : null;
+                })}
+                {selectedSuppliers.length === 0 && <p className="text-sm text-muted-foreground">{t('No recipients selected', 'Κανένας παραλήπτης')}</p>}
+              </div>
+            </div>
+
+            {uploadedFiles.length > 0 && (
+              <div>
+                <p className="text-sm font-medium mb-2">{t('Attachments', 'Συνημμένα')} ({uploadedFiles.length})</p>
+                <div className="space-y-1">
+                  {uploadedFiles.map((f, i) => (
+                    <div key={i} className="text-sm flex justify-between bg-muted p-2 rounded">
+                      <span className="flex items-center gap-1">{getFileIcon(f.name)} {f.name}</span>
+                      <span className="text-muted-foreground">{formatFileSize(f.size)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPreview(false)}>{t('Edit', 'Επεξεργασία')}</Button>
+            <Button onClick={() => { setShowPreview(false); handleSend(); }} disabled={sending}>
+              <Send className="h-4 w-4 mr-2" />
+              {t('Send Request', 'Αποστολή')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
