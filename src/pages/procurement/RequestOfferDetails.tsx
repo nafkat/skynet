@@ -406,6 +406,16 @@ export default function RequestOfferDetails() {
                 <p className="whitespace-pre-wrap">{requestOffer.description}</p>
               </div>
 
+              {(requestOffer as any).special_instructions && (
+                <>
+                  <Separator />
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">{language === 'el' ? 'Ειδικές Οδηγίες' : 'Special Instructions'}</p>
+                    <p className="whitespace-pre-wrap">{(requestOffer as any).special_instructions}</p>
+                  </div>
+                </>
+              )}
+
               {requestOffer.message_to_recipients && (
                 <>
                   <Separator />
