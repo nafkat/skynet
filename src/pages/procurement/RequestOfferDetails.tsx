@@ -20,6 +20,7 @@ interface RequestOffer {
   type: string;
   project_name: string | null;
   project_id: string | null;
+  company_id: string | null;
   vessel_or_job: string | null;
   title: string;
   description: string;
@@ -36,6 +37,12 @@ interface RequestOffer {
   contact_person: string;
   contact_phone: string;
   special_instructions: string | null;
+}
+
+interface CompanyInfo {
+  id: string;
+  company_code: string;
+  company_name: string;
 }
 
 interface Recipient {
