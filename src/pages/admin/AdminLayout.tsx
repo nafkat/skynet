@@ -14,7 +14,8 @@ import {
   Globe,
   Shield,
   Menu,
-  X
+  X,
+  Building2
 } from 'lucide-react';
 
 const navigationItems = [
