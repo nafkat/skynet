@@ -897,6 +897,44 @@ export type Database = {
           },
         ]
       }
+      request_offer_items: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          item_number: number
+          qty: number | null
+          request_offer_id: string
+          uom: string | null
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          item_number: number
+          qty?: number | null
+          request_offer_id: string
+          uom?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          item_number?: number
+          qty?: number | null
+          request_offer_id?: string
+          uom?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "request_offer_items_request_offer_id_fkey"
+            columns: ["request_offer_id"]
+            isOneToOne: false
+            referencedRelation: "request_offers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       request_offer_recipients: {
         Row: {
           email_used: string | null
@@ -944,16 +982,17 @@ export type Database = {
       }
       request_offers: {
         Row: {
-          contact_person: string | null
-          contact_phone: string | null
+          contact_person: string
+          contact_phone: string
           created_at: string | null
           created_by: string | null
-          delivery_location: string | null
+          delivery_location: string
           description: string
           id: string
           message_to_recipients: string | null
           needed_by: string | null
           priority: string | null
+          project_id: string | null
           project_name: string | null
           qty: number | null
           response_deadline: string | null
@@ -967,16 +1006,17 @@ export type Database = {
           vessel_or_job: string | null
         }
         Insert: {
-          contact_person?: string | null
-          contact_phone?: string | null
+          contact_person?: string
+          contact_phone?: string
           created_at?: string | null
           created_by?: string | null
-          delivery_location?: string | null
+          delivery_location?: string
           description: string
           id?: string
           message_to_recipients?: string | null
           needed_by?: string | null
           priority?: string | null
+          project_id?: string | null
           project_name?: string | null
           qty?: number | null
           response_deadline?: string | null
@@ -990,16 +1030,17 @@ export type Database = {
           vessel_or_job?: string | null
         }
         Update: {
-          contact_person?: string | null
-          contact_phone?: string | null
+          contact_person?: string
+          contact_phone?: string
           created_at?: string | null
           created_by?: string | null
-          delivery_location?: string | null
+          delivery_location?: string
           description?: string
           id?: string
           message_to_recipients?: string | null
           needed_by?: string | null
           priority?: string | null
+          project_id?: string | null
           project_name?: string | null
           qty?: number | null
           response_deadline?: string | null
@@ -1012,7 +1053,15 @@ export type Database = {
           uom?: string | null
           vessel_or_job?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "request_offers_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       specialties: {
         Row: {
