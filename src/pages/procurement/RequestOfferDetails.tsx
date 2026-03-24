@@ -314,6 +314,10 @@ export default function RequestOfferDetails() {
                   <p className="font-medium">{requestOffer.type === 'material' ? t('Material', 'Υλικό') : t('Service', 'Υπηρεσία')}</p>
                 </div>
                 <div>
+                  <p className="text-sm text-muted-foreground">{t('Company', 'Εταιρία')}</p>
+                  <p className="font-medium">{company ? `${company.company_code} - ${company.company_name}` : '-'}</p>
+                </div>
+                <div>
                   <p className="text-sm text-muted-foreground">{t('Project', 'Έργο')}</p>
                   <p className="font-medium">{requestOffer.project_name || '-'}</p>
                 </div>

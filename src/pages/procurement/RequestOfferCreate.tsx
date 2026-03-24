@@ -1118,6 +1118,7 @@ export default function RequestOfferCreate() {
                   <Badge variant="destructive">{t('Urgent', 'Επείγον')}</Badge>
                 </div>
               )}
+              {formData.company_id && <div className="flex justify-between"><span className="text-sm font-medium">{t('Company', 'Εταιρία')}:</span><span className="text-sm">{companies.find(c => c.id === formData.company_id)?.company_name || '—'}</span></div>}
               {formData.project_id && <div className="flex justify-between"><span className="text-sm font-medium">{t('Project', 'Έργο')}:</span><span className="text-sm">{getSelectedProjectName()}</span></div>}
               {formData.vessel_or_job && <div className="flex justify-between"><span className="text-sm font-medium">{t('Vessel/Job', 'Σκάφος/Εργασία')}:</span><span className="text-sm">{formData.vessel_or_job}</span></div>}
               {formData.response_deadline && <div className="flex justify-between"><span className="text-sm font-medium">{t('Response Deadline', 'Προθεσμία')}:</span><span className="text-sm">{format(formData.response_deadline, 'dd/MM/yyyy')}</span></div>}
