@@ -430,6 +430,9 @@ export default function RequestOfferCreate() {
 
   const validateForm = () => {
     const newErrors: FormErrors = {};
+    if (!formData.company_id) {
+      newErrors.company_id = language === 'el' ? 'Επιλέξτε εταιρία' : 'Please select a company';
+    }
     const titleErr = validateField('title', formData.title);
     if (titleErr) newErrors.title = titleErr;
     const descErr = validateField('description', formData.description);
