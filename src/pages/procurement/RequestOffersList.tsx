@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Card, CardContent } from '@/components/ui/card';
@@ -7,16 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
+} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { 
-  Plus, 
-  Search, 
-  Loader2,
-  Eye,
-  Send,
-  FileText,
-  Copy
-} from 'lucide-react';
+import { Plus, Search, Loader2, Eye, FileText, Copy, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface RequestOffer {
@@ -39,6 +35,11 @@ export default function RequestOffersList() {
   const [requestOffers, setRequestOffers] = useState<RequestOffer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    isOpen: boolean;
+    roId: string | null;
+    roNumber: string | null;
+  }>({ isOpen: false, roId: null, roNumber: null });
 
   useEffect(() => {
     fetchRequestOffers();
@@ -47,14 +48,9 @@ export default function RequestOffersList() {
   const fetchRequestOffers = async () => {
     try {
       setLoading(true);
-      
-      // Fetch request offers with recipient count
       const { data, error } = await supabase
         .from('request_offers')
-        .select(`
-          *,
-          request_offer_recipients(count)
-        `)
+        .select(`*, request_offer_recipients(count)`)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -73,29 +69,48 @@ export default function RequestOffersList() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!deleteConfirm.roId) return;
+    try {
+      const { error } = await supabase
+        .from('request_offers')
+        .delete()
+        .eq('id', deleteConfirm.roId);
+      if (error) throw error;
+      toast.success(language === 'el' ? 'Το αίτημα διαγράφηκε' : 'Request offer deleted');
+      fetchRequestOffers();
+      setDeleteConfirm({ isOpen: false, roId: null, roNumber: null });
+    } catch (error) {
+      console.error('Error deleting:', error);
+      toast.error(language === 'el' ? 'Αποτυχία διαγραφής' : 'Failed to delete');
+    }
+  };
+
   const filteredOffers = requestOffers.filter(ro =>
     ro.ro_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     ro.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     ro.project_name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const t = (en: string, el: string) => language === 'el' ? el : en;
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'draft':
-        return <Badge variant="outline">{language === 'el' ? 'Πρόχειρο' : 'Draft'}</Badge>;
+        return <Badge variant="outline">{t('Draft', 'Πρόχειρο')}</Badge>;
       case 'sent':
-        return <Badge className="bg-green-500">{language === 'el' ? 'Απεσταλμένο' : 'Sent'}</Badge>;
+        return <Badge className="bg-green-500">{t('Sent', 'Απεσταλμένο')}</Badge>;
       case 'closed':
-        return <Badge variant="secondary">{language === 'el' ? 'Κλειστό' : 'Closed'}</Badge>;
+        return <Badge variant="secondary">{t('Closed', 'Κλειστό')}</Badge>;
+      case 'reopened':
+        return <Badge className="bg-orange-500">{t('Reopened', 'Ανοιχτό Ξανά')}</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
   };
 
   const getTypeLabel = (type: string) => {
-    return type === 'material' 
-      ? (language === 'el' ? 'Υλικό' : 'Material')
-      : (language === 'el' ? 'Υπηρεσία' : 'Service');
+    return type === 'material' ? t('Material', 'Υλικό') : t('Service', 'Υπηρεσία');
   };
 
   if (loading) {
@@ -112,17 +127,15 @@ export default function RequestOffersList() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">
-            {language === 'el' ? 'Αιτήματα Προσφοράς' : 'Request Offers'}
+            {t('Request Offers', 'Αιτήματα Προσφοράς')}
           </h1>
           <p className="text-muted-foreground">
-            {language === 'el' 
-              ? 'Δημιουργία και διαχείριση αιτημάτων προσφοράς' 
-              : 'Create and manage request offers'}
+            {t('Create and manage request offers', 'Δημιουργία και διαχείριση αιτημάτων προσφοράς')}
           </p>
         </div>
         <Button onClick={() => navigate('/procurement/request-offers/new')}>
           <Plus className="h-4 w-4 mr-2" />
-          {language === 'el' ? 'Νέο Αίτημα' : 'New Request Offer'}
+          {t('New Request Offer', 'Νέο Αίτημα')}
         </Button>
       </div>
 
@@ -132,7 +145,7 @@ export default function RequestOffersList() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder={language === 'el' ? 'Αναζήτηση...' : 'Search...'}
+              placeholder={t('Search...', 'Αναζήτηση...')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"
@@ -147,15 +160,15 @@ export default function RequestOffersList() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>{language === 'el' ? 'Αριθμός' : 'RO Number'}</TableHead>
-                <TableHead>{language === 'el' ? 'Τύπος' : 'Type'}</TableHead>
-                <TableHead>{language === 'el' ? 'Τίτλος' : 'Title'}</TableHead>
-                <TableHead>{language === 'el' ? 'Έργο/Σκάφος' : 'Project/Vessel'}</TableHead>
-                <TableHead>{language === 'el' ? 'Κατάσταση' : 'Status'}</TableHead>
-                <TableHead>{language === 'el' ? 'Δημιουργήθηκε' : 'Created'}</TableHead>
-                <TableHead>{language === 'el' ? 'Απεστάλη' : 'Sent'}</TableHead>
-                <TableHead>{language === 'el' ? 'Παραλήπτες' : 'Recipients'}</TableHead>
-                <TableHead className="text-right">{language === 'el' ? 'Ενέργειες' : 'Actions'}</TableHead>
+                <TableHead>{t('RO Number', 'Αριθμός')}</TableHead>
+                <TableHead>{t('Type', 'Τύπος')}</TableHead>
+                <TableHead>{t('Title', 'Τίτλος')}</TableHead>
+                <TableHead>{t('Project/Vessel', 'Έργο/Σκάφος')}</TableHead>
+                <TableHead>{t('Status', 'Κατάσταση')}</TableHead>
+                <TableHead>{t('Created', 'Δημιουργήθηκε')}</TableHead>
+                <TableHead>{t('Sent', 'Απεστάλη')}</TableHead>
+                <TableHead>{t('Recipients', 'Παραλήπτες')}</TableHead>
+                <TableHead className="text-right">{t('Actions', 'Ενέργειες')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -163,7 +176,7 @@ export default function RequestOffersList() {
                 <TableRow>
                   <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                    {language === 'el' ? 'Δεν βρέθηκαν αιτήματα' : 'No request offers found'}
+                    {t('No request offers found', 'Δεν βρέθηκαν αιτήματα')}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -187,21 +200,19 @@ export default function RequestOffersList() {
                     <TableCell>{ro.recipients_count}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
-                        <Button 
-                          size="sm" 
-                          variant="ghost"
-                          onClick={() => navigate(`/procurement/request-offers/${ro.id}`)}
-                          title={language === 'el' ? 'Προβολή' : 'View'}
-                        >
+                        <Button size="sm" variant="ghost" onClick={() => navigate(`/procurement/request-offers/${ro.id}`)} title={t('View', 'Προβολή')}>
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button 
-                          size="sm" 
-                          variant="ghost"
-                          onClick={() => navigate(`/procurement/request-offers/new?duplicate=${ro.id}`)}
-                          title={language === 'el' ? 'Αντιγραφή' : 'Duplicate'}
-                        >
+                        <Button size="sm" variant="ghost" onClick={() => navigate(`/procurement/request-offers/new?duplicate=${ro.id}`)} title={t('Duplicate', 'Αντιγραφή')}>
                           <Copy className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setDeleteConfirm({ isOpen: true, roId: ro.id, roNumber: ro.ro_number })}
+                          title={t('Delete', 'Διαγραφή')}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
                     </TableCell>
@@ -212,6 +223,29 @@ export default function RequestOffersList() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteConfirm.isOpen} onOpenChange={(open) => !open && setDeleteConfirm({ isOpen: false, roId: null, roNumber: null })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t('Delete Request Offer?', 'Διαγραφή Αιτήματος Προσφοράς;')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t(
+                `Are you sure you want to delete ${deleteConfirm.roNumber}? This action cannot be undone.`,
+                `Είστε σίγουροι ότι θέλετε να διαγράψετε το ${deleteConfirm.roNumber}; Αυτή η ενέργεια δεν μπορεί να αναιρεθεί.`
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('Cancel', 'Ακύρωση')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+              {t('Delete', 'Διαγραφή')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
