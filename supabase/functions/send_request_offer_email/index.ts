@@ -197,6 +197,17 @@ serve(async (req: Request) => {
       project = data;
     }
 
+    // Fetch company info
+    let company = null;
+    if (requestOffer.company_id) {
+      const { data } = await supabase
+        .from("companies")
+        .select("*")
+        .eq("id", requestOffer.company_id)
+        .single();
+      company = data;
+    }
+
     // Fetch line items
     const { data: lineItems } = await supabase
       .from("request_offer_items")
