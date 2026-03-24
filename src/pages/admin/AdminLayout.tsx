@@ -21,6 +21,7 @@ import {
 const navigationItems = [
   { path: '/admin', icon: Users, labelEn: 'Users', labelEl: 'Χρήστες', exact: true },
   { path: '/admin/templates', icon: FileStack, labelEn: 'Roles', labelEl: 'Ρόλοι' },
+  { path: '/admin/companies', icon: Building2, labelEn: 'Companies', labelEl: 'Εταιρίες' },
   { path: '/admin/audit', icon: ClipboardList, labelEn: 'Audit', labelEl: 'Έλεγχος' },
 ];
 
