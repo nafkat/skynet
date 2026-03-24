@@ -133,6 +133,7 @@ export default function RequestOfferCreate() {
   
   // Projects
   const [projects, setProjects] = useState<Project[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   
   // Line items
   const [lineItems, setLineItems] = useState<LineItem[]>([
