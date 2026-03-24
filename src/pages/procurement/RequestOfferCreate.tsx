@@ -70,6 +70,7 @@ interface FormErrors {
   contact_person?: string;
   delivery_location?: string;
   project_id?: string;
+  company_id?: string;
   recipients?: string;
   files?: string;
   lineItems?: string;
