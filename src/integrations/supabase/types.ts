@@ -260,6 +260,63 @@ export type Database = {
           },
         ]
       }
+      companies: {
+        Row: {
+          address: string
+          city: string
+          company_code: string
+          company_name: string
+          country: string
+          created_at: string
+          email: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          phone: string
+          postal_code: string
+          tax_office: string
+          updated_at: string
+          vat_number: string
+          website: string | null
+        }
+        Insert: {
+          address: string
+          city: string
+          company_code: string
+          company_name: string
+          country?: string
+          created_at?: string
+          email: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          phone: string
+          postal_code: string
+          tax_office: string
+          updated_at?: string
+          vat_number: string
+          website?: string | null
+        }
+        Update: {
+          address?: string
+          city?: string
+          company_code?: string
+          company_name?: string
+          country?: string
+          created_at?: string
+          email?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          phone?: string
+          postal_code?: string
+          tax_office?: string
+          updated_at?: string
+          vat_number?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
       correction_requests: {
         Row: {
           created_at: string
@@ -982,6 +1039,7 @@ export type Database = {
       }
       request_offers: {
         Row: {
+          company_id: string | null
           contact_person: string
           contact_phone: string
           created_at: string | null
@@ -1006,6 +1064,7 @@ export type Database = {
           vessel_or_job: string | null
         }
         Insert: {
+          company_id?: string | null
           contact_person?: string
           contact_phone?: string
           created_at?: string | null
@@ -1030,6 +1089,7 @@ export type Database = {
           vessel_or_job?: string | null
         }
         Update: {
+          company_id?: string | null
           contact_person?: string
           contact_phone?: string
           created_at?: string | null
@@ -1054,6 +1114,13 @@ export type Database = {
           vessel_or_job?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "request_offers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "request_offers_project_id_fkey"
             columns: ["project_id"]
