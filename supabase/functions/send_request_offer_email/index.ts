@@ -107,6 +107,17 @@ function buildEmailHtml(
 
     ${urgentBanner}
 
+    ${company ? `
+    <div style="margin:20px 0;padding:15px;border-left:4px solid #f97316;background-color:#fff7ed;">
+      <div style="font-weight:bold;font-size:16px;margin-bottom:10px;color:#f97316;text-transform:uppercase;">Requesting Company</div>
+      <div style="margin:8px 0;"><span style="font-weight:bold;display:inline-block;min-width:160px;">Company:</span><span>${escapeHtml(company.company_name)}</span></div>
+      <div style="margin:8px 0;"><span style="font-weight:bold;display:inline-block;min-width:160px;">Company Code:</span><span>${escapeHtml(company.company_code)}</span></div>
+      <div style="margin:8px 0;"><span style="font-weight:bold;display:inline-block;min-width:160px;">VAT Number:</span><span>${escapeHtml(company.vat_number)}</span></div>
+      <div style="margin:8px 0;"><span style="font-weight:bold;display:inline-block;min-width:160px;">Address:</span><span>${escapeHtml(company.address)}, ${escapeHtml(company.postal_code)} ${escapeHtml(company.city)}, ${escapeHtml(company.country)}</span></div>
+      <div style="margin:8px 0;"><span style="font-weight:bold;display:inline-block;min-width:160px;">Phone:</span><span>${escapeHtml(company.phone)}</span></div>
+      <div style="margin:8px 0;"><span style="font-weight:bold;display:inline-block;min-width:160px;">Email:</span><span>${escapeHtml(company.email)}</span></div>
+    </div>` : ''}
+
     <div style="margin:20px 0;padding:15px;border-left:4px solid #f97316;background-color:#fff7ed;">
       <div style="font-weight:bold;font-size:16px;margin-bottom:10px;color:#f97316;text-transform:uppercase;">General Information</div>
       <div style="margin:8px 0;"><span style="font-weight:bold;display:inline-block;min-width:160px;">Type:</span><span>${typeLabel}</span></div>
