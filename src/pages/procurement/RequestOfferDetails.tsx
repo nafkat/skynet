@@ -106,6 +106,16 @@ export default function RequestOfferDetails() {
       setRecipients(recsRes.data || []);
       setAttachments(attsRes.data || []);
       setLineItems(itemsRes.data || []);
+
+      // Fetch company info
+      if (roRes.data && (roRes.data as any).company_id) {
+        const { data: companyData } = await supabase
+          .from('companies')
+          .select('id, company_code, company_name')
+          .eq('id', (roRes.data as any).company_id)
+          .single();
+        setCompany(companyData as CompanyInfo | null);
+      }
     } catch (error) {
       console.error('Error fetching request offer:', error);
       toast.error(t('Failed to load', 'Αποτυχία φόρτωσης'));
