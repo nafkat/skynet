@@ -180,7 +180,7 @@ export default function RequestOfferCreate() {
 
       setFormData({
         type: ro.type as 'material' | 'service',
-        priority: ro.priority || 'normal',
+        priority: (ro.priority === 'urgent' ? 'urgent' : 'normal') as 'normal' | 'urgent',
         project_id: (ro as any).project_id || '',
         vessel_or_job: ro.vessel_or_job || '',
         title: ro.title,
