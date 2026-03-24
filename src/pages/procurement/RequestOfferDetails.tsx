@@ -2,24 +2,15 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { 
-  Loader2,
-  ArrowLeft,
-  Send,
-  Download,
-  Copy,
-  Check,
-  X,
-  Clock,
-  FileText,
-  XCircle,
-  CopyPlus
+  Loader2, ArrowLeft, Send, Download, Copy, Check, X, Clock,
+  FileText, XCircle, CopyPlus, RefreshCw
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -28,22 +19,23 @@ interface RequestOffer {
   ro_number: string;
   type: string;
   project_name: string | null;
+  project_id: string | null;
   vessel_or_job: string | null;
   title: string;
   description: string;
   qty: number | null;
   uom: string | null;
   status: string;
+  priority: string | null;
   message_to_recipients: string | null;
   created_at: string;
   sent_at: string | null;
-  priority?: string;
-  response_deadline?: string | null;
-  needed_by?: string | null;
-  delivery_location?: string | null;
-  contact_person?: string | null;
-  contact_phone?: string | null;
-  special_instructions?: string | null;
+  response_deadline: string | null;
+  needed_by: string | null;
+  delivery_location: string;
+  contact_person: string;
+  contact_phone: string;
+  special_instructions: string | null;
 }
 
 interface Recipient {
@@ -53,11 +45,7 @@ interface Recipient {
   status: string;
   sent_at: string | null;
   error_message: string | null;
-  supplier: {
-    name: string;
-    country: string;
-    vat_number: string;
-  };
+  supplier: { name: string; country: string; vat_number: string };
 }
 
 interface Attachment {
@@ -65,6 +53,14 @@ interface Attachment {
   filename: string;
   file_path: string;
   created_at: string;
+}
+
+interface LineItem {
+  id: string;
+  item_number: number;
+  description: string;
+  qty: number | null;
+  uom: string | null;
 }
 
 export default function RequestOfferDetails() {
@@ -75,54 +71,37 @@ export default function RequestOfferDetails() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [reopening, setReopening] = useState(false);
   const [requestOffer, setRequestOffer] = useState<RequestOffer | null>(null);
   const [recipients, setRecipients] = useState<Recipient[]>([]);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [lineItems, setLineItems] = useState<LineItem[]>([]);
+
+  const t = (en: string, el: string) => language === 'el' ? el : en;
 
   useEffect(() => {
-    if (id) {
-      fetchRequestOffer();
-    }
+    if (id) fetchRequestOffer();
   }, [id]);
 
   const fetchRequestOffer = async () => {
     try {
       setLoading(true);
 
-      // Fetch request offer
-      const { data: ro, error: roError } = await supabase
-        .from('request_offers')
-        .select('*')
-        .eq('id', id)
-        .single();
+      const [roRes, recsRes, attsRes, itemsRes] = await Promise.all([
+        supabase.from('request_offers').select('*').eq('id', id).single(),
+        supabase.from('request_offer_recipients').select(`*, supplier:suppliers(name, country, vat_number)`).eq('request_offer_id', id),
+        supabase.from('request_offer_attachments').select('*').eq('request_offer_id', id),
+        supabase.from('request_offer_items').select('*').eq('request_offer_id', id).order('item_number'),
+      ]);
 
-      if (roError) throw roError;
-      setRequestOffer(ro);
-
-      // Fetch recipients with supplier info
-      const { data: recs, error: recsError } = await supabase
-        .from('request_offer_recipients')
-        .select(`
-          *,
-          supplier:suppliers(name, country, vat_number)
-        `)
-        .eq('request_offer_id', id);
-
-      if (recsError) throw recsError;
-      setRecipients(recs || []);
-
-      // Fetch attachments
-      const { data: atts, error: attsError } = await supabase
-        .from('request_offer_attachments')
-        .select('*')
-        .eq('request_offer_id', id);
-
-      if (attsError) throw attsError;
-      setAttachments(atts || []);
-
+      if (roRes.error) throw roRes.error;
+      setRequestOffer(roRes.data as RequestOffer);
+      setRecipients(recsRes.data || []);
+      setAttachments(attsRes.data || []);
+      setLineItems(itemsRes.data || []);
     } catch (error) {
       console.error('Error fetching request offer:', error);
-      toast.error(language === 'el' ? 'Αποτυχία φόρτωσης' : 'Failed to load');
+      toast.error(t('Failed to load', 'Αποτυχία φόρτωσης'));
       navigate('/procurement/request-offers');
     } finally {
       setLoading(false);
@@ -131,18 +110,12 @@ export default function RequestOfferDetails() {
 
   const handleSend = async () => {
     if (recipients.length === 0) {
-      toast.error(language === 'el' ? 'Δεν υπάρχουν παραλήπτες' : 'No recipients');
+      toast.error(t('No recipients', 'Δεν υπάρχουν παραλήπτες'));
       return;
     }
-
     try {
       setSending(true);
-
-      const { data: result, error } = await supabase.functions
-        .invoke('send_request_offer_email', {
-          body: { request_offer_id: id }
-        });
-
+      const { data: result, error } = await supabase.functions.invoke('send_request_offer_email', { body: { request_offer_id: id } });
       if (error) throw error;
 
       const sentCount = result?.sent_count || 0;
@@ -150,51 +123,22 @@ export default function RequestOfferDetails() {
       const failures = result?.failures || [];
 
       if (failedCount > 0 && sentCount === 0) {
-        // All failed
-        const errorDetails = failures.map((f: { email: string; error: string }) => 
-          `${f.email}: ${f.error}`
-        ).join('\n');
-        
-        toast.error(
-          language === 'el' 
-            ? `Αποτυχία αποστολής σε όλους τους παραλήπτες` 
-            : `Failed to send to all recipients`,
-          {
-            description: errorDetails,
-            duration: 10000,
-          }
-        );
+        toast.error(t('Failed to send to all recipients', 'Αποτυχία αποστολής σε όλους τους παραλήπτες'), {
+          description: failures.map((f: any) => `${f.email}: ${f.error}`).join('\n'),
+          duration: 10000,
+        });
       } else if (failedCount > 0) {
-        // Partial success
-        const errorDetails = failures.map((f: { email: string; error: string }) => 
-          `${f.email}: ${f.error}`
-        ).join('\n');
-        
-        toast.warning(
-          language === 'el' 
-            ? `Απεστάλη σε ${sentCount}, απέτυχε σε ${failedCount}` 
-            : `Sent to ${sentCount}, failed for ${failedCount}`,
-          {
-            description: errorDetails,
-            duration: 10000,
-          }
-        );
+        toast.warning(t(`Sent to ${sentCount}, failed for ${failedCount}`, `Απεστάλη σε ${sentCount}, απέτυχε σε ${failedCount}`), {
+          description: failures.map((f: any) => `${f.email}: ${f.error}`).join('\n'),
+          duration: 10000,
+        });
       } else {
-        // All successful
-        toast.success(
-          language === 'el' 
-            ? `Απεστάλη επιτυχώς σε ${sentCount} παραλήπτες` 
-            : `Successfully sent to ${sentCount} recipients`
-        );
+        toast.success(t(`Successfully sent to ${sentCount} recipients`, `Απεστάλη επιτυχώς σε ${sentCount} παραλήπτες`));
       }
-
       fetchRequestOffer();
     } catch (error: any) {
       console.error('Error sending:', error);
-      toast.error(
-        language === 'el' ? 'Αποτυχία αποστολής' : 'Failed to send',
-        { description: error.message }
-      );
+      toast.error(t('Failed to send', 'Αποτυχία αποστολής'), { description: error.message });
     } finally {
       setSending(false);
     }
@@ -203,32 +147,35 @@ export default function RequestOfferDetails() {
   const handleClose = async () => {
     try {
       setClosing(true);
-
-      const { error } = await supabase
-        .from('request_offers')
-        .update({ status: 'closed' })
-        .eq('id', id);
-
+      const { error } = await supabase.from('request_offers').update({ status: 'closed' }).eq('id', id);
       if (error) throw error;
-
-      toast.success(language === 'el' ? 'Το αίτημα έκλεισε' : 'Request closed');
+      toast.success(t('Request closed', 'Το αίτημα έκλεισε'));
       fetchRequestOffer();
     } catch (error: any) {
-      console.error('Error closing:', error);
-      toast.error(error.message || (language === 'el' ? 'Αποτυχία' : 'Failed'));
+      toast.error(error.message || t('Failed', 'Αποτυχία'));
     } finally {
       setClosing(false);
     }
   };
 
+  const handleReopen = async () => {
+    try {
+      setReopening(true);
+      const { error } = await supabase.from('request_offers').update({ status: 'reopened' }).eq('id', id);
+      if (error) throw error;
+      toast.success(t('Request offer reopened', 'Το αίτημα ανοίχτηκε ξανά'));
+      fetchRequestOffer();
+    } catch (error: any) {
+      toast.error(error.message || t('Failed to reopen', 'Αποτυχία επαναφοράς'));
+    } finally {
+      setReopening(false);
+    }
+  };
+
   const downloadAttachment = async (attachment: Attachment) => {
     try {
-      const { data, error } = await supabase.storage
-        .from('procurement')
-        .download(attachment.file_path);
-
+      const { data, error } = await supabase.storage.from('procurement').download(attachment.file_path);
       if (error) throw error;
-
       const url = URL.createObjectURL(data);
       const a = document.createElement('a');
       a.href = url;
@@ -236,62 +183,49 @@ export default function RequestOfferDetails() {
       a.click();
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Error downloading:', error);
-      toast.error(language === 'el' ? 'Αποτυχία λήψης' : 'Download failed');
+      toast.error(t('Download failed', 'Αποτυχία λήψης'));
     }
   };
 
   const copyShareLink = async (attachment: Attachment) => {
     try {
-      const { data, error } = await supabase.storage
-        .from('procurement')
-        .createSignedUrl(attachment.file_path, 60 * 60 * 24 * 7); // 7 days
-
+      const { data, error } = await supabase.storage.from('procurement').createSignedUrl(attachment.file_path, 60 * 60 * 24 * 7);
       if (error) throw error;
-
       await navigator.clipboard.writeText(data.signedUrl);
-      toast.success(language === 'el' ? 'Ο σύνδεσμος αντιγράφηκε' : 'Link copied');
+      toast.success(t('Link copied', 'Ο σύνδεσμος αντιγράφηκε'));
     } catch (error) {
-      console.error('Error creating signed URL:', error);
-      toast.error(language === 'el' ? 'Αποτυχία' : 'Failed');
+      toast.error(t('Failed', 'Αποτυχία'));
     }
   };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'draft':
-        return <Badge variant="outline">{language === 'el' ? 'Πρόχειρο' : 'Draft'}</Badge>;
-      case 'sent':
-        return <Badge className="bg-green-500">{language === 'el' ? 'Απεσταλμένο' : 'Sent'}</Badge>;
-      case 'closed':
-        return <Badge variant="secondary">{language === 'el' ? 'Κλειστό' : 'Closed'}</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
+      case 'draft': return <Badge variant="outline">{t('Draft', 'Πρόχειρο')}</Badge>;
+      case 'sent': return <Badge className="bg-green-500">{t('Sent', 'Απεσταλμένο')}</Badge>;
+      case 'closed': return <Badge variant="secondary">{t('Closed', 'Κλειστό')}</Badge>;
+      case 'reopened': return <Badge className="bg-orange-500">{t('Reopened', 'Ανοιχτό Ξανά')}</Badge>;
+      default: return <Badge variant="outline">{status}</Badge>;
     }
   };
 
   const getRecipientStatusIcon = (status: string) => {
     switch (status) {
-      case 'sent':
-        return <Check className="h-4 w-4 text-green-500" />;
-      case 'failed':
-        return <XCircle className="h-4 w-4 text-destructive" />;
-      default:
-        return <Clock className="h-4 w-4 text-muted-foreground" />;
+      case 'sent': return <Check className="h-4 w-4 text-green-500" />;
+      case 'failed': return <XCircle className="h-4 w-4 text-destructive" />;
+      default: return <Clock className="h-4 w-4 text-muted-foreground" />;
     }
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
-  if (!requestOffer) {
-    return null;
-  }
+  if (!requestOffer) return null;
+
+  const canSend = requestOffer.status === 'draft' || requestOffer.status === 'reopened';
+  const canResend = requestOffer.status === 'sent';
+  const canClose = requestOffer.status === 'sent' || requestOffer.status === 'reopened';
+  const canReopen = requestOffer.status === 'closed';
 
   return (
     <div className="space-y-6">
@@ -305,8 +239,8 @@ export default function RequestOfferDetails() {
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold tracking-tight">{requestOffer.ro_number}</h1>
               {getStatusBadge(requestOffer.status)}
-              {(requestOffer as any).priority === 'urgent' && (
-                <Badge variant="destructive">{language === 'el' ? 'Επείγον' : 'Urgent'}</Badge>
+              {requestOffer.priority === 'urgent' && (
+                <Badge variant="destructive">{t('Urgent', 'Επείγον')}</Badge>
               )}
             </div>
             <p className="text-muted-foreground">{requestOffer.title}</p>
@@ -315,28 +249,35 @@ export default function RequestOfferDetails() {
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => navigate(`/procurement/request-offers/new?duplicate=${id}`)}>
             <CopyPlus className="h-4 w-4 mr-2" />
-            {language === 'el' ? 'Αντιγραφή' : 'Duplicate'}
+            {t('Duplicate', 'Αντιγραφή')}
           </Button>
-          {requestOffer.status === 'draft' && (
+          {canSend && (
             <Button onClick={handleSend} disabled={sending}>
               {sending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               <Send className="h-4 w-4 mr-2" />
-              {language === 'el' ? 'Αποστολή' : 'Send Request'}
+              {t('Send Request', 'Αποστολή')}
             </Button>
           )}
-          {requestOffer.status === 'sent' && (
-            <>
-              <Button variant="outline" onClick={handleSend} disabled={sending}>
-                {sending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                <Send className="h-4 w-4 mr-2" />
-                {language === 'el' ? 'Επαναποστολή' : 'Resend'}
-              </Button>
-              <Button variant="secondary" onClick={handleClose} disabled={closing}>
-                {closing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                <X className="h-4 w-4 mr-2" />
-                {language === 'el' ? 'Κλείσιμο' : 'Close'}
-              </Button>
-            </>
+          {canResend && (
+            <Button variant="outline" onClick={handleSend} disabled={sending}>
+              {sending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              <Send className="h-4 w-4 mr-2" />
+              {t('Resend', 'Επαναποστολή')}
+            </Button>
+          )}
+          {canClose && (
+            <Button variant="secondary" onClick={handleClose} disabled={closing}>
+              {closing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              <X className="h-4 w-4 mr-2" />
+              {t('Close', 'Κλείσιμο')}
+            </Button>
+          )}
+          {canReopen && (
+            <Button variant="outline" onClick={handleReopen} disabled={reopening}>
+              {reopening && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              <RefreshCw className="h-4 w-4 mr-2" />
+              {t('Reopen Request', 'Επαναφορά Αιτήματος')}
+            </Button>
           )}
         </div>
       </div>
@@ -347,71 +288,57 @@ export default function RequestOfferDetails() {
           {/* Request Details */}
           <Card>
             <CardHeader>
-              <CardTitle>{language === 'el' ? 'Στοιχεία Αιτήματος' : 'Request Details'}</CardTitle>
+              <CardTitle>{t('Request Details', 'Στοιχεία Αιτήματος')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-muted-foreground">{language === 'el' ? 'Τύπος' : 'Type'}</p>
-                  <p className="font-medium">
-                    {requestOffer.type === 'material' 
-                      ? (language === 'el' ? 'Υλικό' : 'Material')
-                      : (language === 'el' ? 'Υπηρεσία' : 'Service')}
-                  </p>
+                  <p className="text-sm text-muted-foreground">{t('Type', 'Τύπος')}</p>
+                  <p className="font-medium">{requestOffer.type === 'material' ? t('Material', 'Υλικό') : t('Service', 'Υπηρεσία')}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">{language === 'el' ? 'Έργο' : 'Project'}</p>
+                  <p className="text-sm text-muted-foreground">{t('Project', 'Έργο')}</p>
                   <p className="font-medium">{requestOffer.project_name || '-'}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">{language === 'el' ? 'Σκάφος/Εργασία' : 'Vessel/Job'}</p>
+                  <p className="text-sm text-muted-foreground">{t('Vessel/Job', 'Σκάφος/Εργασία')}</p>
                   <p className="font-medium">{requestOffer.vessel_or_job || '-'}</p>
                 </div>
-                {requestOffer.qty && (
+                {requestOffer.response_deadline && (
                   <div>
-                    <p className="text-sm text-muted-foreground">{language === 'el' ? 'Ποσότητα' : 'Quantity'}</p>
-                    <p className="font-medium">{requestOffer.qty} {requestOffer.uom || ''}</p>
+                    <p className="text-sm text-muted-foreground">{t('Response Deadline', 'Προθεσμία Απάντησης')}</p>
+                    <p className="font-medium">{format(new Date(requestOffer.response_deadline), 'dd/MM/yyyy')}</p>
                   </div>
                 )}
-                {(requestOffer as any).response_deadline && (
+                {requestOffer.needed_by && (
                   <div>
-                    <p className="text-sm text-muted-foreground">{language === 'el' ? 'Προθεσμία Απάντησης' : 'Response Deadline'}</p>
-                    <p className="font-medium">{format(new Date((requestOffer as any).response_deadline), 'dd/MM/yyyy')}</p>
+                    <p className="text-sm text-muted-foreground">{t('Needed By', 'Απαιτείται Μέχρι')}</p>
+                    <p className="font-medium">{format(new Date(requestOffer.needed_by), 'dd/MM/yyyy')}</p>
                   </div>
                 )}
-                {(requestOffer as any).needed_by && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">{language === 'el' ? 'Απαιτείται Μέχρι' : 'Needed By'}</p>
-                    <p className="font-medium">{format(new Date((requestOffer as any).needed_by), 'dd/MM/yyyy')}</p>
-                  </div>
-                )}
-                {(requestOffer as any).delivery_location && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">{language === 'el' ? 'Τοποθεσία Παράδοσης' : 'Delivery Location'}</p>
-                    <p className="font-medium">{(requestOffer as any).delivery_location}</p>
-                  </div>
-                )}
-                {(requestOffer as any).contact_person && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">{language === 'el' ? 'Υπεύθυνος' : 'Contact Person'}</p>
-                    <p className="font-medium">{(requestOffer as any).contact_person} {(requestOffer as any).contact_phone ? `(${(requestOffer as any).contact_phone})` : ''}</p>
-                  </div>
-                )}
+                <div>
+                  <p className="text-sm text-muted-foreground">{t('Delivery Location', 'Τοποθεσία Παράδοσης')}</p>
+                  <p className="font-medium">{requestOffer.delivery_location || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">{t('Contact Person', 'Υπεύθυνος')}</p>
+                  <p className="font-medium">{requestOffer.contact_person} {requestOffer.contact_phone ? `(${requestOffer.contact_phone})` : ''}</p>
+                </div>
               </div>
 
               <Separator />
 
               <div>
-                <p className="text-sm text-muted-foreground mb-1">{language === 'el' ? 'Περιγραφή' : 'Description'}</p>
+                <p className="text-sm text-muted-foreground mb-1">{t('Description', 'Περιγραφή')}</p>
                 <p className="whitespace-pre-wrap">{requestOffer.description}</p>
               </div>
 
-              {(requestOffer as any).special_instructions && (
+              {requestOffer.special_instructions && (
                 <>
                   <Separator />
                   <div>
-                    <p className="text-sm text-muted-foreground mb-1">{language === 'el' ? 'Ειδικές Οδηγίες' : 'Special Instructions'}</p>
-                    <p className="whitespace-pre-wrap">{(requestOffer as any).special_instructions}</p>
+                    <p className="text-sm text-muted-foreground mb-1">{t('Special Instructions', 'Ειδικές Οδηγίες')}</p>
+                    <p className="whitespace-pre-wrap">{requestOffer.special_instructions}</p>
                   </div>
                 </>
               )}
@@ -420,7 +347,7 @@ export default function RequestOfferDetails() {
                 <>
                   <Separator />
                   <div>
-                    <p className="text-sm text-muted-foreground mb-1">{language === 'el' ? 'Μήνυμα' : 'Message'}</p>
+                    <p className="text-sm text-muted-foreground mb-1">{t('Message', 'Μήνυμα')}</p>
                     <p className="whitespace-pre-wrap">{requestOffer.message_to_recipients}</p>
                   </div>
                 </>
@@ -428,28 +355,60 @@ export default function RequestOfferDetails() {
             </CardContent>
           </Card>
 
+          {/* Line Items */}
+          {lineItems.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span>{t('Items', 'Είδη')}</span>
+                  <Badge variant="secondary">{lineItems.length}</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>#</TableHead>
+                      <TableHead>{t('Description', 'Περιγραφή')}</TableHead>
+                      <TableHead>{t('Quantity', 'Ποσότητα')}</TableHead>
+                      <TableHead>{t('Unit', 'Μονάδα')}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {lineItems.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell>{item.item_number}</TableCell>
+                        <TableCell>{item.description}</TableCell>
+                        <TableCell>{item.qty ?? '-'}</TableCell>
+                        <TableCell>{item.uom || '-'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Recipients */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
-                <span>{language === 'el' ? 'Παραλήπτες' : 'Recipients'}</span>
+                <span>{t('Recipients', 'Παραλήπτες')}</span>
                 <Badge variant="secondary">{recipients.length}</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
               {recipients.length === 0 ? (
-                <p className="text-center text-muted-foreground py-4">
-                  {language === 'el' ? 'Δεν υπάρχουν παραλήπτες' : 'No recipients'}
-                </p>
+                <p className="text-center text-muted-foreground py-4">{t('No recipients', 'Δεν υπάρχουν παραλήπτες')}</p>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>{language === 'el' ? 'Κατάσταση' : 'Status'}</TableHead>
-                      <TableHead>{language === 'el' ? 'Προμηθευτής' : 'Supplier'}</TableHead>
+                      <TableHead>{t('Status', 'Κατάσταση')}</TableHead>
+                      <TableHead>{t('Supplier', 'Προμηθευτής')}</TableHead>
                       <TableHead>Email</TableHead>
-                      <TableHead>{language === 'el' ? 'Χώρα / ΑΦΜ' : 'Country / VAT'}</TableHead>
-                      <TableHead>{language === 'el' ? 'Απεστάλη' : 'Sent At'}</TableHead>
+                      <TableHead>{t('Country / VAT', 'Χώρα / ΑΦΜ')}</TableHead>
+                      <TableHead>{t('Sent At', 'Απεστάλη')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -460,20 +419,14 @@ export default function RequestOfferDetails() {
                             {getRecipientStatusIcon(rec.status)}
                             <span className="capitalize">{rec.status}</span>
                           </div>
-                          {rec.error_message && (
-                            <p className="text-xs text-destructive mt-1">{rec.error_message}</p>
-                          )}
+                          {rec.error_message && <p className="text-xs text-destructive mt-1">{rec.error_message}</p>}
                         </TableCell>
                         <TableCell className="font-medium">{rec.supplier?.name}</TableCell>
                         <TableCell>{rec.email_used || '-'}</TableCell>
                         <TableCell>
-                          {rec.supplier?.country && rec.supplier?.vat_number 
-                            ? `${rec.supplier.country} - ${rec.supplier.vat_number}`
-                            : '-'}
+                          {rec.supplier?.country && rec.supplier?.vat_number ? `${rec.supplier.country} - ${rec.supplier.vat_number}` : '-'}
                         </TableCell>
-                        <TableCell>
-                          {rec.sent_at ? format(new Date(rec.sent_at), 'dd/MM/yyyy HH:mm') : '-'}
-                        </TableCell>
+                        <TableCell>{rec.sent_at ? format(new Date(rec.sent_at), 'dd/MM/yyyy HH:mm') : '-'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -486,15 +439,13 @@ export default function RequestOfferDetails() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
-                <span>{language === 'el' ? 'Συνημμένα' : 'Attachments'}</span>
+                <span>{t('Attachments', 'Συνημμένα')}</span>
                 <Badge variant="secondary">{attachments.length}</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
               {attachments.length === 0 ? (
-                <p className="text-center text-muted-foreground py-4">
-                  {language === 'el' ? 'Δεν υπάρχουν συνημμένα' : 'No attachments'}
-                </p>
+                <p className="text-center text-muted-foreground py-4">{t('No attachments', 'Δεν υπάρχουν συνημμένα')}</p>
               ) : (
                 <div className="space-y-2">
                   {attachments.map((att) => (
@@ -523,7 +474,7 @@ export default function RequestOfferDetails() {
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>{language === 'el' ? 'Δραστηριότητα' : 'Activity'}</CardTitle>
+              <CardTitle>{t('Activity', 'Δραστηριότητα')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center gap-3">
@@ -531,10 +482,8 @@ export default function RequestOfferDetails() {
                   <FileText className="h-4 w-4" />
                 </div>
                 <div>
-                  <p className="font-medium">{language === 'el' ? 'Δημιουργήθηκε' : 'Created'}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {format(new Date(requestOffer.created_at), 'dd/MM/yyyy HH:mm')}
-                  </p>
+                  <p className="font-medium">{t('Created', 'Δημιουργήθηκε')}</p>
+                  <p className="text-sm text-muted-foreground">{format(new Date(requestOffer.created_at), 'dd/MM/yyyy HH:mm')}</p>
                 </div>
               </div>
 
@@ -544,10 +493,8 @@ export default function RequestOfferDetails() {
                     <Send className="h-4 w-4 text-green-500" />
                   </div>
                   <div>
-                    <p className="font-medium">{language === 'el' ? 'Απεστάλη' : 'Sent'}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {format(new Date(requestOffer.sent_at), 'dd/MM/yyyy HH:mm')}
-                    </p>
+                    <p className="font-medium">{t('Sent', 'Απεστάλη')}</p>
+                    <p className="text-sm text-muted-foreground">{format(new Date(requestOffer.sent_at), 'dd/MM/yyyy HH:mm')}</p>
                   </div>
                 </div>
               )}
@@ -558,7 +505,18 @@ export default function RequestOfferDetails() {
                     <X className="h-4 w-4" />
                   </div>
                   <div>
-                    <p className="font-medium">{language === 'el' ? 'Έκλεισε' : 'Closed'}</p>
+                    <p className="font-medium">{t('Closed', 'Έκλεισε')}</p>
+                  </div>
+                </div>
+              )}
+
+              {requestOffer.status === 'reopened' && (
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-full bg-orange-500/10 flex items-center justify-center">
+                    <RefreshCw className="h-4 w-4 text-orange-500" />
+                  </div>
+                  <div>
+                    <p className="font-medium">{t('Reopened', 'Ανοιχτό Ξανά')}</p>
                   </div>
                 </div>
               )}
