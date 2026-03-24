@@ -43,6 +43,12 @@ interface Project {
   project_code: string;
 }
 
+interface Company {
+  id: string;
+  company_code: string;
+  company_name: string;
+}
+
 interface UploadedFile {
   file: File;
   name: string;
