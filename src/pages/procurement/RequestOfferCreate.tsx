@@ -43,6 +43,12 @@ interface Project {
   project_code: string;
 }
 
+interface Company {
+  id: string;
+  company_code: string;
+  company_name: string;
+}
+
 interface UploadedFile {
   file: File;
   name: string;
@@ -64,6 +70,7 @@ interface FormErrors {
   contact_person?: string;
   delivery_location?: string;
   project_id?: string;
+  company_id?: string;
   recipients?: string;
   files?: string;
   lineItems?: string;
@@ -108,6 +115,7 @@ export default function RequestOfferCreate() {
   const [formData, setFormData] = useState({
     type: 'material' as 'material' | 'service',
     priority: 'normal' as 'normal' | 'urgent',
+    company_id: '',
     project_id: '',
     vessel_or_job: '',
     title: '',
@@ -125,6 +133,7 @@ export default function RequestOfferCreate() {
   
   // Projects
   const [projects, setProjects] = useState<Project[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   
   // Line items
   const [lineItems, setLineItems] = useState<LineItem[]>([
@@ -147,6 +156,7 @@ export default function RequestOfferCreate() {
   useEffect(() => {
     fetchSuppliers();
     fetchProjects();
+    fetchCompanies();
   }, []);
 
   // Load duplicate data
@@ -181,6 +191,7 @@ export default function RequestOfferCreate() {
       setFormData({
         type: ro.type as 'material' | 'service',
         priority: (ro.priority === 'urgent' ? 'urgent' : 'normal') as 'normal' | 'urgent',
+        company_id: (ro as any).company_id || '',
         project_id: (ro as any).project_id || '',
         vessel_or_job: ro.vessel_or_job || '',
         title: ro.title,
@@ -254,6 +265,20 @@ export default function RequestOfferCreate() {
       setProjects(data || []);
     } catch (error) {
       console.error('Error fetching projects:', error);
+    }
+  };
+
+  const fetchCompanies = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('companies')
+        .select('id, company_code, company_name')
+        .eq('is_active', true)
+        .order('company_name');
+      if (error) throw error;
+      setCompanies((data as any[]) || []);
+    } catch (error) {
+      console.error('Error fetching companies:', error);
     }
   };
 
@@ -405,6 +430,9 @@ export default function RequestOfferCreate() {
 
   const validateForm = () => {
     const newErrors: FormErrors = {};
+    if (!formData.company_id) {
+      newErrors.company_id = language === 'el' ? 'Επιλέξτε εταιρία' : 'Please select a company';
+    }
     const titleErr = validateField('title', formData.title);
     if (titleErr) newErrors.title = titleErr;
     const descErr = validateField('description', formData.description);
@@ -461,6 +489,7 @@ export default function RequestOfferCreate() {
   const buildPayload = (status: string) => ({
     type: formData.type,
     priority: formData.priority,
+    company_id: formData.company_id || null,
     project_id: formData.project_id || null,
     project_name: getSelectedProjectName() || null,
     vessel_or_job: formData.vessel_or_job || null,
@@ -685,6 +714,22 @@ export default function RequestOfferCreate() {
                     <Badge variant="destructive" className="text-xs">{t('Urgent', 'Επείγον')}</Badge>
                   )}
                 </div>
+              </div>
+
+              {/* Company dropdown */}
+              <div className="space-y-2">
+                <Label>{t('Company', 'Εταιρία')} <span className="text-destructive">*</span></Label>
+                <Select value={formData.company_id} onValueChange={(v) => { setFormData({ ...formData, company_id: v }); if (errors.company_id) setErrors(prev => ({ ...prev, company_id: undefined })); }}>
+                  <SelectTrigger className={cn(errors.company_id && 'border-destructive')}>
+                    <SelectValue placeholder={t('Select company...', 'Επιλέξτε εταιρία...')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {companies.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.company_code} - {c.company_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.company_id && <p className="text-sm text-destructive flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.company_id}</p>}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1073,6 +1118,7 @@ export default function RequestOfferCreate() {
                   <Badge variant="destructive">{t('Urgent', 'Επείγον')}</Badge>
                 </div>
               )}
+              {formData.company_id && <div className="flex justify-between"><span className="text-sm font-medium">{t('Company', 'Εταιρία')}:</span><span className="text-sm">{companies.find(c => c.id === formData.company_id)?.company_name || '—'}</span></div>}
               {formData.project_id && <div className="flex justify-between"><span className="text-sm font-medium">{t('Project', 'Έργο')}:</span><span className="text-sm">{getSelectedProjectName()}</span></div>}
               {formData.vessel_or_job && <div className="flex justify-between"><span className="text-sm font-medium">{t('Vessel/Job', 'Σκάφος/Εργασία')}:</span><span className="text-sm">{formData.vessel_or_job}</span></div>}
               {formData.response_deadline && <div className="flex justify-between"><span className="text-sm font-medium">{t('Response Deadline', 'Προθεσμία')}:</span><span className="text-sm">{format(formData.response_deadline, 'dd/MM/yyyy')}</span></div>}

@@ -28,6 +28,7 @@ function escapeHtml(str: string | null | undefined): string {
 function buildEmailHtml(
   requestOffer: any,
   project: any,
+  company: any,
   lineItems: any[],
   attachmentLinks: { name: string; url: string }[],
   supplierName: string
@@ -105,6 +106,17 @@ function buildEmailHtml(
     <p>We invite you to submit an offer for the following request:</p>
 
     ${urgentBanner}
+
+    ${company ? `
+    <div style="margin:20px 0;padding:15px;border-left:4px solid #f97316;background-color:#fff7ed;">
+      <div style="font-weight:bold;font-size:16px;margin-bottom:10px;color:#f97316;text-transform:uppercase;">Requesting Company</div>
+      <div style="margin:8px 0;"><span style="font-weight:bold;display:inline-block;min-width:160px;">Company:</span><span>${escapeHtml(company.company_name)}</span></div>
+      <div style="margin:8px 0;"><span style="font-weight:bold;display:inline-block;min-width:160px;">Company Code:</span><span>${escapeHtml(company.company_code)}</span></div>
+      <div style="margin:8px 0;"><span style="font-weight:bold;display:inline-block;min-width:160px;">VAT Number:</span><span>${escapeHtml(company.vat_number)}</span></div>
+      <div style="margin:8px 0;"><span style="font-weight:bold;display:inline-block;min-width:160px;">Address:</span><span>${escapeHtml(company.address)}, ${escapeHtml(company.postal_code)} ${escapeHtml(company.city)}, ${escapeHtml(company.country)}</span></div>
+      <div style="margin:8px 0;"><span style="font-weight:bold;display:inline-block;min-width:160px;">Phone:</span><span>${escapeHtml(company.phone)}</span></div>
+      <div style="margin:8px 0;"><span style="font-weight:bold;display:inline-block;min-width:160px;">Email:</span><span>${escapeHtml(company.email)}</span></div>
+    </div>` : ''}
 
     <div style="margin:20px 0;padding:15px;border-left:4px solid #f97316;background-color:#fff7ed;">
       <div style="font-weight:bold;font-size:16px;margin-bottom:10px;color:#f97316;text-transform:uppercase;">General Information</div>
@@ -185,6 +197,17 @@ serve(async (req: Request) => {
       project = data;
     }
 
+    // Fetch company info
+    let company = null;
+    if (requestOffer.company_id) {
+      const { data } = await supabase
+        .from("companies")
+        .select("*")
+        .eq("id", requestOffer.company_id)
+        .single();
+      company = data;
+    }
+
     // Fetch line items
     const { data: lineItems } = await supabase
       .from("request_offer_items")
@@ -233,7 +256,7 @@ serve(async (req: Request) => {
       }
 
       const supplierName = recipient.supplier?.name || "Valued Partner";
-      const htmlBody = buildEmailHtml(requestOffer, project, lineItems || [], attachmentLinks, supplierName);
+      const htmlBody = buildEmailHtml(requestOffer, project, company, lineItems || [], attachmentLinks, supplierName);
 
       try {
         console.log(`Sending email to: ${email}`);

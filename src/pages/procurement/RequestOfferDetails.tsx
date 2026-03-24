@@ -20,6 +20,7 @@ interface RequestOffer {
   type: string;
   project_name: string | null;
   project_id: string | null;
+  company_id: string | null;
   vessel_or_job: string | null;
   title: string;
   description: string;
@@ -36,6 +37,12 @@ interface RequestOffer {
   contact_person: string;
   contact_phone: string;
   special_instructions: string | null;
+}
+
+interface CompanyInfo {
+  id: string;
+  company_code: string;
+  company_name: string;
 }
 
 interface Recipient {
@@ -76,7 +83,7 @@ export default function RequestOfferDetails() {
   const [recipients, setRecipients] = useState<Recipient[]>([]);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
-
+  const [company, setCompany] = useState<CompanyInfo | null>(null);
   const t = (en: string, el: string) => language === 'el' ? el : en;
 
   useEffect(() => {
@@ -99,6 +106,16 @@ export default function RequestOfferDetails() {
       setRecipients(recsRes.data || []);
       setAttachments(attsRes.data || []);
       setLineItems(itemsRes.data || []);
+
+      // Fetch company info
+      if (roRes.data && (roRes.data as any).company_id) {
+        const { data: companyData } = await supabase
+          .from('companies')
+          .select('id, company_code, company_name')
+          .eq('id', (roRes.data as any).company_id)
+          .single();
+        setCompany(companyData as CompanyInfo | null);
+      }
     } catch (error) {
       console.error('Error fetching request offer:', error);
       toast.error(t('Failed to load', 'Αποτυχία φόρτωσης'));
@@ -295,6 +312,10 @@ export default function RequestOfferDetails() {
                 <div>
                   <p className="text-sm text-muted-foreground">{t('Type', 'Τύπος')}</p>
                   <p className="font-medium">{requestOffer.type === 'material' ? t('Material', 'Υλικό') : t('Service', 'Υπηρεσία')}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">{t('Company', 'Εταιρία')}</p>
+                  <p className="font-medium">{company ? `${company.company_code} - ${company.company_name}` : '-'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">{t('Project', 'Έργο')}</p>

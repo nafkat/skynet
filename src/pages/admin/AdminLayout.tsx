@@ -1,6 +1,7 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -13,12 +14,14 @@ import {
   Globe,
   Shield,
   Menu,
-  X
+  X,
+  Building2
 } from 'lucide-react';
 
 const navigationItems = [
   { path: '/admin', icon: Users, labelEn: 'Users', labelEl: 'Χρήστες', exact: true },
   { path: '/admin/templates', icon: FileStack, labelEn: 'Roles', labelEl: 'Ρόλοι' },
+  { path: '/admin/companies', icon: Building2, labelEn: 'Companies', labelEl: 'Εταιρίες' },
   { path: '/admin/audit', icon: ClipboardList, labelEn: 'Audit', labelEl: 'Έλεγχος' },
 ];
 

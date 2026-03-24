@@ -21,6 +21,7 @@ import AdminLayout from "./pages/admin/AdminLayout";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminTemplates from "./pages/admin/AdminTemplates";
 import AdminAudit from "./pages/admin/AdminAudit";
+import Companies from "./pages/admin/Companies";
 import TimeEntry from "./pages/TimeEntry";
 import Employees from "./pages/Employees";
 import Projects from "./pages/Projects";
@@ -123,6 +124,7 @@ function AppRoutes() {
       >
         <Route index element={<AdminUsers />} />
         <Route path="templates" element={<AdminTemplates />} />
+        <Route path="companies" element={<Companies />} />
         <Route path="audit" element={<AdminAudit />} />
       </Route>
       
