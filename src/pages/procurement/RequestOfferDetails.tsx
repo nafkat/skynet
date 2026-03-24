@@ -83,7 +83,7 @@ export default function RequestOfferDetails() {
   const [recipients, setRecipients] = useState<Recipient[]>([]);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
-
+  const [company, setCompany] = useState<CompanyInfo | null>(null);
   const t = (en: string, el: string) => language === 'el' ? el : en;
 
   useEffect(() => {
