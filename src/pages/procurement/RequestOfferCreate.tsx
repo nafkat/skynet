@@ -489,6 +489,7 @@ export default function RequestOfferCreate() {
   const buildPayload = (status: string) => ({
     type: formData.type,
     priority: formData.priority,
+    company_id: formData.company_id || null,
     project_id: formData.project_id || null,
     project_name: getSelectedProjectName() || null,
     vessel_or_job: formData.vessel_or_job || null,
