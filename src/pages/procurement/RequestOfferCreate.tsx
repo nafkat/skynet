@@ -115,6 +115,7 @@ export default function RequestOfferCreate() {
   const [formData, setFormData] = useState({
     type: 'material' as 'material' | 'service',
     priority: 'normal' as 'normal' | 'urgent',
+    company_id: '',
     project_id: '',
     vessel_or_job: '',
     title: '',
