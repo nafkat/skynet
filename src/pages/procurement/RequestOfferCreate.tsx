@@ -268,6 +268,20 @@ export default function RequestOfferCreate() {
     }
   };
 
+  const fetchCompanies = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('companies')
+        .select('id, company_code, company_name')
+        .eq('is_active', true)
+        .order('company_name');
+      if (error) throw error;
+      setCompanies((data as any[]) || []);
+    } catch (error) {
+      console.error('Error fetching companies:', error);
+    }
+  };
+
   const fetchSuppliers = async () => {
     try {
       setLoading(true);
