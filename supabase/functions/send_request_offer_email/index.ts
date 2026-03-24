@@ -28,6 +28,7 @@ function escapeHtml(str: string | null | undefined): string {
 function buildEmailHtml(
   requestOffer: any,
   project: any,
+  company: any,
   lineItems: any[],
   attachmentLinks: { name: string; url: string }[],
   supplierName: string
