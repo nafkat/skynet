@@ -716,6 +716,22 @@ export default function RequestOfferCreate() {
                 </div>
               </div>
 
+              {/* Company dropdown */}
+              <div className="space-y-2">
+                <Label>{t('Company', 'Εταιρία')} <span className="text-destructive">*</span></Label>
+                <Select value={formData.company_id} onValueChange={(v) => { setFormData({ ...formData, company_id: v }); if (errors.company_id) setErrors(prev => ({ ...prev, company_id: undefined })); }}>
+                  <SelectTrigger className={cn(errors.company_id && 'border-destructive')}>
+                    <SelectValue placeholder={t('Select company...', 'Επιλέξτε εταιρία...')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {companies.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.company_code} - {c.company_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.company_id && <p className="text-sm text-destructive flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.company_id}</p>}
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Project dropdown */}
                 <div className="space-y-2">
