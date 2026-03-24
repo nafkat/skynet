@@ -124,6 +124,7 @@ function AppRoutes() {
       >
         <Route index element={<AdminUsers />} />
         <Route path="templates" element={<AdminTemplates />} />
+        <Route path="companies" element={<Companies />} />
         <Route path="audit" element={<AdminAudit />} />
       </Route>
       
