@@ -190,6 +190,14 @@ function AppRoutes() {
       
       {/* Messages - Admin and HR only */}
       <Route 
+        path="/messages/dashboard" 
+        element={
+          <ProtectedRoute requiredRoles={['admin', 'hr']}>
+            <MessagesDashboard />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
         path="/messages" 
         element={
           <ProtectedRoute requiredRoles={['admin', 'hr']}>
