@@ -38,11 +38,16 @@ import Messages from "./pages/Messages";
 
 // Procurement Pages
 import ProcurementLayout from "./pages/procurement/ProcurementLayout";
+import ProcurementDashboard from "./pages/procurement/ProcurementDashboard";
 import RequestOffersList from "./pages/procurement/RequestOffersList";
 import RequestOfferCreate from "./pages/procurement/RequestOfferCreate";
 import RequestOfferDetails from "./pages/procurement/RequestOfferDetails";
 import Suppliers from "./pages/procurement/Suppliers";
 import ProcurementReports from "./pages/procurement/ProcurementReports";
+
+// Dashboard Pages
+import AnnouncementsDashboard from "./pages/AnnouncementsDashboard";
+import MessagesDashboard from "./pages/MessagesDashboard";
 
 const queryClient = new QueryClient();
 
@@ -151,6 +156,14 @@ function AppRoutes() {
       
       {/* Announcements - Admin and HR only */}
       <Route 
+        path="/announcements/dashboard" 
+        element={
+          <ProtectedRoute requiredRoles={['admin', 'hr']}>
+            <AnnouncementsDashboard />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
         path="/announcements" 
         element={
           <ProtectedRoute requiredRoles={['admin', 'hr']}>
@@ -176,6 +189,14 @@ function AppRoutes() {
       />
       
       {/* Messages - Admin and HR only */}
+      <Route 
+        path="/messages/dashboard" 
+        element={
+          <ProtectedRoute requiredRoles={['admin', 'hr']}>
+            <MessagesDashboard />
+          </ProtectedRoute>
+        } 
+      />
       <Route 
         path="/messages" 
         element={
@@ -262,6 +283,7 @@ function AppRoutes() {
         }
       >
         <Route index element={<RequestOffersList />} />
+        <Route path="dashboard" element={<ProcurementDashboard />} />
         <Route path="request-offers" element={<RequestOffersList />} />
         <Route path="request-offers/new" element={<RequestOfferCreate />} />
         <Route path="request-offers/:id" element={<RequestOfferDetails />} />

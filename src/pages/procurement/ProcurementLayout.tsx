@@ -12,7 +12,8 @@ import {
   LogOut,
   Globe,
   Menu,
-  X
+  X,
+  LayoutDashboard
 } from 'lucide-react';
 
 export default function ProcurementLayout() {
@@ -93,6 +94,16 @@ export default function ProcurementLayout() {
           </Link>
 
           <div className="border-t border-sidebar-border my-4" />
+
+          <Link
+            to="/procurement/dashboard"
+            className={cn('nav-item', isActiveRoute('/procurement/dashboard', true) && 'active')}
+          >
+            <LayoutDashboard className="h-5 w-5" />
+            <span className="font-medium">
+              {language === 'el' ? 'Πίνακας' : 'Dashboard'}
+            </span>
+          </Link>
 
           <Link
             to="/procurement/request-offers"
