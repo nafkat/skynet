@@ -699,7 +699,7 @@ export default function TimeEntry() {
             <div>
               <h2 className="text-lg font-semibold">{t('timeEntry.recentEntries')}</h2>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {format(new Date(), 'EEEE, MMMM d, yyyy')}
+                {formatDateLong(new Date(), language)}
               </p>
             </div>
             <RefreshButton onRefresh={fetchData} lastRefresh={lastRefresh} />
