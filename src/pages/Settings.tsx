@@ -20,6 +20,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Lock, Unlock, UserPlus, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';

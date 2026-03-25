@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { DatePicker } from '@/components/ui/date-picker';
 import { FileBarChart, Download, Clock, DollarSign } from 'lucide-react';
 import { format, subDays } from 'date-fns';
 

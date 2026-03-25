@@ -23,6 +23,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Clock, Plus, Edit2, AlertCircle, X, Save, FileEdit, Trash2, Users, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { usePendingCorrections } from '@/hooks/usePendingCorrections';
@@ -34,7 +35,7 @@ import {
 } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { format, subHours } from 'date-fns';
-import { formatDate, formatDateLong } from '@/lib/dateUtils';
+import { formatDate } from '@/lib/dateUtils';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 
