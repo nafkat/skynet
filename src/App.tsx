@@ -156,6 +156,14 @@ function AppRoutes() {
       
       {/* Announcements - Admin and HR only */}
       <Route 
+        path="/announcements" 
+        element={
+          <ProtectedRoute requiredRoles={['admin', 'hr']}>
+            <AnnouncementsDashboard />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
         path="/announcements/dashboard" 
         element={
           <ProtectedRoute requiredRoles={['admin', 'hr']}>
@@ -164,7 +172,7 @@ function AppRoutes() {
         } 
       />
       <Route 
-        path="/announcements" 
+        path="/announcements/list" 
         element={
           <ProtectedRoute requiredRoles={['admin', 'hr']}>
             <AnnouncementsList />
@@ -190,6 +198,14 @@ function AppRoutes() {
       
       {/* Messages - Admin and HR only */}
       <Route 
+        path="/messages" 
+        element={
+          <ProtectedRoute requiredRoles={['admin', 'hr']}>
+            <MessagesDashboard />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
         path="/messages/dashboard" 
         element={
           <ProtectedRoute requiredRoles={['admin', 'hr']}>
@@ -198,7 +214,7 @@ function AppRoutes() {
         } 
       />
       <Route 
-        path="/messages" 
+        path="/messages/conversations" 
         element={
           <ProtectedRoute requiredRoles={['admin', 'hr']}>
             <Messages />
@@ -282,7 +298,7 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<RequestOffersList />} />
+        <Route index element={<ProcurementDashboard />} />
         <Route path="dashboard" element={<ProcurementDashboard />} />
         <Route path="request-offers" element={<RequestOffersList />} />
         <Route path="request-offers/new" element={<RequestOfferCreate />} />
