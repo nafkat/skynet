@@ -298,7 +298,7 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<RequestOffersList />} />
+        <Route index element={<ProcurementDashboard />} />
         <Route path="dashboard" element={<ProcurementDashboard />} />
         <Route path="request-offers" element={<RequestOffersList />} />
         <Route path="request-offers/new" element={<RequestOfferCreate />} />
