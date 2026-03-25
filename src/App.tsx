@@ -156,6 +156,14 @@ function AppRoutes() {
       
       {/* Announcements - Admin and HR only */}
       <Route 
+        path="/announcements/dashboard" 
+        element={
+          <ProtectedRoute requiredRoles={['admin', 'hr']}>
+            <AnnouncementsDashboard />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
         path="/announcements" 
         element={
           <ProtectedRoute requiredRoles={['admin', 'hr']}>
