@@ -758,7 +758,7 @@ export default function TimeEntry() {
                         {entry.start_time.slice(0, 5)} - {entry.end_time.slice(0, 5)}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {format(new Date(entry.entry_date), 'MMM d')}
+                        {formatDate(entry.entry_date)}
                       </p>
                     </div>
                   </div>
