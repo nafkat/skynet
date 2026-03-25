@@ -449,7 +449,7 @@ export default function Messages() {
               ) : null}
 
               <p className="text-xs text-muted-foreground">
-                {new Date(selectedMessage.created_at).toLocaleString(language === 'el' ? 'el-GR' : 'en-GB')}
+                {formatDateTime(selectedMessage.created_at)}
               </p>
             </CardContent>
           </Card>
