@@ -242,7 +242,7 @@ export default function Corrections() {
                     <div className="grid grid-cols-2 gap-4 mb-4">
                       <div>
                         <p className="text-xs text-muted-foreground mb-1">{t('common.date')}</p>
-                        <p className="font-mono">{format(new Date(request.time_entries.entry_date), 'MMM d, yyyy')}</p>
+                        <p className="font-mono">{format(new Date(request.time_entries.entry_date), 'dd/MM/yyyy')}</p>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground mb-1">{t('common.time')}</p>
@@ -332,7 +332,7 @@ export default function Corrections() {
                         {request.time_entries.employees.first_name} {request.time_entries.employees.last_name}
                       </td>
                       <td className="table-cell font-mono text-sm">
-                        {format(new Date(request.time_entries.entry_date), 'MMM d, yyyy')}
+                        {format(new Date(request.time_entries.entry_date), 'dd/MM/yyyy')}
                       </td>
                       <td className="table-cell text-sm text-muted-foreground">
                         {request.request_reason.slice(0, 50)}...

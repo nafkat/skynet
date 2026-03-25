@@ -42,6 +42,7 @@ import {
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { el } from 'date-fns/locale';
+import { formatDateTime } from '@/lib/dateUtils';
 
 interface EmployeeMessage {
   id: string;
@@ -449,7 +450,7 @@ export default function Messages() {
               ) : null}
 
               <p className="text-xs text-muted-foreground">
-                {new Date(selectedMessage.created_at).toLocaleString(language === 'el' ? 'el-GR' : 'en-GB')}
+                {formatDateTime(selectedMessage.created_at)}
               </p>
             </CardContent>
           </Card>
@@ -491,7 +492,7 @@ export default function Messages() {
                 )}
                 {selectedMessage.replied_at && (
                   <p className="text-xs text-muted-foreground">
-                    {new Date(selectedMessage.replied_at).toLocaleString(language === 'el' ? 'el-GR' : 'en-GB')}
+                    {formatDateTime(selectedMessage.replied_at)}
                   </p>
                 )}
               </CardContent>

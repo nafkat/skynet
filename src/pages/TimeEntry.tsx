@@ -34,6 +34,7 @@ import {
 } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { format, subHours } from 'date-fns';
+import { formatDate, formatDateLong } from '@/lib/dateUtils';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 
@@ -494,7 +495,7 @@ export default function TimeEntry() {
     <MainLayout>
       <div className="page-header">
         <h1 className="page-title">{t('timeEntry.title')}</h1>
-        <p className="page-subtitle">{format(new Date(), 'EEEE, MMMM d, yyyy')}</p>
+        <p className="page-subtitle">{formatDateLong(new Date(), language)}</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -506,7 +507,7 @@ export default function TimeEntry() {
               <div className="flex items-center gap-2">
                 <FileEdit className="h-4 w-4 text-primary" />
                 <span className="text-sm font-medium">
-                  {t('timeEntry.editingEntry')}: {editingEntry.employees.first_name} {editingEntry.employees.last_name} • {format(new Date(editingEntry.entry_date), 'MMM d, yyyy')}
+                  {t('timeEntry.editingEntry')}: {editingEntry.employees.first_name} {editingEntry.employees.last_name} • {formatDate(editingEntry.entry_date)}
                 </span>
               </div>
               <Button variant="ghost" size="sm" onClick={handleCancelEdit} className="h-7 px-2">
@@ -699,7 +700,7 @@ export default function TimeEntry() {
             <div>
               <h2 className="text-lg font-semibold">{t('timeEntry.recentEntries')}</h2>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {format(new Date(), 'EEEE, MMMM d, yyyy')}
+                {formatDateLong(new Date(), language)}
               </p>
             </div>
             <RefreshButton onRefresh={fetchData} lastRefresh={lastRefresh} />
@@ -758,7 +759,7 @@ export default function TimeEntry() {
                         {entry.start_time.slice(0, 5)} - {entry.end_time.slice(0, 5)}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {format(new Date(entry.entry_date), 'MMM d')}
+                        {formatDate(entry.entry_date)}
                       </p>
                     </div>
                   </div>
@@ -855,7 +856,7 @@ export default function TimeEntry() {
                   {deletingEntry.employees.first_name} {deletingEntry.employees.last_name}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  {deletingEntry.projects.project_code} - {format(new Date(deletingEntry.entry_date), 'MMM d, yyyy')}
+                  {deletingEntry.projects.project_code} - {formatDate(deletingEntry.entry_date)}
                 </p>
                 <p className="text-sm font-mono">
                   {deletingEntry.start_time.slice(0, 5)} - {deletingEntry.end_time.slice(0, 5)}

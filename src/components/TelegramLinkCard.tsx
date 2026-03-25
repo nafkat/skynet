@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { formatDateTime } from '@/lib/dateUtils';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -138,11 +139,8 @@ export function TelegramLinkCard({ employeeId, hasElevatedRole }: TelegramLinkCa
     toast.success(language === 'el' ? 'Αντιγράφηκε στο πρόχειρο' : 'Copied to clipboard');
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString(language === 'el' ? 'el-GR' : 'en-GB', {
-      dateStyle: 'short',
-      timeStyle: 'short',
-    });
+  const formatDateLocal = (dateString: string) => {
+    return formatDateTime(dateString);
   };
 
   if (!hasElevatedRole) return null;
@@ -180,7 +178,7 @@ export function TelegramLinkCard({ employeeId, hasElevatedRole }: TelegramLinkCa
           </div>
           <p className="text-sm text-muted-foreground">
             {language === 'el' ? 'Συνδέθηκε:' : 'Linked on:'}{' '}
-            {formatDate(contactChannel.updated_at)}
+            {formatDateLocal(contactChannel.updated_at)}
           </p>
         </div>
       ) : activeCode ? (
@@ -204,7 +202,7 @@ export function TelegramLinkCard({ employeeId, hasElevatedRole }: TelegramLinkCa
           </div>
 
           <p className="text-xs text-muted-foreground">
-            {language === 'el' ? 'Λήγει:' : 'Expires:'} {formatDate(activeCode.expires_at)}
+            {language === 'el' ? 'Λήγει:' : 'Expires:'} {formatDateLocal(activeCode.expires_at)}
           </p>
 
           <div className="text-sm text-muted-foreground bg-background/50 p-3 rounded border">
