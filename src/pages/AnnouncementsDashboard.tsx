@@ -91,6 +91,11 @@ export default function AnnouncementsDashboard() {
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               {t('Refresh', 'Ανανέωση')}
             </Button>
+            <Link to="/announcements/list">
+              <Button variant="outline" size="sm">
+                {t('View All', 'Προβολή Όλων')}
+              </Button>
+            </Link>
             <Link to="/announcements/new">
               <Button size="sm">
                 <Plus className="h-4 w-4 mr-2" />

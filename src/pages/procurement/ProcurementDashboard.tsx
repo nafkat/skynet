@@ -74,10 +74,17 @@ export default function ProcurementDashboard() {
             {t('Overview of procurement activities', 'Επισκόπηση δραστηριοτήτων προμηθειών')}
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchStats} disabled={loading}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-          {t('Refresh', 'Ανανέωση')}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={fetchStats} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            {t('Refresh', 'Ανανέωση')}
+          </Button>
+          <Link to="/procurement/request-offers">
+            <Button variant="outline" size="sm">
+              {t('View All ROs', 'Προβολή Όλων')}
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Stats */}

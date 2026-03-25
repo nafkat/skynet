@@ -93,7 +93,7 @@ export default function MessagesDashboard() {
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               {t('Refresh', 'Ανανέωση')}
             </Button>
-            <Link to="/messages">
+            <Link to="/messages/conversations">
               <Button size="sm">
                 <MessageSquare className="h-4 w-4 mr-2" />
                 {t('View Messages', 'Μηνύματα')}
