@@ -140,7 +140,6 @@ export function TelegramLinkCard({ employeeId, hasElevatedRole }: TelegramLinkCa
 
   const formatDateLocal = (dateString: string) => {
     return formatDateTime(dateString);
-    });
   };
 
   if (!hasElevatedRole) return null;
