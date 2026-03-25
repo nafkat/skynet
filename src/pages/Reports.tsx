@@ -268,20 +268,18 @@ export default function Reports() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <div className="space-y-2">
             <Label>{t('common.from')}</Label>
-            <Input
-              type="date"
+            <DatePicker
               value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="input-tablet"
+              onChange={setStartDate}
+              placeholder={t('common.from')}
             />
           </div>
           <div className="space-y-2">
             <Label>{t('common.to')}</Label>
-            <Input
-              type="date"
+            <DatePicker
               value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="input-tablet"
+              onChange={setEndDate}
+              placeholder={t('common.to')}
             />
           </div>
           <div className="space-y-2">

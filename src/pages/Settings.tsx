@@ -296,22 +296,18 @@ export default function Settings() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>{t('common.from')}</Label>
-                    <Input
-                      type="date"
+                    <DatePicker
                       value={lockStartDate}
-                      onChange={(e) => setLockStartDate(e.target.value)}
-                      className="input-tablet"
-                      required
+                      onChange={setLockStartDate}
+                      placeholder={t('common.from')}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label>{t('common.to')}</Label>
-                    <Input
-                      type="date"
+                    <DatePicker
                       value={lockEndDate}
-                      onChange={(e) => setLockEndDate(e.target.value)}
-                      className="input-tablet"
-                      required
+                      onChange={setLockEndDate}
+                      placeholder={t('common.to')}
                     />
                   </div>
                 </div>
