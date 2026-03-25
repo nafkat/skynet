@@ -49,6 +49,10 @@ import ProcurementReports from "./pages/procurement/ProcurementReports";
 import AnnouncementsDashboard from "./pages/AnnouncementsDashboard";
 import MessagesDashboard from "./pages/MessagesDashboard";
 
+// Module Layouts
+import AnnouncementsLayout from "./pages/announcements/AnnouncementsLayout";
+import MessagesLayout from "./pages/messages/MessagesLayout";
+
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ 
