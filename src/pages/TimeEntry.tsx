@@ -496,7 +496,7 @@ export default function TimeEntry() {
     <MainLayout>
       <div className="page-header">
         <h1 className="page-title">{t('timeEntry.title')}</h1>
-        <p className="page-subtitle">{formatDateLong(new Date(), language)}</p>
+        <p className="page-subtitle">{formatDate(new Date())}</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
