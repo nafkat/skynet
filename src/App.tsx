@@ -283,6 +283,7 @@ function AppRoutes() {
         }
       >
         <Route index element={<RequestOffersList />} />
+        <Route path="dashboard" element={<ProcurementDashboard />} />
         <Route path="request-offers" element={<RequestOffersList />} />
         <Route path="request-offers/new" element={<RequestOfferCreate />} />
         <Route path="request-offers/:id" element={<RequestOfferDetails />} />
