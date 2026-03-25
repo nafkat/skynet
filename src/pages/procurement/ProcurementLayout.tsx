@@ -96,6 +96,16 @@ export default function ProcurementLayout() {
           <div className="border-t border-sidebar-border my-4" />
 
           <Link
+            to="/procurement/dashboard"
+            className={cn('nav-item', isActiveRoute('/procurement/dashboard', true) && 'active')}
+          >
+            <LayoutDashboard className="h-5 w-5" />
+            <span className="font-medium">
+              {language === 'el' ? 'Πίνακας' : 'Dashboard'}
+            </span>
+          </Link>
+
+          <Link
             to="/procurement/request-offers"
             className={cn('nav-item', isActiveRoute('/procurement/request-offers') && 'active')}
           >
