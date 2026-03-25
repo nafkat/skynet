@@ -178,7 +178,7 @@ export function TelegramLinkCard({ employeeId, hasElevatedRole }: TelegramLinkCa
           </div>
           <p className="text-sm text-muted-foreground">
             {language === 'el' ? 'Συνδέθηκε:' : 'Linked on:'}{' '}
-            {formatDate(contactChannel.updated_at)}
+            {formatDateLocal(contactChannel.updated_at)}
           </p>
         </div>
       ) : activeCode ? (
