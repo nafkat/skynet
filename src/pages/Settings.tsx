@@ -338,11 +338,11 @@ export default function Settings() {
                 >
                   <div>
                     <p className="font-mono text-sm">
-                      {format(new Date(period.start_date), 'MMM d, yyyy')} -{' '}
-                      {format(new Date(period.end_date), 'MMM d, yyyy')}
+                      {formatDate(period.start_date)} -{' '}
+                      {formatDate(period.end_date)}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Locked on {format(new Date(period.locked_at), 'MMM d, yyyy')}
+                      Locked on {formatDate(period.locked_at)}
                     </p>
                   </div>
                   <Button

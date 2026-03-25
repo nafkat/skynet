@@ -491,7 +491,7 @@ export default function Messages() {
                 )}
                 {selectedMessage.replied_at && (
                   <p className="text-xs text-muted-foreground">
-                    {new Date(selectedMessage.replied_at).toLocaleString(language === 'el' ? 'el-GR' : 'en-GB')}
+                    {formatDateTime(selectedMessage.replied_at)}
                   </p>
                 )}
               </CardContent>

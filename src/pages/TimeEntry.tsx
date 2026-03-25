@@ -855,7 +855,7 @@ export default function TimeEntry() {
                   {deletingEntry.employees.first_name} {deletingEntry.employees.last_name}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  {deletingEntry.projects.project_code} - {format(new Date(deletingEntry.entry_date), 'MMM d, yyyy')}
+                  {deletingEntry.projects.project_code} - {formatDate(deletingEntry.entry_date)}
                 </p>
                 <p className="text-sm font-mono">
                   {deletingEntry.start_time.slice(0, 5)} - {deletingEntry.end_time.slice(0, 5)}

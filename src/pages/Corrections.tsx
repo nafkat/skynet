@@ -332,7 +332,7 @@ export default function Corrections() {
                         {request.time_entries.employees.first_name} {request.time_entries.employees.last_name}
                       </td>
                       <td className="table-cell font-mono text-sm">
-                        {format(new Date(request.time_entries.entry_date), 'MMM d, yyyy')}
+                        {format(new Date(request.time_entries.entry_date), 'dd/MM/yyyy')}
                       </td>
                       <td className="table-cell text-sm text-muted-foreground">
                         {request.request_reason.slice(0, 50)}...

@@ -138,10 +138,8 @@ export function TelegramLinkCard({ employeeId, hasElevatedRole }: TelegramLinkCa
     toast.success(language === 'el' ? 'Αντιγράφηκε στο πρόχειρο' : 'Copied to clipboard');
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString(language === 'el' ? 'el-GR' : 'en-GB', {
-      dateStyle: 'short',
-      timeStyle: 'short',
+  const formatDateLocal = (dateString: string) => {
+    return formatDateTime(dateString);
     });
   };
 
