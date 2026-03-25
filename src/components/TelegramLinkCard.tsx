@@ -202,7 +202,7 @@ export function TelegramLinkCard({ employeeId, hasElevatedRole }: TelegramLinkCa
           </div>
 
           <p className="text-xs text-muted-foreground">
-            {language === 'el' ? 'Λήγει:' : 'Expires:'} {formatDate(activeCode.expires_at)}
+            {language === 'el' ? 'Λήγει:' : 'Expires:'} {formatDateLocal(activeCode.expires_at)}
           </p>
 
           <div className="text-sm text-muted-foreground bg-background/50 p-3 rounded border">

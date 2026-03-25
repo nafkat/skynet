@@ -42,6 +42,7 @@ import {
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { el } from 'date-fns/locale';
+import { formatDateTime } from '@/lib/dateUtils';
 
 interface EmployeeMessage {
   id: string;

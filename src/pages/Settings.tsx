@@ -23,6 +23,7 @@ import {
 import { Lock, Unlock, UserPlus, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { formatDate } from '@/lib/dateUtils';
 
 interface LockedPeriod {
   id: string;
