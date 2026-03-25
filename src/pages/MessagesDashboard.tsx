@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
-import { MainLayout } from '@/components/layout/MainLayout';
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -77,8 +77,7 @@ export default function MessagesDashboard() {
   };
 
   return (
-    <MainLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-foreground">
@@ -145,7 +144,6 @@ export default function MessagesDashboard() {
             )}
           </CardContent>
         </Card>
-      </div>
-    </MainLayout>
+    </div>
   );
 }

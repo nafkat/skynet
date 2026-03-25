@@ -49,6 +49,10 @@ import ProcurementReports from "./pages/procurement/ProcurementReports";
 import AnnouncementsDashboard from "./pages/AnnouncementsDashboard";
 import MessagesDashboard from "./pages/MessagesDashboard";
 
+// Module Layouts
+import AnnouncementsLayout from "./pages/announcements/AnnouncementsLayout";
+import MessagesLayout from "./pages/messages/MessagesLayout";
+
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ 
@@ -154,73 +158,35 @@ function AppRoutes() {
       />
       
       
-      {/* Announcements - Admin and HR only */}
+      {/* Announcements Module - Admin and HR only */}
       <Route 
         path="/announcements" 
         element={
           <ProtectedRoute requiredRoles={['admin', 'hr']}>
-            <AnnouncementsDashboard />
+            <AnnouncementsLayout />
           </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/announcements/dashboard" 
-        element={
-          <ProtectedRoute requiredRoles={['admin', 'hr']}>
-            <AnnouncementsDashboard />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/announcements/list" 
-        element={
-          <ProtectedRoute requiredRoles={['admin', 'hr']}>
-            <AnnouncementsList />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/announcements/new" 
-        element={
-          <ProtectedRoute requiredRoles={['admin', 'hr']}>
-            <AnnouncementCreate />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/announcements/:id" 
-        element={
-          <ProtectedRoute requiredRoles={['admin', 'hr']}>
-            <AnnouncementDetails />
-          </ProtectedRoute>
-        } 
-      />
+        }
+      >
+        <Route index element={<AnnouncementsDashboard />} />
+        <Route path="dashboard" element={<AnnouncementsDashboard />} />
+        <Route path="list" element={<AnnouncementsList />} />
+        <Route path="new" element={<AnnouncementCreate />} />
+        <Route path=":id" element={<AnnouncementDetails />} />
+      </Route>
       
-      {/* Messages - Admin and HR only */}
+      {/* Messages Module - Admin and HR only */}
       <Route 
         path="/messages" 
         element={
           <ProtectedRoute requiredRoles={['admin', 'hr']}>
-            <MessagesDashboard />
+            <MessagesLayout />
           </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/messages/dashboard" 
-        element={
-          <ProtectedRoute requiredRoles={['admin', 'hr']}>
-            <MessagesDashboard />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/messages/conversations" 
-        element={
-          <ProtectedRoute requiredRoles={['admin', 'hr']}>
-            <Messages />
-          </ProtectedRoute>
-        } 
-      />
+        }
+      >
+        <Route index element={<MessagesDashboard />} />
+        <Route path="dashboard" element={<MessagesDashboard />} />
+        <Route path="conversations" element={<Messages />} />
+      </Route>
       
       {/* Timekeeper Dashboard */}
       <Route 
