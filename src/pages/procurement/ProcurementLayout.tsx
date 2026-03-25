@@ -12,7 +12,8 @@ import {
   LogOut,
   Globe,
   Menu,
-  X
+  X,
+  LayoutDashboard
 } from 'lucide-react';
 
 export default function ProcurementLayout() {
