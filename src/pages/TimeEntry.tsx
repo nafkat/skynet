@@ -530,11 +530,10 @@ export default function TimeEntry() {
             {/* Date */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">{t('common.date')}</Label>
-              <Input
-                type="date"
+              <DatePicker
                 value={entryDate}
-                onChange={(e) => setEntryDate(e.target.value)}
-                className="input-tablet"
+                onChange={setEntryDate}
+                placeholder={t('common.date')}
               />
             </div>
 
