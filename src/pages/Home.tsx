@@ -48,7 +48,7 @@ const modules: ModuleTile[] = [
     descriptionEl: 'Καταγραφή ωρών εργασίας ανά εργαζόμενο & έργο. Έτοιμες αναφορές μισθοδοσίας.',
     icon: Clock,
     status: 'active',
-    route: '/time-entry',
+    route: '/dashboard',
     permissionKey: 'module.timekeeping',
     section: 'operations',
   },
