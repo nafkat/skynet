@@ -506,7 +506,7 @@ export default function TimeEntry() {
               <div className="flex items-center gap-2">
                 <FileEdit className="h-4 w-4 text-primary" />
                 <span className="text-sm font-medium">
-                  {t('timeEntry.editingEntry')}: {editingEntry.employees.first_name} {editingEntry.employees.last_name} • {format(new Date(editingEntry.entry_date), 'MMM d, yyyy')}
+                  {t('timeEntry.editingEntry')}: {editingEntry.employees.first_name} {editingEntry.employees.last_name} • {formatDate(editingEntry.entry_date)}
                 </span>
               </div>
               <Button variant="ghost" size="sm" onClick={handleCancelEdit} className="h-7 px-2">
