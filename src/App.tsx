@@ -38,11 +38,16 @@ import Messages from "./pages/Messages";
 
 // Procurement Pages
 import ProcurementLayout from "./pages/procurement/ProcurementLayout";
+import ProcurementDashboard from "./pages/procurement/ProcurementDashboard";
 import RequestOffersList from "./pages/procurement/RequestOffersList";
 import RequestOfferCreate from "./pages/procurement/RequestOfferCreate";
 import RequestOfferDetails from "./pages/procurement/RequestOfferDetails";
 import Suppliers from "./pages/procurement/Suppliers";
 import ProcurementReports from "./pages/procurement/ProcurementReports";
+
+// Dashboard Pages
+import AnnouncementsDashboard from "./pages/AnnouncementsDashboard";
+import MessagesDashboard from "./pages/MessagesDashboard";
 
 const queryClient = new QueryClient();
 
