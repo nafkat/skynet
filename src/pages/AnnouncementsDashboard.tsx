@@ -142,7 +142,6 @@ export default function AnnouncementsDashboard() {
             )}
           </CardContent>
         </Card>
-      </div>
-    </MainLayout>
+    </div>
   );
 }

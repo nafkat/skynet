@@ -144,7 +144,6 @@ export default function MessagesDashboard() {
             )}
           </CardContent>
         </Card>
-      </div>
-    </MainLayout>
+    </div>
   );
 }
