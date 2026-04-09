@@ -84,7 +84,7 @@ interface EmployeeMessage {
 export default function Messages() {
   const navigate = useNavigate();
   const { language } = useLanguage();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { settings, updateSettings, playNotificationSound, showBrowserNotification } = useNotificationSettings();
 
   const [messages, setMessages] = useState<EmployeeMessage[]>([]);
