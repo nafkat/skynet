@@ -107,6 +107,7 @@ export default function Messages() {
       const { data, error } = await supabase
         .from('employee_messages')
         .select('*, employees(first_name, last_name, employee_code)')
+        .eq('is_archived', false)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
