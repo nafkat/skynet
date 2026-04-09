@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import AIChatPanel from '@/components/AIChatPanel';
 
 type ModuleStatus = 'active' | 'coming_soon';
 type ModuleSection = 'operations' | 'communications' | 'system';
@@ -458,6 +459,9 @@ export default function Home() {
           </p>
         </div>
       </footer>
+
+      {/* AI Chat Panel */}
+      <AIChatPanel />
     </div>
   );
 }
