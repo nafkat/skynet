@@ -98,6 +98,7 @@ export default function Messages() {
   const [previousMessageIds, setPreviousMessageIds] = useState<Set<string>>(new Set());
   const [replyFile, setReplyFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [archiveTarget, setArchiveTarget] = useState<EmployeeMessage | null>(null);
 
   const t = (en: string, el_text: string) => (language === 'el' ? el_text : en);
 
