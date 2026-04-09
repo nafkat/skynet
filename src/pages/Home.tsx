@@ -460,8 +460,7 @@ export default function Home() {
         </div>
       </footer>
 
-      {/* AI Chat Panel */}
-      <AIChatPanel />
+
     </div>
   );
 }
