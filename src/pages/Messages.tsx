@@ -392,9 +392,6 @@ export default function Messages() {
     }
   };
 
-  // Check if current user is admin
-  const userIsAdmin = isAdmin;
-
   if (selectedMessage) {
     return (
       <MainLayout>
