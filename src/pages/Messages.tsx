@@ -366,6 +366,34 @@ export default function Messages() {
     }
   };
 
+  const handleArchiveMessage = async () => {
+    if (!archiveTarget || !user) return;
+    try {
+      const { error } = await supabase
+        .from('employee_messages')
+        .update({
+          is_archived: true,
+          archived_at: new Date().toISOString(),
+          archived_by: user.id,
+        })
+        .eq('id', archiveTarget.id);
+
+      if (error) throw error;
+      toast.success(t('Message archived', 'Το μήνυμα αρχειοθετήθηκε'));
+      setArchiveTarget(null);
+      if (selectedMessage?.id === archiveTarget.id) {
+        setSelectedMessage(null);
+      }
+      fetchMessages();
+    } catch (error) {
+      console.error('Error archiving message:', error);
+      toast.error(t('Failed to archive', 'Αποτυχία αρχειοθέτησης'));
+    }
+  };
+
+  // Check if current user is admin
+  const userIsAdmin = isAdmin;
+
   if (selectedMessage) {
     return (
       <MainLayout>
