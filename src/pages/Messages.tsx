@@ -20,6 +20,16 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   MessageSquare,
   Search,
   Send,
@@ -38,6 +48,7 @@ import {
   X,
   Download,
   RefreshCw,
+  Archive,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
@@ -74,7 +85,7 @@ interface EmployeeMessage {
 export default function Messages() {
   const navigate = useNavigate();
   const { language } = useLanguage();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { settings, updateSettings, playNotificationSound, showBrowserNotification } = useNotificationSettings();
 
   const [messages, setMessages] = useState<EmployeeMessage[]>([]);
@@ -88,6 +99,7 @@ export default function Messages() {
   const [previousMessageIds, setPreviousMessageIds] = useState<Set<string>>(new Set());
   const [replyFile, setReplyFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [archiveTarget, setArchiveTarget] = useState<EmployeeMessage | null>(null);
 
   const t = (en: string, el_text: string) => (language === 'el' ? el_text : en);
 
@@ -96,6 +108,7 @@ export default function Messages() {
       const { data, error } = await supabase
         .from('employee_messages')
         .select('*, employees(first_name, last_name, employee_code)')
+        .eq('is_archived', false)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -354,6 +367,31 @@ export default function Messages() {
     }
   };
 
+  const handleArchiveMessage = async () => {
+    if (!archiveTarget || !user) return;
+    try {
+      const { error } = await supabase
+        .from('employee_messages')
+        .update({
+          is_archived: true,
+          archived_at: new Date().toISOString(),
+          archived_by: user.id,
+        })
+        .eq('id', archiveTarget.id);
+
+      if (error) throw error;
+      toast.success(t('Message archived', 'Το μήνυμα αρχειοθετήθηκε'));
+      setArchiveTarget(null);
+      if (selectedMessage?.id === archiveTarget.id) {
+        setSelectedMessage(null);
+      }
+      fetchMessages();
+    } catch (error) {
+      console.error('Error archiving message:', error);
+      toast.error(t('Failed to archive', 'Αποτυχία αρχειοθέτησης'));
+    }
+  };
+
   if (selectedMessage) {
     return (
       <MainLayout>
@@ -385,6 +423,17 @@ export default function Messages() {
                 <Button variant="outline" size="sm" onClick={handleReopen}>
                   <RefreshCw className="h-4 w-4 mr-2" />
                   {t('Reopen', 'Επαναφορά')}
+                </Button>
+              )}
+              {isAdmin && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setArchiveTarget(selectedMessage)}
+                  className="text-muted-foreground hover:text-destructive"
+                >
+                  <Archive className="h-4 w-4 mr-2" />
+                  {t('Archive', 'Αρχειοθέτηση')}
                 </Button>
               )}
             </div>
@@ -724,6 +773,29 @@ export default function Messages() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Archive Confirmation */}
+      <AlertDialog open={!!archiveTarget} onOpenChange={(open) => !open && setArchiveTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t('Archive Message?', 'Αρχειοθέτηση Μηνύματος;')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {archiveTarget && t(
+                `Are you sure you want to archive this message from "${archiveTarget.employees?.first_name} ${archiveTarget.employees?.last_name}"? It will be hidden from the list but not deleted.`,
+                `Είστε σίγουροι ότι θέλετε να αρχειοθετήσετε αυτό το μήνυμα από "${archiveTarget.employees?.first_name} ${archiveTarget.employees?.last_name}"; Θα κρυφτεί από τη λίστα αλλά δεν θα διαγραφεί.`
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('Cancel', 'Ακύρωση')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleArchiveMessage}>
+              {t('Yes, Archive', 'Ναι, Αρχειοθέτηση')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </MainLayout>
   );
 }

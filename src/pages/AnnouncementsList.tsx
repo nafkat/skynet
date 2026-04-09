@@ -16,8 +16,19 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Plus, Search, Megaphone, Eye, Loader2 } from 'lucide-react';
+import { Plus, Search, Megaphone, Eye, Loader2, Archive } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Announcement {
   id: string;
@@ -37,10 +48,12 @@ interface Profile {
 export default function AnnouncementsList() {
   const navigate = useNavigate();
   const { language } = useLanguage();
+  const { user, isAdmin } = useAuth();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [archiveTarget, setArchiveTarget] = useState<Announcement | null>(null);
 
   const t = (en: string, el: string) => (language === 'el' ? el : en);
 
@@ -62,8 +75,10 @@ export default function AnnouncementsList() {
           status,
           created_by,
           created_at,
-          sent_at
+          sent_at,
+          is_archived
         `)
+        .eq('is_archived', false)
         .gte('created_at', thirtyDaysAgo)
         .order('created_at', { ascending: false });
 
@@ -146,6 +161,28 @@ export default function AnnouncementsList() {
         return t('Failed', 'Αποτυχία');
       default:
         return status;
+    }
+  };
+
+  const handleArchive = async () => {
+    if (!archiveTarget || !user) return;
+    try {
+      const { error } = await supabase
+        .from('announcements')
+        .update({
+          is_archived: true,
+          archived_at: new Date().toISOString(),
+          archived_by: user.id,
+        })
+        .eq('id', archiveTarget.id);
+
+      if (error) throw error;
+      toast.success(t('Announcement archived', 'Η ανακοίνωση αρχειοθετήθηκε'));
+      setArchiveTarget(null);
+      fetchData();
+    } catch (error) {
+      console.error('Error archiving:', error);
+      toast.error(t('Failed to archive', 'Αποτυχία αρχειοθέτησης'));
     }
   };
 
@@ -253,7 +290,7 @@ export default function AnnouncementsList() {
                             ? format(new Date(announcement.sent_at), 'dd/MM/yyyy HH:mm')
                             : '-'}
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right space-x-1">
                           <Button
                             variant="ghost"
                             size="sm"
@@ -262,6 +299,16 @@ export default function AnnouncementsList() {
                             <Eye className="h-4 w-4 mr-1" />
                             {t('View', 'Προβολή')}
                           </Button>
+                          {isAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => { e.stopPropagation(); setArchiveTarget(announcement); }}
+                              className="text-muted-foreground hover:text-destructive"
+                            >
+                              <Archive className="h-4 w-4" />
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -277,6 +324,29 @@ export default function AnnouncementsList() {
           {t('Showing announcements from the last 30 days', 'Εμφάνιση ανακοινώσεων των τελευταίων 30 ημερών')}
         </p>
       </div>
+
+      {/* Archive Confirmation */}
+      <AlertDialog open={!!archiveTarget} onOpenChange={(open) => !open && setArchiveTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t('Archive Announcement?', 'Αρχειοθέτηση Ανακοίνωσης;')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {archiveTarget && t(
+                `Are you sure you want to archive "${archiveTarget.title}"? It will be hidden from the list but not deleted.`,
+                `Είστε σίγουροι ότι θέλετε να αρχειοθετήσετε την "${archiveTarget.title}"; Θα κρυφτεί από τη λίστα αλλά δεν θα διαγραφεί.`
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('Cancel', 'Ακύρωση')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleArchive}>
+              {t('Yes, Archive', 'Ναι, Αρχειοθέτηση')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </MainLayout>
   );
 }
