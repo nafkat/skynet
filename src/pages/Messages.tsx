@@ -427,6 +427,17 @@ export default function Messages() {
                   {t('Reopen', 'Επαναφορά')}
                 </Button>
               )}
+              {userIsAdmin && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setArchiveTarget(selectedMessage)}
+                  className="text-muted-foreground hover:text-destructive"
+                >
+                  <Archive className="h-4 w-4 mr-2" />
+                  {t('Archive', 'Αρχειοθέτηση')}
+                </Button>
+              )}
             </div>
           </div>
 
