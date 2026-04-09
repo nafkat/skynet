@@ -24,7 +24,7 @@ export default function GlobalSearchBar() {
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const { language } = useLanguage();
-  const debounceRef = useRef<NodeJS.Timeout>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   const typeConfig = {
     employee: {
