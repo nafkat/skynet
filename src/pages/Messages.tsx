@@ -49,6 +49,7 @@ import {
   Download,
   RefreshCw,
   Archive,
+  ArchiveRestore,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
@@ -75,6 +76,7 @@ interface EmployeeMessage {
   reopened_at: string | null;
   reopened_by: string | null;
   reopen_count: number;
+  archived_at?: string | null;
   employees?: {
     first_name: string;
     last_name: string;
@@ -89,6 +91,7 @@ export default function Messages() {
   const { settings, updateSettings, playNotificationSound, showBrowserNotification } = useNotificationSettings();
 
   const [messages, setMessages] = useState<EmployeeMessage[]>([]);
+  const [archivedMessages, setArchivedMessages] = useState<EmployeeMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMessage, setSelectedMessage] = useState<EmployeeMessage | null>(null);
   const [replyText, setReplyText] = useState('');
@@ -100,6 +103,7 @@ export default function Messages() {
   const [replyFile, setReplyFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [archiveTarget, setArchiveTarget] = useState<EmployeeMessage | null>(null);
+  const [unarchiveTarget, setUnarchiveTarget] = useState<EmployeeMessage | null>(null);
 
   const t = (en: string, el_text: string) => (language === 'el' ? el_text : en);
 
@@ -113,6 +117,17 @@ export default function Messages() {
 
       if (error) throw error;
       setMessages((data as any[]) || []);
+
+      // Fetch archived messages
+      const { data: archived, error: archivedError } = await supabase
+        .from('employee_messages')
+        .select('*, employees(first_name, last_name, employee_code)')
+        .eq('is_archived', true)
+        .order('archived_at', { ascending: false });
+
+      if (!archivedError) {
+        setArchivedMessages((archived as any[]) || []);
+      }
     } catch (error) {
       console.error('Error fetching messages:', error);
     } finally {
@@ -132,10 +147,8 @@ export default function Messages() {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'employee_messages' },
         async (payload) => {
-          // New message - play sound and notify
           playNotificationSound();
 
-          // Get employee name for notification
           const newMsg = payload.new as any;
           const { data: emp } = await supabase
             .from('employees')
@@ -186,7 +199,16 @@ export default function Messages() {
     if (activeTab === 'unread') return matchesSearch && msg.status === 'unread';
     if (activeTab === 'replied') return matchesSearch && (msg.status === 'replied' || msg.status === 'reopened');
     if (activeTab === 'resolved') return matchesSearch && msg.status === 'resolved';
+    if (activeTab === 'archived') return false; // archived handled separately
     return matchesSearch;
+  });
+
+  const filteredArchivedMessages = archivedMessages.filter(msg => {
+    const empName = msg.employees
+      ? `${msg.employees.first_name} ${msg.employees.last_name} ${msg.employees.employee_code}`.toLowerCase()
+      : '';
+    return !searchQuery || empName.includes(searchQuery.toLowerCase()) ||
+      (msg.message_text || '').toLowerCase().includes(searchQuery.toLowerCase());
   });
 
   const unreadCount = messages.filter(m => m.status === 'unread').length;
@@ -228,7 +250,6 @@ export default function Messages() {
       let attachmentName: string | null = null;
       let attachmentType: string | null = null;
 
-      // Upload file if present
       if (replyFile) {
         setUploading(true);
         const filePath = `replies/${selectedMessage.id}/${Date.now()}_${replyFile.name}`;
@@ -389,6 +410,28 @@ export default function Messages() {
     } catch (error) {
       console.error('Error archiving message:', error);
       toast.error(t('Failed to archive', 'Αποτυχία αρχειοθέτησης'));
+    }
+  };
+
+  const handleUnarchiveMessage = async () => {
+    if (!unarchiveTarget || !user) return;
+    try {
+      const { error } = await supabase
+        .from('employee_messages')
+        .update({
+          is_archived: false,
+          archived_at: null,
+          archived_by: null,
+        })
+        .eq('id', unarchiveTarget.id);
+
+      if (error) throw error;
+      toast.success(t('Message restored', 'Το μήνυμα επαναφέρθηκε'));
+      setUnarchiveTarget(null);
+      fetchMessages();
+    } catch (error) {
+      console.error('Error unarchiving message:', error);
+      toast.error(t('Failed to restore', 'Αποτυχία επαναφοράς'));
     }
   };
 
@@ -620,6 +663,64 @@ export default function Messages() {
     );
   }
 
+  const renderMessageCard = (msg: EmployeeMessage, isArchived: boolean) => (
+    <Card
+      key={msg.id}
+      className={`cursor-pointer transition-colors hover:bg-muted/50 ${
+        !isArchived && msg.status === 'unread' ? 'border-l-4 border-l-destructive bg-destructive/5' : ''
+      }`}
+      onClick={() => !isArchived && handleSelectMessage(msg)}
+    >
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="flex-shrink-0 h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+              <User className="h-5 w-5 text-primary" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <p className={`font-medium truncate ${!isArchived && msg.status === 'unread' ? 'font-bold' : ''}`}>
+                  {msg.employees
+                    ? `${msg.employees.first_name} ${msg.employees.last_name}`
+                    : t('Unknown', 'Άγνωστος')}
+                </p>
+                <span className="text-xs text-muted-foreground flex-shrink-0">
+                  {msg.employees?.employee_code}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                {getMessageIcon(msg.message_type)}
+                <p className="text-sm text-muted-foreground truncate">
+                  {(msg.message_text || t('Attachment', 'Συνημμένο')).substring(0, 60)}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {isArchived && isAdmin && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => { e.stopPropagation(); setUnarchiveTarget(msg); }}
+                className="text-muted-foreground hover:text-primary"
+              >
+                <ArchiveRestore className="h-4 w-4" />
+              </Button>
+            )}
+            <div className="flex flex-col items-end gap-1">
+              {getStatusBadge(msg.status)}
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                {isArchived && msg.archived_at
+                  ? timeAgo(msg.archived_at)
+                  : timeAgo(msg.created_at)}
+              </span>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -668,68 +769,57 @@ export default function Messages() {
             </TabsTrigger>
             <TabsTrigger value="replied">{t('Replied', 'Απαντημένα')}</TabsTrigger>
             <TabsTrigger value="resolved">{t('Resolved', 'Επιλυμένα')}</TabsTrigger>
+            {isAdmin && (
+              <TabsTrigger value="archived">
+                <Archive className="h-4 w-4 mr-1.5" />
+                {t('Archived', 'Αρχείο')} ({archivedMessages.length})
+              </TabsTrigger>
+            )}
           </TabsList>
 
-          <TabsContent value={activeTab} className="mt-4">
-            {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              </div>
-            ) : filteredMessages.length === 0 ? (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">{t('No messages found', 'Δεν βρέθηκαν μηνύματα')}</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-2">
-                {filteredMessages.map((msg) => (
-                  <Card
-                    key={msg.id}
-                    className={`cursor-pointer transition-colors hover:bg-muted/50 ${
-                      msg.status === 'unread' ? 'border-l-4 border-l-destructive bg-destructive/5' : ''
-                    }`}
-                    onClick={() => handleSelectMessage(msg)}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <div className="flex-shrink-0 h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                            <User className="h-5 w-5 text-primary" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <p className={`font-medium truncate ${msg.status === 'unread' ? 'font-bold' : ''}`}>
-                                {msg.employees
-                                  ? `${msg.employees.first_name} ${msg.employees.last_name}`
-                                  : t('Unknown', 'Άγνωστος')}
-                              </p>
-                              <span className="text-xs text-muted-foreground flex-shrink-0">
-                                {msg.employees?.employee_code}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              {getMessageIcon(msg.message_type)}
-                              <p className="text-sm text-muted-foreground truncate">
-                                {(msg.message_text || t('Attachment', 'Συνημμένο')).substring(0, 60)}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                          {getStatusBadge(msg.status)}
-                          <span className="text-xs text-muted-foreground whitespace-nowrap">
-                            {timeAgo(msg.created_at)}
-                          </span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
+          {/* Active tabs content */}
+          {['all', 'unread', 'replied', 'resolved'].map(tabKey => (
+            <TabsContent key={tabKey} value={tabKey} className="mt-4">
+              {loading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : filteredMessages.length === 0 ? (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-12">
+                    <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground">{t('No messages found', 'Δεν βρέθηκαν μηνύματα')}</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-2">
+                  {filteredMessages.map((msg) => renderMessageCard(msg, false))}
+                </div>
+              )}
+            </TabsContent>
+          ))}
+
+          {/* Archived tab content */}
+          {isAdmin && (
+            <TabsContent value="archived" className="mt-4">
+              {loading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : filteredArchivedMessages.length === 0 ? (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-12">
+                    <Archive className="h-12 w-12 text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground">{t('No archived messages', 'Δεν υπάρχουν αρχειοθετημένα μηνύματα')}</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-2">
+                  {filteredArchivedMessages.map((msg) => renderMessageCard(msg, true))}
+                </div>
+              )}
+            </TabsContent>
+          )}
         </Tabs>
 
         {/* Notification Settings Dialog */}
@@ -792,6 +882,29 @@ export default function Messages() {
             <AlertDialogCancel>{t('Cancel', 'Ακύρωση')}</AlertDialogCancel>
             <AlertDialogAction onClick={handleArchiveMessage}>
               {t('Yes, Archive', 'Ναι, Αρχειοθέτηση')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Unarchive Confirmation */}
+      <AlertDialog open={!!unarchiveTarget} onOpenChange={(open) => !open && setUnarchiveTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t('Restore Message?', 'Επαναφορά Μηνύματος;')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {unarchiveTarget && t(
+                `Are you sure you want to restore this message from "${unarchiveTarget.employees?.first_name} ${unarchiveTarget.employees?.last_name}"? It will reappear in the active list.`,
+                `Είστε σίγουροι ότι θέλετε να επαναφέρετε αυτό το μήνυμα από "${unarchiveTarget.employees?.first_name} ${unarchiveTarget.employees?.last_name}"; Θα εμφανιστεί ξανά στην ενεργή λίστα.`
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('Cancel', 'Ακύρωση')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleUnarchiveMessage}>
+              {t('Yes, Restore', 'Ναι, Επαναφορά')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
