@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import GlobalSearchBar from '@/components/GlobalSearchBar';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { 
@@ -409,6 +410,13 @@ export default function Home() {
               ? 'Επιλέξτε μια ενότητα για να ξεκινήσετε' 
               : 'Select a module to get started'}
           </p>
+
+          {/* Global Search - Admin Only */}
+          {isAdmin && (
+            <div className="mt-6">
+              <GlobalSearchBar />
+            </div>
+          )}
         </div>
 
         {/* Operations Section */}
