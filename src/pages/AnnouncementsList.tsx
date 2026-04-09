@@ -75,8 +75,10 @@ export default function AnnouncementsList() {
           status,
           created_by,
           created_at,
-          sent_at
+          sent_at,
+          is_archived
         `)
+        .eq('is_archived', false)
         .gte('created_at', thirtyDaysAgo)
         .order('created_at', { ascending: false });
 
