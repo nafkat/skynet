@@ -143,7 +143,7 @@ const modules: ModuleTile[] = [
 
 export default function Home() {
   const navigate = useNavigate();
-  const { user, baseRole, signOut, isAdmin, loading, isActive, hasPermission } = useAuth();
+  const { user, baseRole, signOut, isAdmin, loading, isActive, hasPermission, hasElevatedRole } = useAuth();
   const { language, setLanguage } = useLanguage();
 
   const toggleLanguage = () => {
