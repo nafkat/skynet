@@ -110,27 +110,45 @@ export default function Messages() {
   const [uploading, setUploading] = useState(false);
   const [archiveTarget, setArchiveTarget] = useState<EmployeeMessage | null>(null);
   const [unarchiveTarget, setUnarchiveTarget] = useState<EmployeeMessage | null>(null);
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
+  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
 
   const t = (en: string, el_text: string) => (language === 'el' ? el_text : en);
 
   const fetchMessages = useCallback(async () => {
     try {
-      const { data, error } = await supabase
+      let activeQuery = supabase
         .from('employee_messages')
         .select('*, employees(first_name, last_name, employee_code)')
         .eq('is_archived', false)
         .order('created_at', { ascending: false });
 
+      if (dateFrom) {
+        activeQuery = activeQuery.gte('created_at', startOfDay(dateFrom).toISOString());
+      }
+      if (dateTo) {
+        activeQuery = activeQuery.lte('created_at', endOfDay(dateTo).toISOString());
+      }
+
+      const { data, error } = await activeQuery;
       if (error) throw error;
       setMessages((data as any[]) || []);
 
       // Fetch archived messages
-      const { data: archived, error: archivedError } = await supabase
+      let archivedQuery = supabase
         .from('employee_messages')
         .select('*, employees(first_name, last_name, employee_code)')
         .eq('is_archived', true)
         .order('archived_at', { ascending: false });
 
+      if (dateFrom) {
+        archivedQuery = archivedQuery.gte('created_at', startOfDay(dateFrom).toISOString());
+      }
+      if (dateTo) {
+        archivedQuery = archivedQuery.lte('created_at', endOfDay(dateTo).toISOString());
+      }
+
+      const { data: archived, error: archivedError } = await archivedQuery;
       if (!archivedError) {
         setArchivedMessages((archived as any[]) || []);
       }
@@ -139,7 +157,7 @@ export default function Messages() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [dateFrom, dateTo]);
 
   useEffect(() => {
     fetchMessages();
