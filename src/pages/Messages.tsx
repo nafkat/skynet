@@ -776,6 +776,29 @@ export default function Messages() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Archive Confirmation */}
+      <AlertDialog open={!!archiveTarget} onOpenChange={(open) => !open && setArchiveTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t('Archive Message?', 'Αρχειοθέτηση Μηνύματος;')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {archiveTarget && t(
+                `Are you sure you want to archive this message from "${archiveTarget.employees?.first_name} ${archiveTarget.employees?.last_name}"? It will be hidden from the list but not deleted.`,
+                `Είστε σίγουροι ότι θέλετε να αρχειοθετήσετε αυτό το μήνυμα από "${archiveTarget.employees?.first_name} ${archiveTarget.employees?.last_name}"; Θα κρυφτεί από τη λίστα αλλά δεν θα διαγραφεί.`
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('Cancel', 'Ακύρωση')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleArchiveMessage}>
+              {t('Yes, Archive', 'Ναι, Αρχειοθέτηση')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </MainLayout>
   );
 }
