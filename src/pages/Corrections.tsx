@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Check, X, Clock, AlertCircle, Trash2, Edit2 } from 'lucide-react';
+import { Check, X, Clock, AlertCircle, Trash2, Edit2, CheckCircle, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -48,7 +48,7 @@ interface CorrectionRequest {
 }
 
 export default function Corrections() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { user, hasElevatedRole } = useAuth();
   const [requests, setRequests] = useState<CorrectionRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,7 +62,7 @@ export default function Corrections() {
 
   const fetchRequests = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('correction_requests')
         .select(`
           *,
@@ -77,6 +77,12 @@ export default function Corrections() {
           )
         `)
         .order('created_at', { ascending: false });
+
+      if (!hasElevatedRole && user) {
+        query = query.eq('requested_by', user.id);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setRequests((data as CorrectionRequest[]) || []);
@@ -155,24 +161,22 @@ export default function Corrections() {
   };
 
   const getStatusBadge = (status: string) => {
-    const styles = {
-      pending: 'badge-pending',
-      approved: 'badge-active',
-      rejected: 'badge-inactive',
-    };
-
-    const labels = {
-      pending: t('corrections.pending'),
-      approved: t('corrections.approved'),
-      rejected: t('corrections.rejected'),
-    };
-
+    if (status === 'pending') return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-warning/10 text-warning border border-warning/30">
+        <Clock className="h-3 w-3" />
+        {language === 'el' ? 'Υπό Έλεγχο' : 'Under Review'}
+      </span>
+    );
+    if (status === 'approved') return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-success/10 text-success border border-success/30">
+        <CheckCircle className="h-3 w-3" />
+        {language === 'el' ? 'Εγκρίθηκε' : 'Approved'}
+      </span>
+    );
     return (
-      <span className={cn(
-        'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border',
-        styles[status as keyof typeof styles]
-      )}>
-        {labels[status as keyof typeof labels]}
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-destructive/10 text-destructive border border-destructive/30">
+        <XCircle className="h-3 w-3" />
+        {language === 'el' ? 'Απορρίφθηκε' : 'Rejected'}
       </span>
     );
   };
