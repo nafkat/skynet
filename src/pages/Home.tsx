@@ -410,6 +410,13 @@ export default function Home() {
               ? 'Επιλέξτε μια ενότητα για να ξεκινήσετε' 
               : 'Select a module to get started'}
           </p>
+
+          {/* Global Search - Admin Only */}
+          {isAdmin && (
+            <div className="mt-6">
+              <GlobalSearchBar />
+            </div>
+          )}
         </div>
 
         {/* Operations Section */}
