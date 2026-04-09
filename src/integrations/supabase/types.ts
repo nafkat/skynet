@@ -154,9 +154,12 @@ export type Database = {
       }
       announcements: {
         Row: {
+          archived_at: string | null
+          archived_by: string | null
           created_at: string
           created_by: string
           id: string
+          is_archived: boolean
           message: string
           recipients_snapshot: Json | null
           sent_at: string | null
@@ -165,9 +168,12 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
           created_at?: string
           created_by: string
           id?: string
+          is_archived?: boolean
           message: string
           recipients_snapshot?: Json | null
           sent_at?: string | null
@@ -176,9 +182,12 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          archived_at?: string | null
+          archived_by?: string | null
           created_at?: string
           created_by?: string
           id?: string
+          is_archived?: boolean
           message?: string
           recipients_snapshot?: Json | null
           sent_at?: string | null
@@ -477,12 +486,15 @@ export type Database = {
           admin_attachment_type: string | null
           admin_attachment_url: string | null
           admin_reply: string | null
+          archived_at: string | null
+          archived_by: string | null
           attachment_file_id: string | null
           attachment_name: string | null
           attachment_url: string | null
           created_at: string
           employee_id: string
           id: string
+          is_archived: boolean
           message_text: string | null
           message_type: string
           reopen_count: number | null
@@ -498,12 +510,15 @@ export type Database = {
           admin_attachment_type?: string | null
           admin_attachment_url?: string | null
           admin_reply?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           attachment_file_id?: string | null
           attachment_name?: string | null
           attachment_url?: string | null
           created_at?: string
           employee_id: string
           id?: string
+          is_archived?: boolean
           message_text?: string | null
           message_type?: string
           reopen_count?: number | null
@@ -519,12 +534,15 @@ export type Database = {
           admin_attachment_type?: string | null
           admin_attachment_url?: string | null
           admin_reply?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           attachment_file_id?: string | null
           attachment_name?: string | null
           attachment_url?: string | null
           created_at?: string
           employee_id?: string
           id?: string
+          is_archived?: boolean
           message_text?: string | null
           message_type?: string
           reopen_count?: number | null
