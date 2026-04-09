@@ -5,9 +5,14 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useNotificationSettings } from '@/hooks/useNotificationSettings';
+import { format, startOfDay, endOfDay } from 'date-fns';
+import { el as elLocale } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -50,6 +55,7 @@ import {
   RefreshCw,
   Archive,
   ArchiveRestore,
+  CalendarIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
@@ -104,27 +110,45 @@ export default function Messages() {
   const [uploading, setUploading] = useState(false);
   const [archiveTarget, setArchiveTarget] = useState<EmployeeMessage | null>(null);
   const [unarchiveTarget, setUnarchiveTarget] = useState<EmployeeMessage | null>(null);
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
+  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
 
   const t = (en: string, el_text: string) => (language === 'el' ? el_text : en);
 
   const fetchMessages = useCallback(async () => {
     try {
-      const { data, error } = await supabase
+      let activeQuery = supabase
         .from('employee_messages')
         .select('*, employees(first_name, last_name, employee_code)')
         .eq('is_archived', false)
         .order('created_at', { ascending: false });
 
+      if (dateFrom) {
+        activeQuery = activeQuery.gte('created_at', startOfDay(dateFrom).toISOString());
+      }
+      if (dateTo) {
+        activeQuery = activeQuery.lte('created_at', endOfDay(dateTo).toISOString());
+      }
+
+      const { data, error } = await activeQuery;
       if (error) throw error;
       setMessages((data as any[]) || []);
 
       // Fetch archived messages
-      const { data: archived, error: archivedError } = await supabase
+      let archivedQuery = supabase
         .from('employee_messages')
         .select('*, employees(first_name, last_name, employee_code)')
         .eq('is_archived', true)
         .order('archived_at', { ascending: false });
 
+      if (dateFrom) {
+        archivedQuery = archivedQuery.gte('created_at', startOfDay(dateFrom).toISOString());
+      }
+      if (dateTo) {
+        archivedQuery = archivedQuery.lte('created_at', endOfDay(dateTo).toISOString());
+      }
+
+      const { data: archived, error: archivedError } = await archivedQuery;
       if (!archivedError) {
         setArchivedMessages((archived as any[]) || []);
       }
@@ -133,7 +157,7 @@ export default function Messages() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [dateFrom, dateTo]);
 
   useEffect(() => {
     fetchMessages();
@@ -742,16 +766,101 @@ export default function Messages() {
           </Button>
         </div>
 
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder={t('Search by employee name...', 'Αναζήτηση κατά όνομα εργαζομένου...')}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
+        {/* Search & Filters */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">
+                {t('Search & Filters', 'Αναζήτηση & Φίλτρα')}
+              </CardTitle>
+              {(searchQuery || dateFrom || dateTo) && (
+                <Button variant="ghost" size="sm" onClick={() => { setSearchQuery(''); setDateFrom(undefined); setDateTo(undefined); }}>
+                  <X className="h-4 w-4 mr-1" />
+                  {t('Clear', 'Καθαρισμός')}
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder={t('Search by employee name or message...', 'Αναζήτηση κατά όνομα ή μήνυμα...')}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">{t('From', 'Από')}:</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={cn(
+                        "w-[150px] justify-start text-left font-normal",
+                        !dateFrom && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="h-4 w-4 mr-2" />
+                      {dateFrom ? format(dateFrom, 'dd/MM/yyyy') : t('Select', 'Επιλογή')}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={dateFrom}
+                      onSelect={setDateFrom}
+                      locale={language === 'el' ? elLocale : undefined}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+                {dateFrom && (
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDateFrom(undefined)}>
+                    <X className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">{t('To', 'Έως')}:</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={cn(
+                        "w-[150px] justify-start text-left font-normal",
+                        !dateTo && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="h-4 w-4 mr-2" />
+                      {dateTo ? format(dateTo, 'dd/MM/yyyy') : t('Select', 'Επιλογή')}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={dateTo}
+                      onSelect={setDateTo}
+                      locale={language === 'el' ? elLocale : undefined}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+                {dateTo && (
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDateTo(undefined)}>
+                    <X className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
