@@ -16,8 +16,19 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Plus, Search, Megaphone, Eye, Loader2 } from 'lucide-react';
+import { Plus, Search, Megaphone, Eye, Loader2, Archive } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Announcement {
   id: string;
@@ -37,10 +48,12 @@ interface Profile {
 export default function AnnouncementsList() {
   const navigate = useNavigate();
   const { language } = useLanguage();
+  const { user, isAdmin } = useAuth();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [archiveTarget, setArchiveTarget] = useState<Announcement | null>(null);
 
   const t = (en: string, el: string) => (language === 'el' ? el : en);
 
