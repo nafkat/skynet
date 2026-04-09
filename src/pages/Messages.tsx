@@ -425,7 +425,7 @@ export default function Messages() {
                   {t('Reopen', 'Επαναφορά')}
                 </Button>
               )}
-              {userIsAdmin && (
+              {isAdmin && (
                 <Button
                   variant="outline"
                   size="sm"
