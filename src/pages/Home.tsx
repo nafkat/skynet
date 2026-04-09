@@ -459,6 +459,9 @@ export default function Home() {
           </p>
         </div>
       </footer>
+
+      {/* AI Chat Panel */}
+      <AIChatPanel />
     </div>
   );
 }
