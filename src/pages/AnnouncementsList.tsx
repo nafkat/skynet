@@ -2,13 +2,16 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
-import { format, subDays } from 'date-fns';
+import { format, startOfDay, endOfDay } from 'date-fns';
+import { el as elLocale } from 'date-fns/locale';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Table,
   TableBody,
@@ -17,8 +20,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Plus, Search, Megaphone, Eye, Loader2, Archive, ArchiveRestore } from 'lucide-react';
+import { Plus, Search, Megaphone, Eye, Loader2, Archive, ArchiveRestore, CalendarIcon, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,6 +38,7 @@ import { useAuth } from '@/contexts/AuthContext';
 interface Announcement {
   id: string;
   title: string;
+  message: string;
   status: 'draft' | 'pending' | 'sent' | 'partial' | 'failed';
   created_by: string;
   created_at: string;
@@ -56,6 +61,8 @@ export default function AnnouncementsList() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
+  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
   const [archiveTarget, setArchiveTarget] = useState<Announcement | null>(null);
   const [unarchiveTarget, setUnarchiveTarget] = useState<Announcement | null>(null);
   const [viewTab, setViewTab] = useState('active');
@@ -64,33 +71,47 @@ export default function AnnouncementsList() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [dateFrom, dateTo]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const thirtyDaysAgo = subDays(new Date(), 30).toISOString();
 
-      // Fetch active announcements
-      const { data: activeData, error: activeError } = await supabase
+      // Build active query
+      let activeQuery = supabase
         .from('announcements')
-        .select('id, title, status, created_by, created_at, sent_at, is_archived')
+        .select('id, title, message, status, created_by, created_at, sent_at, is_archived')
         .eq('is_archived', false)
-        .gte('created_at', thirtyDaysAgo)
         .order('created_at', { ascending: false });
 
+      if (dateFrom) {
+        activeQuery = activeQuery.gte('created_at', startOfDay(dateFrom).toISOString());
+      }
+      if (dateTo) {
+        activeQuery = activeQuery.lte('created_at', endOfDay(dateTo).toISOString());
+      }
+
+      const { data: activeData, error: activeError } = await activeQuery;
       if (activeError) throw activeError;
 
-      // Fetch archived announcements
-      const { data: archivedData, error: archivedError } = await supabase
+      // Build archived query
+      let archivedQuery = supabase
         .from('announcements')
-        .select('id, title, status, created_by, created_at, sent_at, is_archived, archived_at')
+        .select('id, title, message, status, created_by, created_at, sent_at, is_archived, archived_at')
         .eq('is_archived', true)
         .order('archived_at', { ascending: false });
 
+      if (dateFrom) {
+        archivedQuery = archivedQuery.gte('created_at', startOfDay(dateFrom).toISOString());
+      }
+      if (dateTo) {
+        archivedQuery = archivedQuery.lte('created_at', endOfDay(dateTo).toISOString());
+      }
+
+      const { data: archivedData, error: archivedError } = await archivedQuery;
       if (archivedError) throw archivedError;
 
-      // Fetch recipient counts for both
+      // Fetch recipient counts
       const allIds = [...(activeData || []), ...(archivedData || [])].map(a => a.id);
       let recipientCounts: Record<string, number> = {};
       
@@ -108,7 +129,7 @@ export default function AnnouncementsList() {
         }
       }
 
-      // Fetch profiles for user names
+      // Fetch profiles
       const userIds = [...new Set([...(activeData || []), ...(archivedData || [])].map(a => a.created_by))];
       if (userIds.length > 0) {
         const { data: profilesData } = await supabase
@@ -203,10 +224,20 @@ export default function AnnouncementsList() {
     }
   };
 
+  const clearFilters = () => {
+    setSearchQuery('');
+    setDateFrom(undefined);
+    setDateTo(undefined);
+  };
+
+  const hasFilters = searchQuery || dateFrom || dateTo;
+
   const currentList = viewTab === 'active' ? announcements : archivedAnnouncements;
-  const filteredAnnouncements = currentList.filter(a =>
-    a.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredAnnouncements = currentList.filter(a => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return a.title.toLowerCase().includes(q) || a.message.toLowerCase().includes(q);
+  });
 
   const renderTable = (list: Announcement[], isArchived: boolean) => (
     <div className="overflow-x-auto">
@@ -314,22 +345,98 @@ export default function AnnouncementsList() {
           </Button>
         </div>
 
-        {/* Search */}
+        {/* Search & Filters */}
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">
-              {t('Search', 'Αναζήτηση')}
-            </CardTitle>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">
+                {t('Search & Filters', 'Αναζήτηση & Φίλτρα')}
+              </CardTitle>
+              {hasFilters && (
+                <Button variant="ghost" size="sm" onClick={clearFilters}>
+                  <X className="h-4 w-4 mr-1" />
+                  {t('Clear', 'Καθαρισμός')}
+                </Button>
+              )}
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder={t('Search by title...', 'Αναζήτηση κατά τίτλο...')}
+                placeholder={t('Search by title or content...', 'Αναζήτηση κατά τίτλο ή περιεχόμενο...')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
               />
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">{t('From', 'Από')}:</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={cn(
+                        "w-[150px] justify-start text-left font-normal",
+                        !dateFrom && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="h-4 w-4 mr-2" />
+                      {dateFrom ? format(dateFrom, 'dd/MM/yyyy') : t('Select', 'Επιλογή')}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={dateFrom}
+                      onSelect={setDateFrom}
+                      locale={language === 'el' ? elLocale : undefined}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+                {dateFrom && (
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDateFrom(undefined)}>
+                    <X className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">{t('To', 'Έως')}:</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={cn(
+                        "w-[150px] justify-start text-left font-normal",
+                        !dateTo && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="h-4 w-4 mr-2" />
+                      {dateTo ? format(dateTo, 'dd/MM/yyyy') : t('Select', 'Επιλογή')}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={dateTo}
+                      onSelect={setDateTo}
+                      locale={language === 'el' ? elLocale : undefined}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+                {dateTo && (
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDateTo(undefined)}>
+                    <X className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -359,9 +466,11 @@ export default function AnnouncementsList() {
                   <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                     <Megaphone className="h-12 w-12 mb-4 opacity-50" />
                     <p>{t('No announcements found', 'Δεν βρέθηκαν ανακοινώσεις')}</p>
-                    <Button variant="link" onClick={() => navigate('/announcements/new')} className="mt-2">
-                      {t('Create your first announcement', 'Δημιουργήστε την πρώτη σας ανακοίνωση')}
-                    </Button>
+                    {!hasFilters && (
+                      <Button variant="link" onClick={() => navigate('/announcements/new')} className="mt-2">
+                        {t('Create your first announcement', 'Δημιουργήστε την πρώτη σας ανακοίνωση')}
+                      </Button>
+                    )}
                   </div>
                 ) : (
                   renderTable(filteredAnnouncements, false)
@@ -393,9 +502,9 @@ export default function AnnouncementsList() {
         </Tabs>
 
         {/* Info */}
-        {viewTab === 'active' && (
+        {!hasFilters && (
           <p className="text-sm text-muted-foreground text-center">
-            {t('Showing announcements from the last 30 days', 'Εμφάνιση ανακοινώσεων των τελευταίων 30 ημερών')}
+            {t('Use date filters to find older announcements', 'Χρησιμοποιήστε τα φίλτρα ημερομηνίας για παλαιότερες ανακοινώσεις')}
           </p>
         )}
       </div>
@@ -404,9 +513,7 @@ export default function AnnouncementsList() {
       <AlertDialog open={!!archiveTarget} onOpenChange={(open) => !open && setArchiveTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t('Archive Announcement?', 'Αρχειοθέτηση Ανακοίνωσης;')}
-            </AlertDialogTitle>
+            <AlertDialogTitle>{t('Archive Announcement?', 'Αρχειοθέτηση Ανακοίνωσης;')}</AlertDialogTitle>
             <AlertDialogDescription>
               {archiveTarget && t(
                 `Are you sure you want to archive "${archiveTarget.title}"? It will be hidden from the list but not deleted.`,
@@ -416,9 +523,7 @@ export default function AnnouncementsList() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t('Cancel', 'Ακύρωση')}</AlertDialogCancel>
-            <AlertDialogAction onClick={handleArchive}>
-              {t('Yes, Archive', 'Ναι, Αρχειοθέτηση')}
-            </AlertDialogAction>
+            <AlertDialogAction onClick={handleArchive}>{t('Yes, Archive', 'Ναι, Αρχειοθέτηση')}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -427,9 +532,7 @@ export default function AnnouncementsList() {
       <AlertDialog open={!!unarchiveTarget} onOpenChange={(open) => !open && setUnarchiveTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t('Restore Announcement?', 'Επαναφορά Ανακοίνωσης;')}
-            </AlertDialogTitle>
+            <AlertDialogTitle>{t('Restore Announcement?', 'Επαναφορά Ανακοίνωσης;')}</AlertDialogTitle>
             <AlertDialogDescription>
               {unarchiveTarget && t(
                 `Are you sure you want to restore "${unarchiveTarget.title}"? It will reappear in the active list.`,
@@ -439,9 +542,7 @@ export default function AnnouncementsList() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t('Cancel', 'Ακύρωση')}</AlertDialogCancel>
-            <AlertDialogAction onClick={handleUnarchive}>
-              {t('Yes, Restore', 'Ναι, Επαναφορά')}
-            </AlertDialogAction>
+            <AlertDialogAction onClick={handleUnarchive}>{t('Yes, Restore', 'Ναι, Επαναφορά')}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
