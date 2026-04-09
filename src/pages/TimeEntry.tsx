@@ -24,7 +24,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { DatePicker } from '@/components/ui/date-picker';
-import { Clock, Plus, Edit2, AlertCircle, X, Save, FileEdit, Trash2, Users, AlertTriangle } from 'lucide-react';
+import { Clock, Plus, Edit2, AlertCircle, X, Save, FileEdit, Trash2, Users, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { usePendingCorrections } from '@/hooks/usePendingCorrections';
 import {
@@ -91,7 +91,7 @@ export default function TimeEntry() {
   const { t, language } = useLanguage();
   const { user, hasElevatedRole, role } = useAuth();
   const navigate = useNavigate();
-  const { pendingByEmployee } = usePendingCorrections();
+  const { pendingByEmployee, correctionsByEntryId } = usePendingCorrections();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [recentEntries, setRecentEntries] = useState<TimeEntryData[]>([]);
@@ -821,6 +821,42 @@ export default function TimeEntry() {
                       )}
                     </div>
                   </div>
+
+                  {/* Correction status badge — visible to all users */}
+                  {correctionsByEntryId[entry.id] && (() => {
+                    const correction = correctionsByEntryId[entry.id];
+                    if (correction.status === 'pending') return (
+                      <div className="mt-2 pt-2 border-t border-border">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-warning/10 text-warning border border-warning/30">
+                          <Clock className="h-3 w-3" />
+                          {language === 'el' ? 'Υπό Έλεγχο' : 'Under Review'}
+                        </span>
+                      </div>
+                    );
+                    if (correction.status === 'approved') return (
+                      <div className="mt-2 pt-2 border-t border-border">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-success/10 text-success border border-success/30">
+                          <CheckCircle className="h-3 w-3" />
+                          {language === 'el' ? 'Εγκρίθηκε' : 'Approved'}
+                        </span>
+                      </div>
+                    );
+                    if (correction.status === 'rejected') return (
+                      <div className="mt-2 pt-2 border-t border-border">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-destructive/10 text-destructive border border-destructive/30">
+                          <XCircle className="h-3 w-3" />
+                          {language === 'el' ? 'Απορρίφθηκε' : 'Rejected'}
+                        </span>
+                        {correction.review_notes && (
+                          <p className="text-xs text-muted-foreground mt-1 ml-1">
+                            {language === 'el' ? 'Σημείωση: ' : 'Note: '}{correction.review_notes}
+                          </p>
+                        )}
+                      </div>
+                    );
+                    return null;
+                  })()}
+
                 </div>
               ))}
             </div>
