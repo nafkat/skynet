@@ -324,6 +324,29 @@ export default function AnnouncementsList() {
           {t('Showing announcements from the last 30 days', 'Εμφάνιση ανακοινώσεων των τελευταίων 30 ημερών')}
         </p>
       </div>
+
+      {/* Archive Confirmation */}
+      <AlertDialog open={!!archiveTarget} onOpenChange={(open) => !open && setArchiveTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t('Archive Announcement?', 'Αρχειοθέτηση Ανακοίνωσης;')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {archiveTarget && t(
+                `Are you sure you want to archive "${archiveTarget.title}"? It will be hidden from the list but not deleted.`,
+                `Είστε σίγουροι ότι θέλετε να αρχειοθετήσετε την "${archiveTarget.title}"; Θα κρυφτεί από τη λίστα αλλά δεν θα διαγραφεί.`
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('Cancel', 'Ακύρωση')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleArchive}>
+              {t('Yes, Archive', 'Ναι, Αρχειοθέτηση')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </MainLayout>
   );
 }
