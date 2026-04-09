@@ -290,7 +290,7 @@ export default function AnnouncementsList() {
                             ? format(new Date(announcement.sent_at), 'dd/MM/yyyy HH:mm')
                             : '-'}
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right space-x-1">
                           <Button
                             variant="ghost"
                             size="sm"
@@ -299,6 +299,16 @@ export default function AnnouncementsList() {
                             <Eye className="h-4 w-4 mr-1" />
                             {t('View', 'Προβολή')}
                           </Button>
+                          {isAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => { e.stopPropagation(); setArchiveTarget(announcement); }}
+                              className="text-muted-foreground hover:text-destructive"
+                            >
+                              <Archive className="h-4 w-4" />
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
