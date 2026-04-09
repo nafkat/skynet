@@ -171,6 +171,12 @@ export default function Home() {
       return;
     }
     
+    // Timekeeping: admins/HR go to admin dashboard, timekeepers go to time entry
+    if (tile.id === 'timekeeping' && !hasElevatedRole) {
+      navigate('/time-entry');
+      return;
+    }
+    
     navigate(tile.route);
   };
 
