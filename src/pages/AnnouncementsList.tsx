@@ -164,6 +164,28 @@ export default function AnnouncementsList() {
     }
   };
 
+  const handleArchive = async () => {
+    if (!archiveTarget || !user) return;
+    try {
+      const { error } = await supabase
+        .from('announcements')
+        .update({
+          is_archived: true,
+          archived_at: new Date().toISOString(),
+          archived_by: user.id,
+        })
+        .eq('id', archiveTarget.id);
+
+      if (error) throw error;
+      toast.success(t('Announcement archived', 'Η ανακοίνωση αρχειοθετήθηκε'));
+      setArchiveTarget(null);
+      fetchData();
+    } catch (error) {
+      console.error('Error archiving:', error);
+      toast.error(t('Failed to archive', 'Αποτυχία αρχειοθέτησης'));
+    }
+  };
+
   const filteredAnnouncements = announcements.filter(a =>
     a.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
