@@ -19,6 +19,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { 
   Megaphone, 
   ArrowLeft, 
@@ -61,7 +71,7 @@ export default function AnnouncementCreate() {
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
-  const [selectAllActive, setSelectAllActive] = useState(true);
+  const [selectAllActive, setSelectAllActive] = useState(false);
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
   const [specialtyFilter, setSpecialtyFilter] = useState<string>('all');
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -69,19 +79,16 @@ export default function AnnouncementCreate() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  // Confirmation dialog states
+  const [showAllActiveConfirm, setShowAllActiveConfirm] = useState(false);
+  const [showEmployeeConfirm, setShowEmployeeConfirm] = useState<Employee | null>(null);
+  const [showSendConfirm, setShowSendConfirm] = useState(false);
+
   const t = (en: string, el: string) => (language === 'el' ? el : en);
 
   useEffect(() => {
     fetchData();
   }, []);
-
-  useEffect(() => {
-    // When "All Active" is toggled, select/deselect all filtered employees
-    if (selectAllActive) {
-      const filteredEmployeeIds = getFilteredEmployees().map(e => e.id);
-      setSelectedEmployees(filteredEmployeeIds);
-    }
-  }, [selectAllActive, specialtyFilter, employees]);
 
   const fetchData = async () => {
     try {
@@ -95,9 +102,6 @@ export default function AnnouncementCreate() {
 
       setEmployees(employeesRes.data || []);
       setSpecialties(specialtiesRes.data || []);
-      
-      // Select all active employees by default
-      setSelectedEmployees((employeesRes.data || []).map(e => e.id));
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error(t('Failed to load data', 'Αποτυχία φόρτωσης δεδομένων'));
@@ -131,34 +135,57 @@ export default function AnnouncementCreate() {
     setUploadedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
+  // Employee toggle with confirmation popup
   const handleEmployeeToggle = (employeeId: string) => {
-    setSelectAllActive(false);
-    setSelectedEmployees(prev => 
-      prev.includes(employeeId)
-        ? prev.filter(id => id !== employeeId)
-        : [...prev, employeeId]
-    );
+    const isCurrentlySelected = selectedEmployees.includes(employeeId);
+    
+    if (isCurrentlySelected) {
+      // Deselecting — no confirmation needed
+      setSelectAllActive(false);
+      setSelectedEmployees(prev => prev.filter(id => id !== employeeId));
+    } else {
+      // Selecting — show confirmation
+      const employee = employees.find(e => e.id === employeeId);
+      if (employee) {
+        setShowEmployeeConfirm(employee);
+      }
+    }
   };
 
+  const confirmEmployeeSelect = () => {
+    if (showEmployeeConfirm) {
+      setSelectedEmployees(prev => [...prev, showEmployeeConfirm.id]);
+      setShowEmployeeConfirm(null);
+    }
+  };
+
+  // All Active toggle with confirmation
   const handleSelectAll = (checked: boolean) => {
-    setSelectAllActive(checked);
     if (checked) {
-      const filteredIds = getFilteredEmployees().map(e => e.id);
-      setSelectedEmployees(filteredIds);
+      setShowAllActiveConfirm(true);
     } else {
+      setSelectAllActive(false);
       setSelectedEmployees([]);
     }
   };
 
+  const confirmSelectAll = () => {
+    setSelectAllActive(true);
+    const filteredIds = getFilteredEmployees().map(e => e.id);
+    setSelectedEmployees(filteredIds);
+    setShowAllActiveConfirm(false);
+  };
+
+  // Keep selected in sync when filter changes and selectAll is on
+  useEffect(() => {
+    if (selectAllActive) {
+      const filteredIds = getFilteredEmployees().map(e => e.id);
+      setSelectedEmployees(filteredIds);
+    }
+  }, [specialtyFilter, employees, selectAllActive]);
+
   const handleSpecialtyChange = (value: string) => {
     setSpecialtyFilter(value);
-    if (selectAllActive) {
-      // Reselect based on new filter
-      const filtered = employees.filter(e => 
-        value === 'all' || e.specialty_id === value
-      );
-      setSelectedEmployees(filtered.map(e => e.id));
-    }
   };
 
   const uploadFiles = async (announcementId: string): Promise<{ fileName: string; filePath: string; fileSize: number; mimeType: string }[]> => {
@@ -188,8 +215,24 @@ export default function AnnouncementCreate() {
     return uploadedAttachments;
   };
 
+  const handleSendClick = () => {
+    // Validation first
+    if (!title.trim()) {
+      toast.error(t('Title is required', 'Ο τίτλος είναι υποχρεωτικός'));
+      return;
+    }
+    if (!message.trim()) {
+      toast.error(t('Message is required', 'Το μήνυμα είναι υποχρεωτικό'));
+      return;
+    }
+    if (selectedEmployees.length === 0) {
+      toast.error(t('Select at least one recipient', 'Επιλέξτε τουλάχιστον έναν παραλήπτη'));
+      return;
+    }
+    setShowSendConfirm(true);
+  };
+
   const saveAnnouncement = async (shouldSend: boolean) => {
-    // Validation
     if (!title.trim()) {
       toast.error(t('Title is required', 'Ο τίτλος είναι υποχρεωτικός'));
       return;
@@ -206,7 +249,6 @@ export default function AnnouncementCreate() {
     setSaving(true);
 
     try {
-      // Create announcement
       const { data: announcement, error: announcementError } = await supabase
         .from('announcements')
         .insert({
@@ -221,7 +263,6 @@ export default function AnnouncementCreate() {
 
       if (announcementError) throw announcementError;
 
-      // Upload attachments
       if (uploadedFiles.length > 0) {
         const attachments = await uploadFiles(announcement.id);
         
@@ -236,7 +277,6 @@ export default function AnnouncementCreate() {
         }
       }
 
-      // Create recipients
       const recipientInserts = selectedEmployees.map(employeeId => ({
         announcement_id: announcement.id,
         employee_id: employeeId,
@@ -249,7 +289,6 @@ export default function AnnouncementCreate() {
 
       if (recipientsError) throw recipientsError;
 
-      // If sending, create deliveries
       if (shouldSend && recipients) {
         const deliveryInserts = recipients.map(r => ({
           announcement_id: announcement.id,
@@ -280,6 +319,12 @@ export default function AnnouncementCreate() {
     const specialty = specialties.find(s => s.id === id);
     if (!specialty) return '';
     return language === 'el' ? specialty.name_el : specialty.name_en;
+  };
+
+  const getSelectedEmployeeNames = () => {
+    return employees
+      .filter(e => selectedEmployees.includes(e.id))
+      .map(e => `${e.last_name} ${e.first_name} (${e.employee_code})`);
   };
 
   const filteredEmployees = getFilteredEmployees();
@@ -323,7 +368,6 @@ export default function AnnouncementCreate() {
             <CardTitle>{t('Announcement Details', 'Λεπτομέρειες Ανακοίνωσης')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Title */}
             <div className="space-y-2">
               <Label htmlFor="title">{t('Title', 'Τίτλος')} *</Label>
               <Input
@@ -334,7 +378,6 @@ export default function AnnouncementCreate() {
               />
             </div>
 
-            {/* Message */}
             <div className="space-y-2">
               <Label htmlFor="message">{t('Message', 'Μήνυμα')} *</Label>
               <Textarea
@@ -346,7 +389,6 @@ export default function AnnouncementCreate() {
               />
             </div>
 
-            {/* Attachments */}
             <div className="space-y-2">
               <Label>{t('Attachments', 'Συνημμένα')}</Label>
               <div className="border-2 border-dashed border-border rounded-lg p-4">
@@ -411,7 +453,6 @@ export default function AnnouncementCreate() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* All Active Toggle */}
             <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
               <div>
                 <p className="font-medium">{t('All Active Employees', 'Όλοι οι Ενεργοί Υπάλληλοι')}</p>
@@ -425,7 +466,6 @@ export default function AnnouncementCreate() {
               />
             </div>
 
-            {/* Specialty Filter */}
             <div className="space-y-2">
               <Label>{t('Filter by Specialty', 'Φίλτρο ανά Ειδικότητα')}</Label>
               <Select value={specialtyFilter} onValueChange={handleSpecialtyChange}>
@@ -443,7 +483,6 @@ export default function AnnouncementCreate() {
               </Select>
             </div>
 
-            {/* Employee List */}
             <div className="border rounded-lg max-h-[300px] overflow-y-auto">
               {filteredEmployees.length === 0 ? (
                 <div className="p-4 text-center text-muted-foreground">
@@ -475,7 +514,6 @@ export default function AnnouncementCreate() {
               )}
             </div>
 
-            {/* Selected Count */}
             <div className="flex items-center justify-between">
               <Badge variant="secondary">
                 {selectedEmployees.length} {t('selected', 'επιλεγμένοι')}
@@ -508,7 +546,7 @@ export default function AnnouncementCreate() {
             {t('Save Draft', 'Αποθήκευση Πρόχειρου')}
           </Button>
           <Button
-            onClick={() => saveAnnouncement(true)}
+            onClick={handleSendClick}
             disabled={saving}
           >
             {saving ? (
@@ -520,6 +558,87 @@ export default function AnnouncementCreate() {
           </Button>
         </div>
       </div>
+
+      {/* Confirmation: Select All Active */}
+      <AlertDialog open={showAllActiveConfirm} onOpenChange={setShowAllActiveConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t('Select All Active Employees?', 'Επιλογή Όλων των Ενεργών Υπαλλήλων;')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t(
+                `This will select all ${getFilteredEmployees().length} active employees as recipients. Are you sure?`,
+                `Αυτό θα επιλέξει και τους ${getFilteredEmployees().length} ενεργούς υπαλλήλους ως παραλήπτες. Είστε σίγουροι;`
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('Cancel', 'Ακύρωση')}</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmSelectAll}>
+              {t('Yes, select all', 'Ναι, επιλογή όλων')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation: Individual Employee */}
+      <AlertDialog open={!!showEmployeeConfirm} onOpenChange={(open) => !open && setShowEmployeeConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t('Add Recipient?', 'Προσθήκη Παραλήπτη;')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {showEmployeeConfirm && t(
+                `Are you sure you want to add "${showEmployeeConfirm.last_name} ${showEmployeeConfirm.first_name}" (${showEmployeeConfirm.employee_code}) as a recipient?`,
+                `Είστε σίγουροι ότι θέλετε να προσθέσετε τον/την "${showEmployeeConfirm.last_name} ${showEmployeeConfirm.first_name}" (${showEmployeeConfirm.employee_code}) ως παραλήπτη;`
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('Cancel', 'Ακύρωση')}</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmEmployeeSelect}>
+              {t('Yes, add', 'Ναι, προσθήκη')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation: Send */}
+      <AlertDialog open={showSendConfirm} onOpenChange={setShowSendConfirm}>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t('Confirm Send Announcement', 'Επιβεβαίωση Αποστολής Ανακοίνωσης')}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  {t(
+                    `You are about to send this announcement to ${selectedEmployees.length} recipient(s):`,
+                    `Πρόκειται να στείλετε αυτή την ανακοίνωση σε ${selectedEmployees.length} παραλήπτη(-ες):`
+                  )}
+                </p>
+                <div className="max-h-[200px] overflow-y-auto border rounded-md p-3 bg-muted/30 text-sm space-y-1">
+                  {getSelectedEmployeeNames().map((name, i) => (
+                    <p key={i}>• {name}</p>
+                  ))}
+                </div>
+                <p className="font-medium text-destructive">
+                  {t('This action cannot be undone.', 'Αυτή η ενέργεια δεν μπορεί να αναιρεθεί.')}
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('Cancel', 'Ακύρωση')}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setShowSendConfirm(false); saveAnnouncement(true); }}>
+              {t('Yes, Send Now', 'Ναι, Αποστολή Τώρα')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </MainLayout>
   );
 }
