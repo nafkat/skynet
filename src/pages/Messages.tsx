@@ -564,7 +564,7 @@ export default function Messages() {
                     <>
                       <Image className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                       <img
-                        src={selectedMessage.attachment_url}
+                        src={employeeAttachmentUrl || ''}
                         alt={selectedMessage.attachment_name || 'Image'}
                         className="max-w-xs max-h-48 rounded-md object-cover"
                       />
@@ -578,7 +578,7 @@ export default function Messages() {
                     </p>
                   </div>
                   <a
-                    href={selectedMessage.attachment_url}
+                    href={employeeAttachmentUrl || '#'}
                     target="_blank"
                     rel="noopener noreferrer"
                     download={selectedMessage.attachment_name || undefined}
@@ -631,7 +631,7 @@ export default function Messages() {
                       <p className="text-sm font-medium truncate">{selectedMessage.admin_attachment_name}</p>
                     </div>
                     <a
-                      href={selectedMessage.admin_attachment_url}
+                      href={adminAttachmentUrl || '#'}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex-shrink-0"
