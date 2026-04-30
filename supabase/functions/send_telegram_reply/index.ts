@@ -169,8 +169,9 @@ Deno.serve(async (req) => {
         }
       } catch (dlError) {
         console.error('Error downloading/sending attachment:', dlError);
-        // Fallback: send text-only reply with link
-        const fallbackText = `💬 <b>Reply from ${adminName}:</b>\n\n${reply_text || ''}\n\n📎 <a href="${attachment_url}">${attachment_name || 'Attachment'}</a>`;
+        // Fallback: send text-only reply (omit link since attachment_url
+        // may be a private storage path, not a public URL).
+        const fallbackText = `💬 <b>Reply from ${adminName}:</b>\n\n${reply_text || ''}\n\n📎 ${attachment_name || 'Attachment'}`;
         const fallbackResp = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
