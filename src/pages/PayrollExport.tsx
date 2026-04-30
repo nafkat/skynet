@@ -283,79 +283,52 @@ export default function PayrollExport() {
         return baseData;
       });
 
-      // Create workbook and worksheet
-      const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.json_to_sheet(wsData);
-
-      // --- TOTALS ROW ---
-      // Calculate totals
-      const totalRegularHours = Math.round(payrollData.reduce((s, r) => s + r.regular_hours, 0) * 100) / 100;
-      const totalOvertimeHours = Math.round(payrollData.reduce((s, r) => s + r.overtime_hours, 0) * 100) / 100;
-      const totalRegularAmount = Math.round(payrollData.reduce((s, r) => s + r.regular_amount, 0) * 100) / 100;
-      const totalOvertimeAmount = Math.round(payrollData.reduce((s, r) => s + r.overtime_amount, 0) * 100) / 100;
-      const totalAmount = Math.round(payrollData.reduce((s, r) => s + r.total_amount, 0) * 100) / 100;
-
-      // Empty separator row + totals row (AOA format)
-      const emptyRow: (string | number | null)[] = [null, null, null, null, null, null, null, null, null, null, null, null, null, null];
-      const totalsRow: (string | number)[] = [
-        'ΣΥΝΟΛΟ / TOTAL', '', '', '', '', '', '',
-        totalRegularHours,
-        totalOvertimeHours,
-        '', '',
-        totalRegularAmount,
-        totalOvertimeAmount,
-        totalAmount,
+      // Build header row
+      const headers = [
+        'Employee Code', 'First Name', 'Last Name', 'Specialty',
+        'Regular Hours', 'Overtime Hours',
+        'Regular Rate (€/hr)', 'Regular All-In (€/hr)', 'Overtime Rate (€/hr)',
+        'Regular Cost (€)', 'Regular All-In Cost (€)', 'Overtime Cost (€)',
+        'Total (Regular + OT) (€)', 'Total (All-In + OT) (€)',
+        'AFM', 'IBAN', 'Bank Name',
       ];
-
-      // If project columns exist, extend the rows
       if (selectedProjectDetails) {
-        emptyRow.push(null, null);
-        totalsRow.push('', '');
+        headers.push('Project Code', 'Project Name');
       }
 
-      // Append empty row + totals row after data
-      const dataRowCount = wsData.length; // number of data rows (excluding header)
-      const emptyRowIndex = dataRowCount + 1; // +1 for header row
-      const totalsRowIndex = dataRowCount + 2;
+      // Build data rows from wsData
+      const dataRows = wsData.map(row => headers.map(h => (row as Record<string, string | number>)[h] ?? ''));
 
-      XLSX.utils.sheet_add_aoa(ws, [emptyRow, totalsRow], { origin: emptyRowIndex });
+      // Calculate totals for numeric columns
+      const totalRegularHours   = Math.round(payrollData.reduce((s, r) => s + r.regular_hours, 0) * 100) / 100;
+      const totalOvertimeHours  = Math.round(payrollData.reduce((s, r) => s + r.overtime_hours, 0) * 100) / 100;
+      const totalRegularAmt     = Math.round(payrollData.reduce((s, r) => s + r.regular_amount, 0) * 100) / 100;
+      const totalOvertimeAmt    = Math.round(payrollData.reduce((s, r) => s + r.overtime_amount, 0) * 100) / 100;
+      const totalAllInAmt       = Math.round(payrollData.reduce((s, r) => s + ((r as unknown as Record<string, number>).all_in_amount || 0), 0) * 100) / 100;
+      const grandTotal          = Math.round(payrollData.reduce((s, r) => s + r.total_amount, 0) * 100) / 100;
+      const grandTotalAllIn     = Math.round(payrollData.reduce((s, r) => s + ((r as unknown as Record<string, number>).total_all_in_amount || 0), 0) * 100) / 100;
 
-      // Style the totals row cells
-      const totalsBgColor = 'D6E4F0'; // light blue background
-      const totalsFont = { bold: true };
-      const totalsFill = { fgColor: { rgb: totalsBgColor }, patternType: 'solid' };
+      // Empty separator row
+      const emptyRow = headers.map(() => '');
 
-      // Column letters for styling
-      const colLetters = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N'];
-      if (selectedProjectDetails) colLetters.push('O','P');
-
-      colLetters.forEach((col) => {
-        const cellRef = `${col}${totalsRowIndex + 1}`; // +1 because Excel rows are 1-indexed
-        if (!ws[cellRef]) ws[cellRef] = { t: 'z', v: '' };
-        ws[cellRef].s = {
-          font: totalsFont,
-          fill: totalsFill,
-          border: {
-            top: { style: 'medium', color: { rgb: '2E75B6' } },
-          },
-        };
+      // Totals row — label in first cell, numbers in correct positions
+      const totalsRow: (string | number)[] = headers.map((h) => {
+        if (h === 'Employee Code') return 'ΣΥΝΟΛΟ / TOTAL';
+        if (h === 'Regular Hours') return totalRegularHours;
+        if (h === 'Overtime Hours') return totalOvertimeHours;
+        if (h === 'Regular Cost (€)') return totalRegularAmt;
+        if (h === 'Overtime Cost (€)') return totalOvertimeAmt;
+        if (h === 'Total (Regular + OT) (€)') return grandTotal;
+        if (h === 'Regular All-In Cost (€)') return totalAllInAmt;
+        if (h === 'Total (All-In + OT) (€)') return grandTotalAllIn;
+        return '';
       });
 
-      // Also bold the header row (row 1)
-      colLetters.forEach((col) => {
-        const cellRef = `${col}1`;
-        if (ws[cellRef]) {
-          ws[cellRef].s = {
-            font: { bold: true, color: { rgb: 'FFFFFF' } },
-            fill: { fgColor: { rgb: '2E75B6' }, patternType: 'solid' },
-          };
-        }
-      });
+      // Assemble all rows: header + data + empty + totals
+      const allRows = [headers, ...dataRows, emptyRow, totalsRow];
 
-      // Update worksheet range to include the new rows
-      const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
-      range.e.r = totalsRowIndex;
-      ws['!ref'] = XLSX.utils.encode_range(range);
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(allRows);
 
       // Set column widths
       const baseCols = [
