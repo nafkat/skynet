@@ -282,6 +282,38 @@ export function PayrollExportModal({ open, onOpenChange }: PayrollExportModalPro
         return baseData;
       });
 
+      // --- Add empty separator row + TOTALS row ---
+      if (wsData.length > 0) {
+        const colKeys = Object.keys(wsData[0]);
+        const numericCols = new Set([
+          'Regular Hours',
+          'Overtime Hours',
+          'Regular Cost (€)',
+          'Regular All-in Cost (€)',
+          'Overtime Cost (€)',
+          'Total (Regular + OT) (€)',
+          'Total (All-in + OT) (€)',
+        ]);
+        const emptyRow: Record<string, string | number> = {};
+        colKeys.forEach(k => { emptyRow[k] = ''; });
+        const totalsRow: Record<string, string | number> = {};
+        colKeys.forEach((key, idx) => {
+          if (idx === 0) {
+            totalsRow[key] = 'ΣΥΝΟΛΟ / TOTAL';
+          } else if (numericCols.has(key)) {
+            const sum = wsData.reduce((acc, row) => {
+              const val = row[key];
+              return acc + (typeof val === 'number' ? val : 0);
+            }, 0);
+            totalsRow[key] = Math.round(sum * 100) / 100;
+          } else {
+            totalsRow[key] = '';
+          }
+        });
+        wsData.push(emptyRow);
+        wsData.push(totalsRow);
+      }
+
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(wsData);
 
