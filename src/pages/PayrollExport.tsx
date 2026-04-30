@@ -287,6 +287,76 @@ export default function PayrollExport() {
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(wsData);
 
+      // --- TOTALS ROW ---
+      // Calculate totals
+      const totalRegularHours = Math.round(payrollData.reduce((s, r) => s + r.regular_hours, 0) * 100) / 100;
+      const totalOvertimeHours = Math.round(payrollData.reduce((s, r) => s + r.overtime_hours, 0) * 100) / 100;
+      const totalRegularAmount = Math.round(payrollData.reduce((s, r) => s + r.regular_amount, 0) * 100) / 100;
+      const totalOvertimeAmount = Math.round(payrollData.reduce((s, r) => s + r.overtime_amount, 0) * 100) / 100;
+      const totalAmount = Math.round(payrollData.reduce((s, r) => s + r.total_amount, 0) * 100) / 100;
+
+      // Empty separator row + totals row (AOA format)
+      const emptyRow: (string | number | null)[] = [null, null, null, null, null, null, null, null, null, null, null, null, null, null];
+      const totalsRow: (string | number)[] = [
+        'ΣΥΝΟΛΟ / TOTAL', '', '', '', '', '', '',
+        totalRegularHours,
+        totalOvertimeHours,
+        '', '',
+        totalRegularAmount,
+        totalOvertimeAmount,
+        totalAmount,
+      ];
+
+      // If project columns exist, extend the rows
+      if (selectedProjectDetails) {
+        emptyRow.push(null, null);
+        totalsRow.push('', '');
+      }
+
+      // Append empty row + totals row after data
+      const dataRowCount = wsData.length; // number of data rows (excluding header)
+      const emptyRowIndex = dataRowCount + 1; // +1 for header row
+      const totalsRowIndex = dataRowCount + 2;
+
+      XLSX.utils.sheet_add_aoa(ws, [emptyRow, totalsRow], { origin: emptyRowIndex });
+
+      // Style the totals row cells
+      const totalsBgColor = 'D6E4F0'; // light blue background
+      const totalsFont = { bold: true };
+      const totalsFill = { fgColor: { rgb: totalsBgColor }, patternType: 'solid' };
+
+      // Column letters for styling
+      const colLetters = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N'];
+      if (selectedProjectDetails) colLetters.push('O','P');
+
+      colLetters.forEach((col) => {
+        const cellRef = `${col}${totalsRowIndex + 1}`; // +1 because Excel rows are 1-indexed
+        if (!ws[cellRef]) ws[cellRef] = { t: 'z', v: '' };
+        ws[cellRef].s = {
+          font: totalsFont,
+          fill: totalsFill,
+          border: {
+            top: { style: 'medium', color: { rgb: '2E75B6' } },
+          },
+        };
+      });
+
+      // Also bold the header row (row 1)
+      colLetters.forEach((col) => {
+        const cellRef = `${col}1`;
+        if (ws[cellRef]) {
+          ws[cellRef].s = {
+            font: { bold: true, color: { rgb: 'FFFFFF' } },
+            fill: { fgColor: { rgb: '2E75B6' }, patternType: 'solid' },
+          };
+        }
+      });
+
+      // Update worksheet range to include the new rows
+      const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+      range.e.r = totalsRowIndex;
+      ws['!ref'] = XLSX.utils.encode_range(range);
+
       // Set column widths
       const baseCols = [
         { wch: 14 }, // Employee Code
