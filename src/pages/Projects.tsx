@@ -45,6 +45,12 @@ interface Project {
   created_at: string;
 }
 
+interface Company {
+  id: string;
+  company_name: string;
+  company_code: string;
+}
+
 // Greek AFM validation: exactly 9 digits
 const isValidGreekAFM = (afm: string): boolean => {
   if (!afm) return true; // Optional field
@@ -69,6 +75,7 @@ export default function Projects() {
   const [status, setStatus] = useState<'OPEN' | 'CLOSED'>('OPEN');
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [companies, setCompanies] = useState<Company[]>([]);
 
   const canEdit = role === 'admin' || role === 'hr';
 
@@ -84,6 +91,13 @@ export default function Projects() {
         .order('project_code');
 
       setProjects((data as Project[]) || []);
+
+      const { data: companiesData } = await supabase
+        .from('companies')
+        .select('id, company_name, company_code')
+        .eq('is_active', true)
+        .order('company_name');
+      setCompanies(companiesData || []);
     } catch (error) {
       console.error('Error fetching projects:', error);
     } finally {
@@ -299,14 +313,27 @@ export default function Projects() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>{t('projects.assignedShipyardCompany')} *</Label>
-                    <Input
+                    <Label>{language === 'el' ? 'Ναυπηγείο (Εταιρεία)' : 'Assigned Shipyard Company'} *</Label>
+                    <Select
                       value={assignedShipyardCompany}
-                      onChange={(e) => setAssignedShipyardCompany(e.target.value)}
-                      className="input-tablet"
-                      placeholder={t('projects.assignedShipyardCompanyPlaceholder')}
-                      required
-                    />
+                      onValueChange={setAssignedShipyardCompany}
+                    >
+                      <SelectTrigger className="input-tablet">
+                        <SelectValue placeholder={language === 'el' ? 'Επιλέξτε εταιρεία...' : 'Select company...'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {companies.map((company) => (
+                          <SelectItem key={company.id} value={company.company_name}>
+                            {company.company_code} — {company.company_name}
+                          </SelectItem>
+                        ))}
+                        {companies.length === 0 && (
+                          <SelectItem value="_none" disabled>
+                            {language === 'el' ? 'Δεν υπάρχουν εταιρείες' : 'No companies found'}
+                          </SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   <div className="space-y-2">
