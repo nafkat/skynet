@@ -268,12 +268,21 @@ export default function Messages() {
     setSelectedMessage(msg);
     setReplyText('');
     setReplyFile(null);
+    setEmployeeAttachmentUrl(null);
+    setAdminAttachmentUrl(null);
     if (msg.status === 'unread') {
       await supabase
         .from('employee_messages')
         .update({ status: 'read' })
         .eq('id', msg.id);
     }
+    // Generate signed URLs for any attachments
+    const [empUrl, admUrl] = await Promise.all([
+      resolveAttachmentUrl('employee-attachments', msg.attachment_url),
+      resolveAttachmentUrl('message-attachments', msg.admin_attachment_url),
+    ]);
+    setEmployeeAttachmentUrl(empUrl);
+    setAdminAttachmentUrl(admUrl);
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
