@@ -215,11 +215,10 @@ Deno.serve(async (req) => {
               });
 
             if (!uploadError) {
-              const { data: urlData } = supabase.storage
-                .from('employee-attachments')
-                .getPublicUrl(storagePath);
-              attachmentUrl = urlData.publicUrl;
-              console.log('Attachment uploaded:', attachmentUrl);
+              // Bucket is private; store the storage path. The admin UI
+              // generates short-lived signed URLs on demand.
+              attachmentUrl = storagePath;
+              console.log('Attachment uploaded to private bucket:', storagePath);
             } else {
               console.error('Storage upload error:', uploadError);
             }

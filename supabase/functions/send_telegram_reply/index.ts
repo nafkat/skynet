@@ -110,12 +110,29 @@ Deno.serve(async (req) => {
       const fileField = isImage ? 'photo' : 'document';
 
       try {
-        // Download the file from the public URL
-        const fileResponse = await fetch(attachment_url);
-        if (!fileResponse.ok) {
-          throw new Error('Failed to download attachment');
+        // Bucket is private; download via service role using either a stored
+        // path or a legacy public URL.
+        let fileBlob: Blob;
+        const bucket = 'message-attachments';
+        const publicMarker = `/storage/v1/object/public/${bucket}/`;
+        let storagePath = attachment_url as string;
+        if (storagePath.startsWith('http')) {
+          const idx = storagePath.indexOf(publicMarker);
+          if (idx !== -1) {
+            storagePath = decodeURIComponent(storagePath.substring(idx + publicMarker.length));
+          }
         }
-        const fileBlob = await fileResponse.blob();
+        const { data: dlData, error: dlError } = await supabase.storage
+          .from(bucket)
+          .download(storagePath);
+        if (dlError || !dlData) {
+          // Fallback: legacy fully-qualified URL we couldn't parse — fetch it directly
+          const fileResponse = await fetch(attachment_url);
+          if (!fileResponse.ok) throw new Error('Failed to download attachment');
+          fileBlob = await fileResponse.blob();
+        } else {
+          fileBlob = dlData;
+        }
 
         const formData = new FormData();
         formData.append('chat_id', chatId.toString());
@@ -152,8 +169,9 @@ Deno.serve(async (req) => {
         }
       } catch (dlError) {
         console.error('Error downloading/sending attachment:', dlError);
-        // Fallback: send text-only reply with link
-        const fallbackText = `💬 <b>Reply from ${adminName}:</b>\n\n${reply_text || ''}\n\n📎 <a href="${attachment_url}">${attachment_name || 'Attachment'}</a>`;
+        // Fallback: send text-only reply (omit link since attachment_url
+        // may be a private storage path, not a public URL).
+        const fallbackText = `💬 <b>Reply from ${adminName}:</b>\n\n${reply_text || ''}\n\n📎 ${attachment_name || 'Attachment'}`;
         const fallbackResp = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

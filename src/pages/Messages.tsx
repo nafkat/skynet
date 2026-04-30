@@ -112,8 +112,35 @@ export default function Messages() {
   const [unarchiveTarget, setUnarchiveTarget] = useState<EmployeeMessage | null>(null);
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
+  const [employeeAttachmentUrl, setEmployeeAttachmentUrl] = useState<string | null>(null);
+  const [adminAttachmentUrl, setAdminAttachmentUrl] = useState<string | null>(null);
 
   const t = (en: string, el_text: string) => (language === 'el' ? el_text : en);
+
+  // Resolve a stored attachment value (path or legacy public URL) to a usable URL.
+  // Buckets are private, so we generate a short-lived signed URL when given a path.
+  const resolveAttachmentUrl = useCallback(async (
+    bucket: 'employee-attachments' | 'message-attachments',
+    stored: string | null,
+  ): Promise<string | null> => {
+    if (!stored) return null;
+    // Legacy: full public URL stored. Try to extract the path within the bucket.
+    const marker = `/storage/v1/object/public/${bucket}/`;
+    let path = stored;
+    if (stored.startsWith('http')) {
+      const idx = stored.indexOf(marker);
+      if (idx === -1) return stored; // unknown URL shape; return as-is
+      path = decodeURIComponent(stored.substring(idx + marker.length));
+    }
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .createSignedUrl(path, 60 * 60); // 1 hour
+    if (error) {
+      console.error(`Failed to sign ${bucket} URL`, error);
+      return null;
+    }
+    return data.signedUrl;
+  }, []);
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -241,12 +268,21 @@ export default function Messages() {
     setSelectedMessage(msg);
     setReplyText('');
     setReplyFile(null);
+    setEmployeeAttachmentUrl(null);
+    setAdminAttachmentUrl(null);
     if (msg.status === 'unread') {
       await supabase
         .from('employee_messages')
         .update({ status: 'read' })
         .eq('id', msg.id);
     }
+    // Generate signed URLs for any attachments
+    const [empUrl, admUrl] = await Promise.all([
+      resolveAttachmentUrl('employee-attachments', msg.attachment_url),
+      resolveAttachmentUrl('message-attachments', msg.admin_attachment_url),
+    ]);
+    setEmployeeAttachmentUrl(empUrl);
+    setAdminAttachmentUrl(admUrl);
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -285,11 +321,8 @@ export default function Messages() {
           throw new Error(t('File upload failed', 'Αποτυχία μεταφόρτωσης αρχείου'));
         }
 
-        const { data: urlData } = supabase.storage
-          .from('message-attachments')
-          .getPublicUrl(filePath);
-
-        attachmentUrl = urlData.publicUrl;
+        // Store the storage path (bucket is private; URLs are signed on demand)
+        attachmentUrl = filePath;
         attachmentName = replyFile.name;
         attachmentType = replyFile.type;
         setUploading(false);
@@ -310,6 +343,9 @@ export default function Messages() {
       toast.success(t('Reply sent successfully', 'Η απάντηση στάλθηκε'));
       setReplyText('');
       setReplyFile(null);
+      // Refresh signed URL for the newly uploaded admin attachment
+      const newAdminSigned = await resolveAttachmentUrl('message-attachments', attachmentUrl);
+      setAdminAttachmentUrl(newAdminSigned);
       setSelectedMessage(prev => prev ? {
         ...prev,
         status: 'replied',
@@ -528,7 +564,7 @@ export default function Messages() {
                     <>
                       <Image className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                       <img
-                        src={selectedMessage.attachment_url}
+                        src={employeeAttachmentUrl || ''}
                         alt={selectedMessage.attachment_name || 'Image'}
                         className="max-w-xs max-h-48 rounded-md object-cover"
                       />
@@ -542,7 +578,7 @@ export default function Messages() {
                     </p>
                   </div>
                   <a
-                    href={selectedMessage.attachment_url}
+                    href={employeeAttachmentUrl || '#'}
                     target="_blank"
                     rel="noopener noreferrer"
                     download={selectedMessage.attachment_name || undefined}
@@ -595,7 +631,7 @@ export default function Messages() {
                       <p className="text-sm font-medium truncate">{selectedMessage.admin_attachment_name}</p>
                     </div>
                     <a
-                      href={selectedMessage.admin_attachment_url}
+                      href={adminAttachmentUrl || '#'}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex-shrink-0"
