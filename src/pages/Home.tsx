@@ -452,13 +452,13 @@ export default function Home() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+      <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         {/* Page Title */}
         <div className="text-center mb-10">
           <h2 className="text-3xl sm:text-5xl font-bold mb-3 bg-gradient-to-r from-primary via-orange-400 to-primary bg-[length:200%_auto] animate-[gradient-shift_3s_ease-in-out_infinite] bg-clip-text text-transparent drop-shadow-sm">
             {language === 'el' ? 'Καλώς ήρθατε στο SKYNET' : 'Welcome to SKYNET'}
           </h2>
-          <p className="text-muted-foreground text-lg animate-fade-in">
+          <p className="text-white/80 text-lg animate-fade-in">
             {language === 'el' 
               ? 'Επιλέξτε μια ενότητα για να ξεκινήσετε' 
               : 'Select a module to get started'}
@@ -475,7 +475,7 @@ export default function Home() {
         {/* Operations Section */}
         {operationsModules.length > 0 && (
           <section className="mb-12">
-            <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
               <FolderKanban className="h-5 w-5 text-primary" />
               {language === 'el' ? 'Λειτουργίες' : 'Operations'}
             </h3>
@@ -488,7 +488,7 @@ export default function Home() {
         {/* Communications Section */}
         {communicationsModules.length > 0 && (
           <section className="mb-12">
-            <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
               <MessageCircle className="h-5 w-5 text-primary" />
               {language === 'el' ? 'Επικοινωνίες' : 'Communications'}
             </h3>
@@ -501,7 +501,7 @@ export default function Home() {
         {/* System Section (Admin Only) */}
         {systemModules.length > 0 && (
           <section className="mb-12">
-            <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
               <Settings className="h-5 w-5 text-primary" />
               {language === 'el' ? 'Σύστημα' : 'System'}
             </h3>
@@ -513,9 +513,9 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-border mt-auto">
+      <footer className="relative z-10 border-t border-white/10 mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <p className="text-center text-sm text-muted-foreground">
+          <p className="text-center text-sm text-white/50">
             SKYNET © {new Date().getFullYear()} — {language === 'el' ? 'Πλατφόρμα Λειτουργιών Ναυπηγείου' : 'Shipyard Operations Platform'}
           </p>
         </div>
