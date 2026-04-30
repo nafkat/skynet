@@ -112,8 +112,35 @@ export default function Messages() {
   const [unarchiveTarget, setUnarchiveTarget] = useState<EmployeeMessage | null>(null);
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
+  const [employeeAttachmentUrl, setEmployeeAttachmentUrl] = useState<string | null>(null);
+  const [adminAttachmentUrl, setAdminAttachmentUrl] = useState<string | null>(null);
 
   const t = (en: string, el_text: string) => (language === 'el' ? el_text : en);
+
+  // Resolve a stored attachment value (path or legacy public URL) to a usable URL.
+  // Buckets are private, so we generate a short-lived signed URL when given a path.
+  const resolveAttachmentUrl = useCallback(async (
+    bucket: 'employee-attachments' | 'message-attachments',
+    stored: string | null,
+  ): Promise<string | null> => {
+    if (!stored) return null;
+    // Legacy: full public URL stored. Try to extract the path within the bucket.
+    const marker = `/storage/v1/object/public/${bucket}/`;
+    let path = stored;
+    if (stored.startsWith('http')) {
+      const idx = stored.indexOf(marker);
+      if (idx === -1) return stored; // unknown URL shape; return as-is
+      path = decodeURIComponent(stored.substring(idx + marker.length));
+    }
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .createSignedUrl(path, 60 * 60); // 1 hour
+    if (error) {
+      console.error(`Failed to sign ${bucket} URL`, error);
+      return null;
+    }
+    return data.signedUrl;
+  }, []);
 
   const fetchMessages = useCallback(async () => {
     try {
