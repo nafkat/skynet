@@ -321,11 +321,8 @@ export default function Messages() {
           throw new Error(t('File upload failed', 'Αποτυχία μεταφόρτωσης αρχείου'));
         }
 
-        const { data: urlData } = supabase.storage
-          .from('message-attachments')
-          .getPublicUrl(filePath);
-
-        attachmentUrl = urlData.publicUrl;
+        // Store the storage path (bucket is private; URLs are signed on demand)
+        attachmentUrl = filePath;
         attachmentName = replyFile.name;
         attachmentType = replyFile.type;
         setUploading(false);
@@ -346,6 +343,9 @@ export default function Messages() {
       toast.success(t('Reply sent successfully', 'Η απάντηση στάλθηκε'));
       setReplyText('');
       setReplyFile(null);
+      // Refresh signed URL for the newly uploaded admin attachment
+      const newAdminSigned = await resolveAttachmentUrl('message-attachments', attachmentUrl);
+      setAdminAttachmentUrl(newAdminSigned);
       setSelectedMessage(prev => prev ? {
         ...prev,
         status: 'replied',
