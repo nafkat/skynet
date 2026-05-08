@@ -140,7 +140,7 @@ export default function MessagesLayout() {
         </div>
       </aside>
 
-      <main className="flex-1 md:ml-72">
+      <main className="flex-1 md:ml-72 relative z-10">
         <div className="p-6 pt-16 md:pt-6">
           <Outlet />
         </div>
