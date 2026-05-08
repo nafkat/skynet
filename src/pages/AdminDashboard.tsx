@@ -292,14 +292,15 @@ export default function AdminDashboard() {
     const specialtyMap = new Map<string, LaborBySpecialty>();
     
     filteredEntries.forEach(entry => {
-      const specialty = specialties.find(s => s.id === entry.employees.specialty_id);
+      const entrySpecialtyId = entry.specialty_id ?? entry.employees.specialty_id;
+      const specialty = specialties.find(s => s.id === entrySpecialtyId);
       const specialtyName = specialty 
         ? (language === 'el' ? specialty.name_el : specialty.name_en)
         : 'Unknown';
       
-      const existing = specialtyMap.get(entry.employees.specialty_id) || {
+      const existing = specialtyMap.get(entrySpecialtyId) || {
         specialty: specialtyName,
-        specialtyId: entry.employees.specialty_id,
+        specialtyId: entrySpecialtyId,
         totalHours: 0,
         overtimeHours: 0,
         regularCost: 0,
@@ -318,7 +319,7 @@ export default function AdminDashboard() {
       existing.allInCost += regularHours * (entry.employees.regular_rate_all_in || 0);
       existing.otCost += overtimeHours * (entry.employees.overtime_hourly_rate || 0);
       
-      specialtyMap.set(entry.employees.specialty_id, existing);
+      specialtyMap.set(entrySpecialtyId, existing);
     });
 
     return Array.from(specialtyMap.values()).sort((a, b) => b.totalHours - a.totalHours);
