@@ -305,6 +305,7 @@ export default function RequestOfferCreate() {
       const searchLower = supplierSearch.toLowerCase();
       const matchesSearch = (
         s.name?.toLowerCase().includes(searchLower) ||
+        s.trade_name?.toLowerCase().includes(searchLower) ||
         s.email?.toLowerCase().includes(searchLower) ||
         s.contact_name?.toLowerCase().includes(searchLower) ||
         s.vat_number?.toLowerCase().includes(searchLower)
