@@ -199,7 +199,7 @@ export default function TimeEntry() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [hasElevatedRole, user]);
 
   const resetForm = () => {
     setFormMode('create');
