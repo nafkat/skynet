@@ -124,7 +124,7 @@ export default function TimeEntry() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
