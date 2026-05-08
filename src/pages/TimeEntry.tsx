@@ -313,6 +313,7 @@ export default function TimeEntry() {
     try {
       if (formMode === 'create') {
         // Create new entry
+        const selectedEmp = employees.find(e => e.id === selectedEmployee);
         const { error } = await supabase.from('time_entries').insert({
           employee_id: selectedEmployee,
           project_id: selectedProject,
@@ -320,6 +321,7 @@ export default function TimeEntry() {
           start_time: startTime,
           end_time: endTime,
           created_by: user?.id,
+          specialty_id: selectedEmp?.specialty_id || null,
         });
 
         if (error) {

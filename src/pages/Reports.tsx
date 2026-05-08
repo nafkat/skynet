@@ -131,7 +131,7 @@ export default function Reports() {
       let filteredEntries = entries || [];
       if (selectedSpecialty !== 'all') {
         filteredEntries = filteredEntries.filter(
-          (entry: any) => entry.employees?.specialty_id === selectedSpecialty
+          (entry: any) => (entry.specialty_id ?? entry.employees?.specialty_id) === selectedSpecialty
         );
       }
 

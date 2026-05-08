@@ -744,7 +744,7 @@ const [searchQuery, setSearchQuery] = useState('');
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>{t('employees.specialty')} *</Label>
-                      <Select value={specialtyId} onValueChange={setSpecialtyId} disabled={!!editingEmployee}>
+                      <Select value={specialtyId} onValueChange={setSpecialtyId}>
                         <SelectTrigger className="input-tablet">
                           <SelectValue placeholder={t('employees.specialty')} />
                         </SelectTrigger>
