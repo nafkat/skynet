@@ -2,6 +2,7 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { getDailyWallpaper } from '@/hooks/useWallpaper';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -55,8 +56,20 @@ export default function AnnouncementsLayout() {
 
   if (!hasElevatedRole) return null;
 
+  const wallpaperUrl = getDailyWallpaper();
+
   return (
-    <div className="flex min-h-screen bg-background">
+    <div
+      className="flex min-h-screen relative"
+      style={{
+        backgroundImage: `url(${wallpaperUrl})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
+      }}
+    >
+      {/* Dark overlay */}
+      <div className="absolute inset-0 bg-black/60 z-0" />
       <Button
         variant="ghost"
         size="icon"
@@ -71,7 +84,7 @@ export default function AnnouncementsLayout() {
       )}
 
       <aside className={cn(
-        'fixed left-0 top-0 z-40 h-screen w-72 bg-sidebar border-r border-sidebar-border flex flex-col',
+        'fixed left-0 top-0 z-40 h-screen w-72 bg-black/40 backdrop-blur-md border-r border-sidebar-border/50 flex flex-col',
         'transition-transform duration-300 ease-in-out',
         'md:translate-x-0',
         isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
@@ -138,7 +151,7 @@ export default function AnnouncementsLayout() {
         </div>
       </aside>
 
-      <main className="flex-1 md:ml-72">
+      <main className="flex-1 md:ml-72 relative z-10">
         <div className="p-6 pt-16 md:pt-6">
           <Outlet />
         </div>
