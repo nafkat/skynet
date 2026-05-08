@@ -218,7 +218,7 @@ serve(async (req: Request) => {
     // Fetch recipients
     const { data: recipients, error: recsError } = await supabase
       .from("request_offer_recipients")
-      .select(`*, supplier:suppliers(name, email)`)
+      .select(`*, supplier:suppliers(name, trade_name, email)`)
       .eq("request_offer_id", request_offer_id);
     if (recsError) throw new Error(`Failed to fetch recipients: ${recsError.message}`);
     if (!recipients || recipients.length === 0) throw new Error("No recipients found");
