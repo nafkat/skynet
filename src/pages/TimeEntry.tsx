@@ -34,7 +34,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
-import { format, subHours } from 'date-fns';
+import { format } from 'date-fns';
 import { formatDate } from '@/lib/dateUtils';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -397,31 +397,24 @@ export default function TimeEntry() {
     return `${hours}h ${mins}m`;
   };
 
-  // Check if entry can be directly edited (within 24h by creator or elevated role)
+  // Check if entry can be directly edited (same calendar day as entry_date, until 23:59)
   const canDirectEdit = (entry: TimeEntryData) => {
     if (!user) return false;
     if (hasElevatedRole) return true;
-    
     if (entry.created_by !== user.id) return false;
     
-    const createdAt = new Date(entry.created_at);
-    const now = new Date();
-    const hoursDiff = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
-    
-    return hoursDiff <= 24;
+    const todayAthens = getTodayAthens();
+    return entry.entry_date === todayAthens;
   };
 
-  // Check if user can request correction (their own entry, past 24h)
+  // Check if user can request correction (entry is from a previous day)
   const canRequestCorrection = (entry: TimeEntryData) => {
     if (!user) return false;
     if (hasElevatedRole) return false; // Admin/HR edit directly
     if (entry.created_by !== user.id) return false;
     
-    const createdAt = new Date(entry.created_at);
-    const now = new Date();
-    const hoursDiff = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
-    
-    return hoursDiff > 24;
+    const todayAthens = getTodayAthens();
+    return entry.entry_date !== todayAthens;
   };
 
   // Check if timekeeper can delete directly (same calendar day in Europe/Athens)
@@ -657,18 +650,52 @@ export default function TimeEntry() {
               <div className="space-y-2">
                 <Label className="text-sm font-medium">{t('timeEntry.startTime')}</Label>
                 <Input
-                  type="time"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="π.χ. 07:00"
+                  pattern="^([01]\d|2[0-3]):[0-5]\d$"
+                  maxLength={5}
                   value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
+                  onChange={(e) => {
+                    let val = e.target.value.replace(/[^0-9:]/g, '');
+                    if (val.length === 2 && !val.includes(':') && startTime.length < 2) {
+                      val = val + ':';
+                    }
+                    setStartTime(val);
+                  }}
+                  onBlur={(e) => {
+                    const val = e.target.value;
+                    const match = val.match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+                    if (match) {
+                      setStartTime(val.padStart(5, '0').replace(/^(\d):/, '0$1:'));
+                    }
+                  }}
                   className="input-tablet time-display"
                 />
               </div>
               <div className="space-y-2">
                 <Label className="text-sm font-medium">{t('timeEntry.endTime')}</Label>
                 <Input
-                  type="time"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="π.χ. 14:00"
+                  pattern="^([01]\d|2[0-3]):[0-5]\d$"
+                  maxLength={5}
                   value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
+                  onChange={(e) => {
+                    let val = e.target.value.replace(/[^0-9:]/g, '');
+                    if (val.length === 2 && !val.includes(':') && endTime.length < 2) {
+                      val = val + ':';
+                    }
+                    setEndTime(val);
+                  }}
+                  onBlur={(e) => {
+                    const val = e.target.value;
+                    const match = val.match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+                    if (match) {
+                      setEndTime(val.padStart(5, '0').replace(/^(\d):/, '0$1:'));
+                    }
+                  }}
                   className="input-tablet time-display"
                 />
               </div>
