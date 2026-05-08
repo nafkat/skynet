@@ -197,6 +197,20 @@ const [searchQuery, setSearchQuery] = useState('');
       setProjects(projectsRes.data || []);
       setEmployeeProjects(employeeProjectsRes.data || []);
       setAppUsers(usersWithNames);
+
+      // Build recorders-by-employee map for list display
+      const { data: allRecorders } = await supabase
+        .from('employee_recorders')
+        .select('employee_id, user_id');
+      if (allRecorders) {
+        const map: Record<string, string[]> = {};
+        allRecorders.forEach((r: any) => {
+          const u = usersWithNames.find(x => x.user_id === r.user_id);
+          if (!map[r.employee_id]) map[r.employee_id] = [];
+          map[r.employee_id].push(u?.full_name || r.user_id.slice(0, 8));
+        });
+        setRecordersByEmployee(map);
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
