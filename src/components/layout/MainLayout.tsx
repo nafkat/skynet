@@ -56,7 +56,18 @@ export function MainLayout({ children }: MainLayoutProps) {
   const wallpaperUrl = getDailyWallpaper();
 
   return (
-    <div className="min-h-screen bg-background">
+    <div
+      className="min-h-screen relative"
+      style={{
+        backgroundImage: `url(${wallpaperUrl})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
+      }}
+    >
+      {/* Dark overlay */}
+      <div className="absolute inset-0 bg-black/60 z-0" />
+
       {/* Hamburger button - mobile only */}
       <Button
         variant="ghost"
@@ -69,7 +80,7 @@ export function MainLayout({ children }: MainLayoutProps) {
 
       <Sidebar isOpen={isSidebarOpen} onClose={handleClose} />
 
-      <main className="md:ml-72 p-8 pt-16 md:pt-8">
+      <main className="md:ml-72 p-8 pt-16 md:pt-8 relative z-10">
         <div className="max-w-7xl mx-auto animate-fade-in">
           {children}
         </div>
