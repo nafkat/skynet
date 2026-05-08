@@ -560,12 +560,7 @@ const [searchQuery, setSearchQuery] = useState('');
     return language === 'el' ? specialty.name_el : specialty.name_en;
   };
 
-  const getRecorderName = (userId: string | null): string => {
-    if (!userId) return '-';
-    const user = appUsers.find(u => u.user_id === userId);
-    if (!user) return '-';
-    return user.full_name || user.user_id.slice(0, 8);
-  };
+  // (Recorder names now come from recordersByEmployee map)
 
   const checkCanDelete = async (employeeId: string): Promise<boolean> => {
     try {
