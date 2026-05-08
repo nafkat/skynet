@@ -288,7 +288,7 @@ export default function RequestOfferCreate() {
       setLoading(true);
       const { data, error } = await supabase
         .from('suppliers')
-        .select('id, name, supplier_type, country, vat_number, email, contact_name, is_preferred, category')
+        .select('id, name, trade_name, supplier_type, country, vat_number, email, contact_name, is_preferred, category')
         .order('name');
       if (error) throw error;
       setSuppliers(data || []);
