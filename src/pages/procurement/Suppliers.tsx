@@ -399,6 +399,16 @@ export default function Suppliers() {
             </div>
 
             <div className="space-y-2">
+              <Label>{language === 'el' ? 'Διακριτικός Τίτλος' : 'Trade Name'} *</Label>
+              <Input
+                value={formData.trade_name}
+                onChange={(e) => setFormData({ ...formData, trade_name: e.target.value })}
+                placeholder={language === 'el' ? 'Διακριτικός τίτλος...' : 'Trade name...'}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
               <Label>{language === 'el' ? 'Τύπος' : 'Type'} *</Label>
               <Select 
                 value={formData.supplier_type} 
