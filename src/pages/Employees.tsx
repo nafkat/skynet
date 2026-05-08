@@ -745,27 +745,49 @@ const [searchQuery, setSearchQuery] = useState('');
                     </div>
                   </div>
 
-                  {/* Assigned Recorder */}
+                  {/* Daily Recorders - multi-select */}
                   <div className="space-y-2">
-                    <Label>{t('employees.assignedRecorder')} *</Label>
-                    <Select value={assignedUserId} onValueChange={setAssignedUserId}>
-                      <SelectTrigger className="input-tablet">
-                        <SelectValue placeholder={t('employees.selectRecorder')} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {appUsers.length === 0 ? (
-                          <SelectItem value="" disabled>
-                            {t('employees.noRecordersAvailable')}
-                          </SelectItem>
-                        ) : (
-                          appUsers.map((user) => (
-                            <SelectItem key={user.user_id} value={user.user_id}>
-                              {user.full_name || user.user_id.slice(0, 8)} ({t(`role.${user.role}`)})
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
+                    <Label>
+                      {language === 'el' ? 'Υπεύθυνοι Καταγραφής' : 'Daily Recorders'} *
+                    </Label>
+                    <div className="border rounded-lg p-3 space-y-2 max-h-40 overflow-y-auto bg-background">
+                      {appUsers.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          {language === 'el' ? 'Δεν υπάρχουν διαθέσιμοι χρήστες' : 'No users available'}
+                        </p>
+                      ) : (
+                        appUsers.map((user) => (
+                          <label
+                            key={user.user_id}
+                            className="flex items-center gap-3 cursor-pointer hover:bg-muted/50 rounded p-1"
+                          >
+                            <input
+                              type="checkbox"
+                              className="w-4 h-4 rounded"
+                              checked={selectedRecorderIds.includes(user.user_id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedRecorderIds(prev => [...prev, user.user_id]);
+                                } else {
+                                  setSelectedRecorderIds(prev => prev.filter(id => id !== user.user_id));
+                                }
+                              }}
+                            />
+                            <span className="text-sm">
+                              {user.full_name || user.user_id.slice(0, 8)}
+                              <span className="text-muted-foreground ml-1">
+                                ({t(`role.${user.role}`)})
+                              </span>
+                            </span>
+                          </label>
+                        ))
+                      )}
+                    </div>
+                    {selectedRecorderIds.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {selectedRecorderIds.length} {language === 'el' ? 'επιλεγμένοι' : 'selected'}
+                      </p>
+                    )}
                   </div>
                 </div>
 
