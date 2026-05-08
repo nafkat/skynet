@@ -256,7 +256,9 @@ serve(async (req: Request) => {
       }
 
       const supplierName = recipient.supplier?.name || "Valued Partner";
-      const htmlBody = buildEmailHtml(requestOffer, project, company, lineItems || [], attachmentLinks, supplierName);
+      const tradeName = recipient.supplier?.trade_name;
+      const displayName = tradeName ? `${supplierName} (${tradeName})` : supplierName;
+      const htmlBody = buildEmailHtml(requestOffer, project, company, lineItems || [], attachmentLinks, displayName);
 
       try {
         console.log(`Sending email to: ${email}`);
