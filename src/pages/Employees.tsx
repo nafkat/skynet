@@ -153,7 +153,8 @@ const [searchQuery, setSearchQuery] = useState('');
   const [idNumber, setIdNumber] = useState('');
   const [iban, setIban] = useState('');
   const [bankName, setBankName] = useState('');
-  const [assignedUserId, setAssignedUserId] = useState('');
+  const [selectedRecorderIds, setSelectedRecorderIds] = useState<string[]>([]);
+  const [recordersByEmployee, setRecordersByEmployee] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
     fetchData();
@@ -196,6 +197,20 @@ const [searchQuery, setSearchQuery] = useState('');
       setProjects(projectsRes.data || []);
       setEmployeeProjects(employeeProjectsRes.data || []);
       setAppUsers(usersWithNames);
+
+      // Build recorders-by-employee map for list display
+      const { data: allRecorders } = await supabase
+        .from('employee_recorders')
+        .select('employee_id, user_id');
+      if (allRecorders) {
+        const map: Record<string, string[]> = {};
+        allRecorders.forEach((r: any) => {
+          const u = usersWithNames.find(x => x.user_id === r.user_id);
+          if (!map[r.employee_id]) map[r.employee_id] = [];
+          map[r.employee_id].push(u?.full_name || r.user_id.slice(0, 8));
+        });
+        setRecordersByEmployee(map);
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -306,12 +321,12 @@ const [searchQuery, setSearchQuery] = useState('');
     setIdNumber('');
     setIban('');
     setBankName('');
-    setAssignedUserId('');
+    setSelectedRecorderIds([]);
     setEditingEmployee(null);
     setPayrollSectionOpen(false);
   };
 
-  const openEditDialog = (employee: Employee) => {
+  const openEditDialog = async (employee: Employee) => {
     setEditingEmployee(employee);
     setFirstName(employee.first_name);
     setLastName(employee.last_name);
@@ -330,8 +345,14 @@ const [searchQuery, setSearchQuery] = useState('');
     setIdNumber(employee.id_number || '');
     setIban(employee.iban || '');
     setBankName(employee.bank_name || '');
-    setAssignedUserId(employee.assigned_user_id || '');
-    
+
+    // Fetch current recorders for this employee
+    const { data: recorderData } = await supabase
+      .from('employee_recorders')
+      .select('user_id')
+      .eq('employee_id', employee.id);
+    setSelectedRecorderIds(recorderData?.map(r => r.user_id) || []);
+
     // Load allowed projects for this employee
     const empProjects = employeeProjects
       .filter(ep => ep.employee_id === employee.id)
@@ -362,7 +383,6 @@ const [searchQuery, setSearchQuery] = useState('');
       phone: phone || null,
       hire_date: formatDateToISO(hireDate) || null,
       notes: notes || null,
-      assigned_user_id: assignedUserId,
     };
 
     if (hasElevatedRole) {
@@ -419,6 +439,23 @@ const [searchQuery, setSearchQuery] = useState('');
         }
       }
 
+      // Save recorder assignments
+      if (employeeId) {
+        await supabase
+          .from('employee_recorders')
+          .delete()
+          .eq('employee_id', employeeId);
+
+        if (selectedRecorderIds.length > 0) {
+          await supabase.from('employee_recorders').insert(
+            selectedRecorderIds.map(userId => ({
+              employee_id: employeeId,
+              user_id: userId,
+            }))
+          );
+        }
+      }
+
       setIsDialogOpen(false);
       resetForm();
       fetchData();
@@ -456,8 +493,8 @@ const [searchQuery, setSearchQuery] = useState('');
       return;
     }
 
-    if (!assignedUserId) {
-      toast.error(t('employees.recorderRequired'));
+    if (selectedRecorderIds.length === 0) {
+      toast.error(language === 'el' ? 'Επιλέξτε τουλάχιστον έναν υπεύθυνο καταγραφής' : 'Select at least one daily recorder');
       return;
     }
 
@@ -523,12 +560,7 @@ const [searchQuery, setSearchQuery] = useState('');
     return language === 'el' ? specialty.name_el : specialty.name_en;
   };
 
-  const getRecorderName = (userId: string | null): string => {
-    if (!userId) return '-';
-    const user = appUsers.find(u => u.user_id === userId);
-    if (!user) return '-';
-    return user.full_name || user.user_id.slice(0, 8);
-  };
+  // (Recorder names now come from recordersByEmployee map)
 
   const checkCanDelete = async (employeeId: string): Promise<boolean> => {
     try {
@@ -739,27 +771,49 @@ const [searchQuery, setSearchQuery] = useState('');
                     </div>
                   </div>
 
-                  {/* Assigned Recorder */}
+                  {/* Daily Recorders - multi-select */}
                   <div className="space-y-2">
-                    <Label>{t('employees.assignedRecorder')} *</Label>
-                    <Select value={assignedUserId} onValueChange={setAssignedUserId}>
-                      <SelectTrigger className="input-tablet">
-                        <SelectValue placeholder={t('employees.selectRecorder')} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {appUsers.length === 0 ? (
-                          <SelectItem value="" disabled>
-                            {t('employees.noRecordersAvailable')}
-                          </SelectItem>
-                        ) : (
-                          appUsers.map((user) => (
-                            <SelectItem key={user.user_id} value={user.user_id}>
-                              {user.full_name || user.user_id.slice(0, 8)} ({t(`role.${user.role}`)})
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
+                    <Label>
+                      {language === 'el' ? 'Υπεύθυνοι Καταγραφής' : 'Daily Recorders'} *
+                    </Label>
+                    <div className="border rounded-lg p-3 space-y-2 max-h-40 overflow-y-auto bg-background">
+                      {appUsers.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          {language === 'el' ? 'Δεν υπάρχουν διαθέσιμοι χρήστες' : 'No users available'}
+                        </p>
+                      ) : (
+                        appUsers.map((user) => (
+                          <label
+                            key={user.user_id}
+                            className="flex items-center gap-3 cursor-pointer hover:bg-muted/50 rounded p-1"
+                          >
+                            <input
+                              type="checkbox"
+                              className="w-4 h-4 rounded"
+                              checked={selectedRecorderIds.includes(user.user_id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedRecorderIds(prev => [...prev, user.user_id]);
+                                } else {
+                                  setSelectedRecorderIds(prev => prev.filter(id => id !== user.user_id));
+                                }
+                              }}
+                            />
+                            <span className="text-sm">
+                              {user.full_name || user.user_id.slice(0, 8)}
+                              <span className="text-muted-foreground ml-1">
+                                ({t(`role.${user.role}`)})
+                              </span>
+                            </span>
+                          </label>
+                        ))
+                      )}
+                    </div>
+                    {selectedRecorderIds.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {selectedRecorderIds.length} {language === 'el' ? 'επιλεγμένοι' : 'selected'}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -1076,7 +1130,7 @@ const [searchQuery, setSearchQuery] = useState('');
                   <td className="table-cell font-mono text-sm">
                     {employee.regular_start_time.slice(0, 5)} - {employee.regular_end_time.slice(0, 5)}
                   </td>
-                  <td className="table-cell text-sm">{getRecorderName(employee.assigned_user_id)}</td>
+                  <td className="table-cell text-sm">{(recordersByEmployee[employee.id] || []).join(', ') || '-'}</td>
                   <td className="table-cell">
                     <button
                       onClick={() => handleQuickStatusToggle(employee)}

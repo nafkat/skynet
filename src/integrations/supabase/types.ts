@@ -570,6 +570,39 @@ export type Database = {
           },
         ]
       }
+      employee_recorders: {
+        Row: {
+          created_at: string
+          employee_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          employee_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          employee_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_recorders_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_recorders_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees_limited"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employees: {
         Row: {
           afm: string | null
