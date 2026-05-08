@@ -132,11 +132,40 @@ export default function TimeEntry() {
       // For Timekeeper: use limited view that doesn't expose sensitive data
       // RLS policies already filter what they can see
       // Include pay rates only for elevated roles to check validity
-      const { data: employeesData } = await supabase
+      let employeesQuery = supabase
         .from('employees')
         .select('id, employee_code, first_name, last_name, specialty_id, regular_hourly_rate, regular_rate_all_in, overtime_hourly_rate')
         .eq('status', 'active')
         .order('last_name');
+
+      // For timekeepers: only show employees they are assigned to record
+      if (!hasElevatedRole && user) {
+        const { data: assignedEmployees } = await supabase
+          .from('employee_recorders')
+          .select('employee_id')
+          .eq('user_id', user.id);
+
+        const assignedIds = assignedEmployees?.map(r => r.employee_id) || [];
+
+        if (assignedIds.length > 0) {
+          employeesQuery = employeesQuery.in('id', assignedIds);
+        } else {
+          // No assignments → show nothing
+          setEmployees([]);
+          const { data: projectsDataEmpty } = await supabase
+            .from('projects')
+            .select('id, project_code, project_name')
+            .eq('status', 'OPEN')
+            .order('project_code');
+          setProjects(projectsDataEmpty || []);
+          setRecentEntries([]);
+          setLastRefresh(new Date());
+          setLoading(false);
+          return;
+        }
+      }
+
+      const { data: employeesData } = await employeesQuery;
 
       // Projects - only OPEN projects
       const { data: projectsData } = await supabase
