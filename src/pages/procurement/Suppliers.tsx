@@ -51,6 +51,7 @@ export default function Suppliers() {
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [formData, setFormData] = useState({
     name: '',
+    trade_name: '',
     supplier_type: 'supplier' as 'supplier' | 'subcontractor' | 'both',
     contact_name: '',
     email: '',
