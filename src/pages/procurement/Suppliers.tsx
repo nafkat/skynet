@@ -325,7 +325,12 @@ export default function Suppliers() {
                         />
                       </button>
                     </TableCell>
-                    <TableCell className="font-medium">{supplier.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <div>{supplier.name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {language === 'el' ? 'Διακριτικός: ' : 'Trade name: '}{supplier.trade_name}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <Badge variant="outline">{getTypeLabel(supplier.supplier_type)}</Badge>
                     </TableCell>
