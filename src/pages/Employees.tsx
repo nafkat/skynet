@@ -153,7 +153,8 @@ const [searchQuery, setSearchQuery] = useState('');
   const [idNumber, setIdNumber] = useState('');
   const [iban, setIban] = useState('');
   const [bankName, setBankName] = useState('');
-  const [assignedUserId, setAssignedUserId] = useState('');
+  const [selectedRecorderIds, setSelectedRecorderIds] = useState<string[]>([]);
+  const [recordersByEmployee, setRecordersByEmployee] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
     fetchData();
