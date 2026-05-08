@@ -122,10 +122,6 @@ export default function TimeEntry() {
   const [startTime, setStartTime] = useState('07:00');
   const [endTime, setEndTime] = useState('14:00');
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
