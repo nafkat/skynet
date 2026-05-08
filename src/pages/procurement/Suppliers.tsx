@@ -87,6 +87,7 @@ export default function Suppliers() {
     setEditingSupplier(null);
     setFormData({
       name: '',
+      trade_name: '',
       supplier_type: 'supplier',
       contact_name: '',
       email: '',
