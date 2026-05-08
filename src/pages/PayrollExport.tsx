@@ -262,16 +262,16 @@ export default function PayrollExport() {
           'First Name': row.first_name,
           'Last Name': row.last_name,
           'Specialty': row.specialty,
-          'AFM': row.afm,
-          'IBAN': row.iban,
-          'Bank Name': row.bank_name,
           'Regular Hours': row.regular_hours,
           'Overtime Hours': row.overtime_hours,
           'Regular Rate (€/hr)': row.regular_hourly_rate,
           'Overtime Rate (€/hr)': row.overtime_hourly_rate,
-          'Regular Amount (€)': row.regular_amount,
-          'Overtime Amount (€)': row.overtime_amount,
-          'Total Amount (€)': row.total_amount,
+          'Regular Cost (€)': row.regular_amount,
+          'Overtime Cost (€)': row.overtime_amount,
+          'Total (Regular + OT) (€)': row.total_amount,
+          'AFM': row.afm,
+          'IBAN': row.iban,
+          'Bank Name': row.bank_name,
         };
 
         // Add project columns if filtered
@@ -287,9 +287,9 @@ export default function PayrollExport() {
       const headers = [
         'Employee Code', 'First Name', 'Last Name', 'Specialty',
         'Regular Hours', 'Overtime Hours',
-        'Regular Rate (€/hr)', 'Regular All-In (€/hr)', 'Overtime Rate (€/hr)',
-        'Regular Cost (€)', 'Regular All-In Cost (€)', 'Overtime Cost (€)',
-        'Total (Regular + OT) (€)', 'Total (All-In + OT) (€)',
+        'Regular Rate (€/hr)', 'Overtime Rate (€/hr)',
+        'Regular Cost (€)', 'Overtime Cost (€)',
+        'Total (Regular + OT) (€)',
         'AFM', 'IBAN', 'Bank Name',
       ];
       if (selectedProjectDetails) {
@@ -319,8 +319,6 @@ export default function PayrollExport() {
         if (h === 'Regular Cost (€)') return totalRegularAmt;
         if (h === 'Overtime Cost (€)') return totalOvertimeAmt;
         if (h === 'Total (Regular + OT) (€)') return grandTotal;
-        if (h === 'Regular All-In Cost (€)') return totalAllInAmt;
-        if (h === 'Total (All-In + OT) (€)') return grandTotalAllIn;
         return '';
       });
 
@@ -335,17 +333,17 @@ export default function PayrollExport() {
         { wch: 14 }, // Employee Code
         { wch: 14 }, // First Name
         { wch: 16 }, // Last Name
-        { wch: 18 }, // Specialty
-        { wch: 12 }, // AFM
-        { wch: 28 }, // IBAN
-        { wch: 16 }, // Bank Name
+        { wch: 20 }, // Specialty
         { wch: 14 }, // Regular Hours
         { wch: 14 }, // Overtime Hours
         { wch: 18 }, // Regular Rate
         { wch: 18 }, // Overtime Rate
-        { wch: 16 }, // Regular Amount
-        { wch: 16 }, // Overtime Amount
-        { wch: 16 }, // Total Amount
+        { wch: 16 }, // Regular Cost
+        { wch: 16 }, // Overtime Cost
+        { wch: 20 }, // Total (Regular + OT)
+        { wch: 14 }, // AFM
+        { wch: 28 }, // IBAN
+        { wch: 16 }, // Bank Name
       ];
 
       // Add project columns if filtered
