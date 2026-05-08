@@ -28,6 +28,7 @@ import {
 interface Supplier {
   id: string;
   name: string;
+  trade_name: string;
   supplier_type: string;
   country: string;
   vat_number: string;
@@ -287,7 +288,7 @@ export default function RequestOfferCreate() {
       setLoading(true);
       const { data, error } = await supabase
         .from('suppliers')
-        .select('id, name, supplier_type, country, vat_number, email, contact_name, is_preferred, category')
+        .select('id, name, trade_name, supplier_type, country, vat_number, email, contact_name, is_preferred, category')
         .order('name');
       if (error) throw error;
       setSuppliers(data || []);
@@ -304,6 +305,7 @@ export default function RequestOfferCreate() {
       const searchLower = supplierSearch.toLowerCase();
       const matchesSearch = (
         s.name?.toLowerCase().includes(searchLower) ||
+        s.trade_name?.toLowerCase().includes(searchLower) ||
         s.email?.toLowerCase().includes(searchLower) ||
         s.contact_name?.toLowerCase().includes(searchLower) ||
         s.vat_number?.toLowerCase().includes(searchLower)
@@ -1056,6 +1058,7 @@ export default function RequestOfferCreate() {
                             <span className="font-medium truncate">{supplier.name}</span>
                             {supplier.is_preferred && <Star className="h-3 w-3 text-yellow-500 fill-yellow-500 flex-shrink-0" />}
                           </div>
+                          {supplier.trade_name && <p className="text-xs text-muted-foreground truncate">{supplier.trade_name}</p>}
                           <div className="text-xs text-muted-foreground mt-1">
                             <Badge variant="outline" className="text-xs mr-1">{getSupplierTypeLabel(supplier.supplier_type)}</Badge>
                             {supplier.country && supplier.vat_number && <span>{supplier.country} - {supplier.vat_number}</span>}
@@ -1168,7 +1171,10 @@ export default function RequestOfferCreate() {
                   const s = suppliers.find(sup => sup.id === id);
                   return s ? (
                     <div key={id} className="text-sm flex justify-between bg-muted p-2 rounded">
-                      <span>{s.name}</span>
+                      <span>
+                        {s.name}
+                        {s.trade_name && <span className="text-muted-foreground"> — {s.trade_name}</span>}
+                      </span>
                       <span className="text-muted-foreground">{s.email || t('No email', 'Χωρίς email')}</span>
                     </div>
                   ) : null;

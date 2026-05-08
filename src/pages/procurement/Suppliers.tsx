@@ -26,6 +26,7 @@ import {
 interface Supplier {
   id: string;
   name: string;
+  trade_name: string;
   supplier_type: string;
   contact_name: string | null;
   email: string | null;
@@ -50,6 +51,7 @@ export default function Suppliers() {
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [formData, setFormData] = useState({
     name: '',
+    trade_name: '',
     supplier_type: 'supplier' as 'supplier' | 'subcontractor' | 'both',
     contact_name: '',
     email: '',
@@ -85,6 +87,7 @@ export default function Suppliers() {
     setEditingSupplier(null);
     setFormData({
       name: '',
+      trade_name: '',
       supplier_type: 'supplier',
       contact_name: '',
       email: '',
@@ -100,6 +103,7 @@ export default function Suppliers() {
     setEditingSupplier(supplier);
     setFormData({
       name: supplier.name,
+      trade_name: supplier.trade_name || '',
       supplier_type: supplier.supplier_type as 'supplier' | 'subcontractor' | 'both',
       contact_name: supplier.contact_name || '',
       email: supplier.email || '',
@@ -116,6 +120,10 @@ export default function Suppliers() {
       toast.error(language === 'el' ? 'Το όνομα είναι υποχρεωτικό' : 'Name is required');
       return;
     }
+    if (!formData.trade_name.trim()) {
+      toast.error(language === 'el' ? 'Ο διακριτικός τίτλος είναι υποχρεωτικός' : 'Trade name is required');
+      return;
+    }
     if (!formData.country.trim()) {
       toast.error(language === 'el' ? 'Η χώρα είναι υποχρεωτική' : 'Country is required');
       return;
@@ -130,6 +138,7 @@ export default function Suppliers() {
 
       const supplierData = {
         name: formData.name,
+        trade_name: formData.trade_name,
         supplier_type: formData.supplier_type,
         contact_name: formData.contact_name || null,
         email: formData.email || null,
@@ -316,7 +325,12 @@ export default function Suppliers() {
                         />
                       </button>
                     </TableCell>
-                    <TableCell className="font-medium">{supplier.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <div>{supplier.name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {language === 'el' ? 'Διακριτικός: ' : 'Trade name: '}{supplier.trade_name}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <Badge variant="outline">{getTypeLabel(supplier.supplier_type)}</Badge>
                     </TableCell>
@@ -386,6 +400,16 @@ export default function Suppliers() {
               <Input
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>{language === 'el' ? 'Διακριτικός Τίτλος' : 'Trade Name'} *</Label>
+              <Input
+                value={formData.trade_name}
+                onChange={(e) => setFormData({ ...formData, trade_name: e.target.value })}
+                placeholder={language === 'el' ? 'Διακριτικός τίτλος...' : 'Trade name...'}
+                required
               />
             </div>
 
