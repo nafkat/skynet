@@ -312,7 +312,7 @@ const [searchQuery, setSearchQuery] = useState('');
     setPayrollSectionOpen(false);
   };
 
-  const openEditDialog = (employee: Employee) => {
+  const openEditDialog = async (employee: Employee) => {
     setEditingEmployee(employee);
     setFirstName(employee.first_name);
     setLastName(employee.last_name);
@@ -331,8 +331,14 @@ const [searchQuery, setSearchQuery] = useState('');
     setIdNumber(employee.id_number || '');
     setIban(employee.iban || '');
     setBankName(employee.bank_name || '');
-    setAssignedUserId(employee.assigned_user_id || '');
-    
+
+    // Fetch current recorders for this employee
+    const { data: recorderData } = await supabase
+      .from('employee_recorders')
+      .select('user_id')
+      .eq('employee_id', employee.id);
+    setSelectedRecorderIds(recorderData?.map(r => r.user_id) || []);
+
     // Load allowed projects for this employee
     const empProjects = employeeProjects
       .filter(ep => ep.employee_id === employee.id)
