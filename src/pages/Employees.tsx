@@ -1130,7 +1130,7 @@ const [searchQuery, setSearchQuery] = useState('');
                   <td className="table-cell font-mono text-sm">
                     {employee.regular_start_time.slice(0, 5)} - {employee.regular_end_time.slice(0, 5)}
                   </td>
-                  <td className="table-cell text-sm">{getRecorderName(employee.assigned_user_id)}</td>
+                  <td className="table-cell text-sm">{(recordersByEmployee[employee.id] || []).join(', ') || '-'}</td>
                   <td className="table-cell">
                     <button
                       onClick={() => handleQuickStatusToggle(employee)}
