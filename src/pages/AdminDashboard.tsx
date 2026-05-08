@@ -778,6 +778,9 @@ export default function AdminDashboard() {
                         {language === 'el' ? 'Υπερωρίες' : 'Overtime'}
                       </th>
                       <th className="text-right py-3 px-2 text-sm font-medium text-muted-foreground">
+                        {language === 'el' ? 'Σύνολο (Κανονικά)' : 'Total (Regular)'}
+                      </th>
+                      <th className="text-right py-3 px-2 text-sm font-medium text-muted-foreground">
                         {t('reports.totalRegularPlusOT')}
                       </th>
                       <th className="text-right py-3 px-2 text-sm font-medium text-muted-foreground">
@@ -794,6 +797,7 @@ export default function AdminDashboard() {
                         <td className="py-3 px-2">{item.specialty}</td>
                         <td className="py-3 px-2 text-right tabular-nums">{formatHours(item.totalHours)}</td>
                         <td className="py-3 px-2 text-right tabular-nums">{formatHours(item.overtimeHours)}</td>
+                        <td className="py-3 px-2 text-right tabular-nums">{formatCurrency(item.regularCost)}</td>
                         <td className="py-3 px-2 text-right tabular-nums">{formatCurrency(item.regularCost + item.otCost)}</td>
                         <td className="py-3 px-2 text-right tabular-nums text-primary font-medium">{formatCurrency(item.allInCost + item.otCost)}</td>
                         <td className="py-3 px-2 text-right tabular-nums">{formatCurrency(item.otCost)}</td>
