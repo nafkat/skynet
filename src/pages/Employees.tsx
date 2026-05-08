@@ -825,21 +825,55 @@ const [searchQuery, setSearchQuery] = useState('');
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>{t('employees.startTime')} *</Label>
-                      <Input
-                        type="time"
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="π.χ. 07:00"
+                        pattern="^([01]\d|2[0-3]):[0-5]\d$"
+                        maxLength={5}
                         value={regularStart}
-                        onChange={(e) => setRegularStart(e.target.value)}
-                        className="input-tablet"
+                        className="input-tablet flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        onChange={(e) => {
+                          let val = e.target.value.replace(/[^0-9:]/g, '');
+                          if (val.length === 2 && !val.includes(':') && regularStart.length < 2) {
+                            val = val + ':';
+                          }
+                          setRegularStart(val);
+                        }}
+                        onBlur={(e) => {
+                          const val = e.target.value;
+                          const match = val.match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+                          if (match) {
+                            setRegularStart(val.padStart(5, '0').replace(/^(\d):/, '0$1:'));
+                          }
+                        }}
                         required
                       />
                     </div>
                     <div className="space-y-2">
                       <Label>{t('employees.endTime')} *</Label>
-                      <Input
-                        type="time"
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="π.χ. 14:00"
+                        pattern="^([01]\d|2[0-3]):[0-5]\d$"
+                        maxLength={5}
                         value={regularEnd}
-                        onChange={(e) => setRegularEnd(e.target.value)}
-                        className="input-tablet"
+                        className="input-tablet flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        onChange={(e) => {
+                          let val = e.target.value.replace(/[^0-9:]/g, '');
+                          if (val.length === 2 && !val.includes(':') && regularEnd.length < 2) {
+                            val = val + ':';
+                          }
+                          setRegularEnd(val);
+                        }}
+                        onBlur={(e) => {
+                          const val = e.target.value;
+                          const match = val.match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+                          if (match) {
+                            setRegularEnd(val.padStart(5, '0').replace(/^(\d):/, '0$1:'));
+                          }
+                        }}
                         required
                       />
                     </div>
