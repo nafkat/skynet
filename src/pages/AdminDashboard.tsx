@@ -235,6 +235,7 @@ export default function AdminDashboard() {
     return {
       regularHours: totalRegularMinutes / 60,
       overtimeHours: totalOvertimeMinutes / 60,
+      totalRegular: regularCost,
       totalRegularPlusOT: regularCost + otCost,
       totalAllInPlusOT: allInCost + otCost,
       totalOT: otCost,
@@ -546,7 +547,7 @@ export default function AdminDashboard() {
         </Card>
 
         {/* KPI Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4">
           <Card className="card-elevated">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -571,6 +572,20 @@ export default function AdminDashboard() {
             <CardContent>
               <div className="text-2xl font-bold">
                 {loading ? '-' : formatHours(kpis.overtimeHours)}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="card-elevated">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                {language === 'el' ? 'Σύνολο (Κανονικά)' : 'Total (Regular)'}
+              </CardTitle>
+              <DollarSign className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {loading ? '-' : formatCurrency(kpis.totalRegular)}
               </div>
             </CardContent>
           </Card>
@@ -694,6 +709,9 @@ export default function AdminDashboard() {
                         {language === 'el' ? 'Υπερωρίες' : 'Overtime'}
                       </th>
                       <th className="text-right py-3 px-2 text-sm font-medium text-muted-foreground">
+                        {language === 'el' ? 'Σύνολο (Κανονικά)' : 'Total (Regular)'}
+                      </th>
+                      <th className="text-right py-3 px-2 text-sm font-medium text-muted-foreground">
                         {t('reports.totalRegularPlusOT')}
                       </th>
                       <th className="text-right py-3 px-2 text-sm font-medium text-muted-foreground">
@@ -714,6 +732,7 @@ export default function AdminDashboard() {
                         <td className="py-3 px-2">{item.projectName}</td>
                         <td className="py-3 px-2 text-right tabular-nums">{formatHours(item.totalHours)}</td>
                         <td className="py-3 px-2 text-right tabular-nums">{formatHours(item.overtimeHours)}</td>
+                        <td className="py-3 px-2 text-right tabular-nums">{formatCurrency(item.regularCost)}</td>
                         <td className="py-3 px-2 text-right tabular-nums">{formatCurrency(item.regularCost + item.otCost)}</td>
                         <td className="py-3 px-2 text-right tabular-nums text-primary font-medium">{formatCurrency(item.allInCost + item.otCost)}</td>
                         <td className="py-3 px-2 text-right tabular-nums">{formatCurrency(item.otCost)}</td>
@@ -759,6 +778,9 @@ export default function AdminDashboard() {
                         {language === 'el' ? 'Υπερωρίες' : 'Overtime'}
                       </th>
                       <th className="text-right py-3 px-2 text-sm font-medium text-muted-foreground">
+                        {language === 'el' ? 'Σύνολο (Κανονικά)' : 'Total (Regular)'}
+                      </th>
+                      <th className="text-right py-3 px-2 text-sm font-medium text-muted-foreground">
                         {t('reports.totalRegularPlusOT')}
                       </th>
                       <th className="text-right py-3 px-2 text-sm font-medium text-muted-foreground">
@@ -775,6 +797,7 @@ export default function AdminDashboard() {
                         <td className="py-3 px-2">{item.specialty}</td>
                         <td className="py-3 px-2 text-right tabular-nums">{formatHours(item.totalHours)}</td>
                         <td className="py-3 px-2 text-right tabular-nums">{formatHours(item.overtimeHours)}</td>
+                        <td className="py-3 px-2 text-right tabular-nums">{formatCurrency(item.regularCost)}</td>
                         <td className="py-3 px-2 text-right tabular-nums">{formatCurrency(item.regularCost + item.otCost)}</td>
                         <td className="py-3 px-2 text-right tabular-nums text-primary font-medium">{formatCurrency(item.allInCost + item.otCost)}</td>
                         <td className="py-3 px-2 text-right tabular-nums">{formatCurrency(item.otCost)}</td>
