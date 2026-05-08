@@ -1058,7 +1058,7 @@ export default function RequestOfferCreate() {
                             <span className="font-medium truncate">{supplier.name}</span>
                             {supplier.is_preferred && <Star className="h-3 w-3 text-yellow-500 fill-yellow-500 flex-shrink-0" />}
                           </div>
-                          {supplier.trade_name && <p className="text-xs text-muted-foreground truncate">{supplier.trade_name}</p>
+                          {supplier.trade_name && <p className="text-xs text-muted-foreground truncate">{supplier.trade_name}</p>}
                           <div className="text-xs text-muted-foreground mt-1">
                             <Badge variant="outline" className="text-xs mr-1">{getSupplierTypeLabel(supplier.supplier_type)}</Badge>
                             {supplier.country && supplier.vat_number && <span>{supplier.country} - {supplier.vat_number}</span>}
