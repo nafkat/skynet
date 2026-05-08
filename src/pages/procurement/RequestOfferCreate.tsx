@@ -1171,7 +1171,10 @@ export default function RequestOfferCreate() {
                   const s = suppliers.find(sup => sup.id === id);
                   return s ? (
                     <div key={id} className="text-sm flex justify-between bg-muted p-2 rounded">
-                      <span>{s.name}</span>
+                      <span>
+                        {s.name}
+                        {s.trade_name && <span className="text-muted-foreground"> — {s.trade_name}</span>}
+                      </span>
                       <span className="text-muted-foreground">{s.email || t('No email', 'Χωρίς email')}</span>
                     </div>
                   ) : null;
