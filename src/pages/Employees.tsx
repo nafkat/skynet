@@ -423,6 +423,7 @@ const [searchQuery, setSearchQuery] = useState('');
             .from('employee_allowed_projects')
             .insert(projectAssignments);
         }
+      }
 
       // Save recorder assignments
       if (employeeId) {
