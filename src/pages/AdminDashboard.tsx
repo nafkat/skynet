@@ -36,6 +36,7 @@ interface TimeEntry {
   duration_minutes: number;
   employee_id: string;
   project_id: string;
+  specialty_id: string | null;
   employees: {
     id: string;
     first_name: string;
