@@ -1295,6 +1295,7 @@ export type Database = {
           overtime_minutes: number
           project_id: string
           regular_minutes: number
+          specialty_id: string | null
           start_time: string
           updated_at: string
         }
@@ -1313,6 +1314,7 @@ export type Database = {
           overtime_minutes?: number
           project_id: string
           regular_minutes?: number
+          specialty_id?: string | null
           start_time: string
           updated_at?: string
         }
@@ -1331,6 +1333,7 @@ export type Database = {
           overtime_minutes?: number
           project_id?: string
           regular_minutes?: number
+          specialty_id?: string | null
           start_time?: string
           updated_at?: string
         }
@@ -1354,6 +1357,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_entries_specialty_id_fkey"
+            columns: ["specialty_id"]
+            isOneToOne: false
+            referencedRelation: "specialties"
             referencedColumns: ["id"]
           },
         ]
