@@ -26,6 +26,7 @@ import {
 interface Supplier {
   id: string;
   name: string;
+  trade_name: string;
   supplier_type: string;
   contact_name: string | null;
   email: string | null;
