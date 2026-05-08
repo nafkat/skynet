@@ -109,6 +109,7 @@ export const translations: Translations = {
   'employees.lastName': { en: 'Last Name', el: 'Επώνυμο' },
   'employees.specialty': { en: 'Specialty', el: 'Ειδικότητα' },
   'employees.regularRate': { en: 'Regular Rate (€/hr)', el: 'Κανονική Αμοιβή (€/ώρα)' },
+  'employees.regularRateAllIn': { en: 'All-in Rate (€/hr)', el: 'Αμοιβή All-in (€/ώρα)' },
   'employees.overtimeRate': { en: 'Overtime Rate (€/hr)', el: 'Αμοιβή Υπερωρίας (€/ώρα)' },
   'employees.workSchedule': { en: 'Work Schedule', el: 'Ωράριο Εργασίας' },
   'employees.coreInfo': { en: 'Employee Information', el: 'Στοιχεία Εργαζομένου' },
