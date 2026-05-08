@@ -1211,6 +1211,7 @@ export type Database = {
           notes: string | null
           phone: string | null
           supplier_type: string | null
+          trade_name: string
           vat_number: string
         }
         Insert: {
@@ -1225,6 +1226,7 @@ export type Database = {
           notes?: string | null
           phone?: string | null
           supplier_type?: string | null
+          trade_name: string
           vat_number?: string
         }
         Update: {
@@ -1239,6 +1241,7 @@ export type Database = {
           notes?: string | null
           phone?: string | null
           supplier_type?: string | null
+          trade_name?: string
           vat_number?: string
         }
         Relationships: []
