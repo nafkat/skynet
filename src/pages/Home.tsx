@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import GlobalSearchBar from '@/components/GlobalSearchBar';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { getDailyWallpaper } from '@/hooks/useWallpaper';
 import { 
   Clock, 
   Megaphone, 
