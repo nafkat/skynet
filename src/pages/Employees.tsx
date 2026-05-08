@@ -423,6 +423,22 @@ const [searchQuery, setSearchQuery] = useState('');
             .from('employee_allowed_projects')
             .insert(projectAssignments);
         }
+
+      // Save recorder assignments
+      if (employeeId) {
+        await supabase
+          .from('employee_recorders')
+          .delete()
+          .eq('employee_id', employeeId);
+
+        if (selectedRecorderIds.length > 0) {
+          await supabase.from('employee_recorders').insert(
+            selectedRecorderIds.map(userId => ({
+              employee_id: employeeId,
+              user_id: userId,
+            }))
+          );
+        }
       }
 
       setIsDialogOpen(false);
