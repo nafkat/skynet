@@ -206,7 +206,8 @@ export default function AdminDashboard() {
       if (selectedProject !== 'all' && entry.project_id !== selectedProject) {
         return false;
       }
-      if (selectedSpecialty !== 'all' && entry.employees.specialty_id !== selectedSpecialty) {
+      const entrySpecialtyId = entry.specialty_id ?? entry.employees.specialty_id;
+      if (selectedSpecialty !== 'all' && entrySpecialtyId !== selectedSpecialty) {
         return false;
       }
       return true;
