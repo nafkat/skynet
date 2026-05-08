@@ -120,6 +120,10 @@ export default function Suppliers() {
       toast.error(language === 'el' ? 'Το όνομα είναι υποχρεωτικό' : 'Name is required');
       return;
     }
+    if (!formData.trade_name.trim()) {
+      toast.error(language === 'el' ? 'Ο διακριτικός τίτλος είναι υποχρεωτικός' : 'Trade name is required');
+      return;
+    }
     if (!formData.country.trim()) {
       toast.error(language === 'el' ? 'Η χώρα είναι υποχρεωτική' : 'Country is required');
       return;
@@ -134,6 +138,7 @@ export default function Suppliers() {
 
       const supplierData = {
         name: formData.name,
+        trade_name: formData.trade_name,
         supplier_type: formData.supplier_type,
         contact_name: formData.contact_name || null,
         email: formData.email || null,
