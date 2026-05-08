@@ -56,8 +56,20 @@ export default function AnnouncementsLayout() {
 
   if (!hasElevatedRole) return null;
 
+  const wallpaperUrl = getDailyWallpaper();
+
   return (
-    <div className="flex min-h-screen bg-background">
+    <div
+      className="flex min-h-screen relative"
+      style={{
+        backgroundImage: `url(${wallpaperUrl})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
+      }}
+    >
+      {/* Dark overlay */}
+      <div className="absolute inset-0 bg-black/60 z-0" />
       <Button
         variant="ghost"
         size="icon"

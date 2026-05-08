@@ -57,8 +57,20 @@ export default function ProcurementLayout() {
 
   if (!isAdmin) return null;
 
+  const wallpaperUrl = getDailyWallpaper();
+
   return (
-    <div className="flex min-h-screen bg-background">
+    <div
+      className="flex min-h-screen relative"
+      style={{
+        backgroundImage: `url(${wallpaperUrl})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
+      }}
+    >
+      {/* Dark overlay */}
+      <div className="absolute inset-0 bg-black/60 z-0" />
       {/* Hamburger button - mobile only */}
       <Button
         variant="ghost"
