@@ -158,6 +158,7 @@ export default function AdminDashboard() {
             duration_minutes,
             employee_id,
             project_id,
+            specialty_id,
             employees!inner (
               id,
               first_name,
