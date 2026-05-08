@@ -197,6 +197,10 @@ export default function TimeEntry() {
     }
   }, [hasElevatedRole, user]);
 
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
   const resetForm = () => {
     setFormMode('create');
     setEditingEntry(null);
