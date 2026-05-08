@@ -307,7 +307,7 @@ const [searchQuery, setSearchQuery] = useState('');
     setIdNumber('');
     setIban('');
     setBankName('');
-    setAssignedUserId('');
+    setSelectedRecorderIds([]);
     setEditingEmployee(null);
     setPayrollSectionOpen(false);
   };
@@ -363,7 +363,6 @@ const [searchQuery, setSearchQuery] = useState('');
       phone: phone || null,
       hire_date: formatDateToISO(hireDate) || null,
       notes: notes || null,
-      assigned_user_id: assignedUserId,
     };
 
     if (hasElevatedRole) {
@@ -457,8 +456,8 @@ const [searchQuery, setSearchQuery] = useState('');
       return;
     }
 
-    if (!assignedUserId) {
-      toast.error(t('employees.recorderRequired'));
+    if (selectedRecorderIds.length === 0) {
+      toast.error(language === 'el' ? 'Επιλέξτε τουλάχιστον έναν υπεύθυνο καταγραφής' : 'Select at least one daily recorder');
       return;
     }
 
