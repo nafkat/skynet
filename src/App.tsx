@@ -64,9 +64,9 @@ function ProtectedRoute({
   children: React.ReactNode;
   requiredRoles?: ('admin' | 'hr' | 'timekeeper')[];
 }) {
-  const { user, role, loading } = useAuth();
+  const { user, role, loading, deviceStatus } = useAuth();
 
-  if (loading) {
+  if (loading || deviceStatus === 'checking') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-pulse text-muted-foreground">Loading...</div>
@@ -76,6 +76,11 @@ function ProtectedRoute({
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Device not approved — redirect to pending screen
+  if (deviceStatus === 'pending' || deviceStatus === 'blocked') {
+    return <Navigate to="/device-pending" replace />;
   }
 
   if (requiredRoles && role && !requiredRoles.includes(role)) {
