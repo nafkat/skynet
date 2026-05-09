@@ -1368,6 +1368,48 @@ export type Database = {
           },
         ]
       }
+      trusted_devices: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          device_fingerprint: string
+          device_name: string
+          first_seen_at: string
+          id: string
+          ip_address: string | null
+          last_seen_at: string
+          notes: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          device_fingerprint: string
+          device_name: string
+          first_seen_at?: string
+          id?: string
+          ip_address?: string | null
+          last_seen_at?: string
+          notes?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          device_fingerprint?: string
+          device_name?: string
+          first_seen_at?: string
+          id?: string
+          ip_address?: string | null
+          last_seen_at?: string
+          notes?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_module_access: {
         Row: {
           can_access: boolean
