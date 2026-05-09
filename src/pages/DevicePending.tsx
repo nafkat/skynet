@@ -4,6 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useState } from 'react';
 import { getDailyWallpaper } from '@/hooks/useWallpaper';
+import { generateDeviceFingerprint } from '@/utils/deviceFingerprint';
+import { toast } from 'sonner';
 
 const DevicePending = () => {
   const { language } = useLanguage();
@@ -17,7 +19,33 @@ const DevicePending = () => {
 
   const handleCheckStatus = async () => {
     setChecking(true);
-    window.location.reload();
+    try {
+      const { fingerprint } = await generateDeviceFingerprint();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        await supabase.auth.signOut();
+        window.location.href = '/';
+        return;
+      }
+      const { data } = await supabase
+        .from('trusted_devices')
+        .select('status')
+        .eq('user_id', user.id)
+        .eq('device_fingerprint', fingerprint)
+        .maybeSingle();
+
+      if (data?.status === 'approved') {
+        window.location.href = '/home';
+      } else if (data?.status === 'blocked') {
+        toast.error(language === 'el' ? 'Η συσκευή σας έχει αποκλειστεί' : 'Your device has been blocked');
+      } else {
+        toast.info(language === 'el' ? 'Ακόμα σε αναμονή έγκρισης' : 'Still awaiting approval');
+      }
+    } catch (error) {
+      toast.error(language === 'el' ? 'Σφάλμα ελέγχου' : 'Check error');
+    } finally {
+      setChecking(false);
+    }
   };
 
   return (
