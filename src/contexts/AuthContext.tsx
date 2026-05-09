@@ -150,20 +150,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async (event, currentSession) => {
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
-        
+
         if (currentSession?.user) {
+          setDeviceStatus('checking');
           // Use setTimeout to avoid potential deadlocks
           setTimeout(async () => {
             const userData = await fetchUserData(currentSession.user.id);
             setBaseRole(userData.baseRole);
             setIsActive(userData.isActive);
             setPermissions(userData.permissions);
+            const status = await checkDeviceTrust(
+              currentSession.user.id,
+              userData.baseRole === 'admin'
+            );
+            setDeviceStatus(status);
             setLoading(false);
           }, 0);
         } else {
           setBaseRole(null);
           setIsActive(true);
           setPermissions([]);
+          setDeviceStatus(null);
           setLoading(false);
         }
       }
@@ -173,12 +180,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
       setSession(initialSession);
       setUser(initialSession?.user ?? null);
-      
+
       if (initialSession?.user) {
-        fetchUserData(initialSession.user.id).then(userData => {
+        setDeviceStatus('checking');
+        fetchUserData(initialSession.user.id).then(async (userData) => {
           setBaseRole(userData.baseRole);
           setIsActive(userData.isActive);
           setPermissions(userData.permissions);
+          const status = await checkDeviceTrust(
+            initialSession.user.id,
+            userData.baseRole === 'admin'
+          );
+          setDeviceStatus(status);
           setLoading(false);
         });
       } else {
@@ -202,6 +215,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setBaseRole(null);
     setIsActive(true);
     setPermissions([]);
+    setDeviceStatus(null);
   };
 
   const isAdmin = baseRole === 'admin';
@@ -252,6 +266,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isHR,
         isTimekeeper,
         hasElevatedRole,
+        deviceStatus,
       }}
     >
       {children}
