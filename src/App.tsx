@@ -22,6 +22,7 @@ import AdminUsers from "./pages/admin/AdminUsers";
 import AdminTemplates from "./pages/admin/AdminTemplates";
 import AdminAudit from "./pages/admin/AdminAudit";
 import Companies from "./pages/admin/Companies";
+import AdminTrustedDevices from "./pages/admin/AdminTrustedDevices";
 import TimeEntry from "./pages/TimeEntry";
 import Employees from "./pages/Employees";
 import Projects from "./pages/Projects";
@@ -137,6 +138,7 @@ function AppRoutes() {
         <Route path="templates" element={<AdminTemplates />} />
         <Route path="companies" element={<Companies />} />
         <Route path="audit" element={<AdminAudit />} />
+        <Route path="devices" element={<AdminTrustedDevices />} />
       </Route>
       
       {/* Admin Dashboard - Admin and HR only */}
