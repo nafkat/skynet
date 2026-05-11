@@ -24,6 +24,7 @@ interface Employee {
   regular_hourly_rate: number;
   regular_rate_all_in: number;
   overtime_hourly_rate: number;
+  employment_type?: string;
 }
 
 interface Project {
@@ -85,7 +86,7 @@ export default function Reports() {
   const fetchFilterData = async () => {
     try {
       const [employeesRes, projectsRes, specialtiesRes] = await Promise.all([
-        supabase.from('employees').select('id, employee_code, first_name, last_name, regular_hourly_rate, regular_rate_all_in, overtime_hourly_rate').order('employee_code'),
+        supabase.from('employees').select('id, employee_code, first_name, last_name, regular_hourly_rate, regular_rate_all_in, overtime_hourly_rate, employment_type').order('employee_code'),
         supabase.from('projects').select('id, project_code, project_name').order('project_code'),
         supabase.from('specialties').select('*').order('code'),
       ]);
@@ -108,7 +109,7 @@ export default function Reports() {
         .from('time_entries')
         .select(`
           *,
-          employees (id, employee_code, first_name, last_name, specialty_id, regular_hourly_rate, overtime_hourly_rate),
+          employees (id, employee_code, first_name, last_name, specialty_id, employment_type, regular_hourly_rate, overtime_hourly_rate),
           projects (id, project_code, project_name)
         `)
         .eq('is_deleted', false)
@@ -398,6 +399,9 @@ export default function Reports() {
                 <thead>
                   <tr className="table-header">
                     <th className="table-cell text-left">{t('employees.title')}</th>
+                    <th className="py-2 px-3 text-left text-sm font-medium text-muted-foreground">
+                      {language === 'el' ? 'Τύπος' : 'Type'}
+                    </th>
                     <th className="table-cell text-right">{t('reports.regularHours')}</th>
                     <th className="table-cell text-right">{t('reports.overtimeHours')}</th>
                     <th className="table-cell text-right">{t('reports.totalRegularPlusOT')}</th>
@@ -412,6 +416,17 @@ export default function Reports() {
                           <p className="font-medium">{row.employee.first_name} {row.employee.last_name}</p>
                           <p className="text-sm text-muted-foreground font-mono">{row.employee.employee_code}</p>
                         </div>
+                      </td>
+                      <td className="py-2 px-3 text-sm">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                          row.employee?.employment_type === 'permanent'
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-orange-100 text-orange-800'
+                        }`}>
+                          {row.employee?.employment_type === 'permanent'
+                            ? (language === 'el' ? 'Μόνιμος' : 'Permanent')
+                            : (language === 'el' ? 'Έκτακτος' : 'Temporary')}
+                        </span>
                       </td>
                       <td className="table-cell text-right font-mono">{formatHours(row.regularMinutes)}</td>
                       <td className="table-cell text-right font-mono text-warning">{formatHours(row.overtimeMinutes)}</td>

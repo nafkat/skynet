@@ -45,6 +45,7 @@ interface Employee {
   afm: string | null;
   iban: string | null;
   bank_name: string | null;
+  employment_type?: string;
 }
 
 interface Specialty {
@@ -65,6 +66,7 @@ interface PayrollRow {
   first_name: string;
   last_name: string;
   specialty: string;
+  employment_type: string;
   afm: string;
   iban: string;
   bank_name: string;
@@ -209,6 +211,7 @@ export default function PayrollExport() {
         first_name: employee.first_name,
         last_name: employee.last_name,
         specialty: specialty ? (language === 'el' ? specialty.name_el : specialty.name_en) : '',
+        employment_type: employee.employment_type || 'permanent',
         afm: employee.afm || '',
         iban: employee.iban || '',
         bank_name: employee.bank_name || '',
@@ -262,6 +265,9 @@ export default function PayrollExport() {
           'First Name': row.first_name,
           'Last Name': row.last_name,
           'Specialty': row.specialty,
+          'Type': row.employment_type === 'permanent'
+            ? 'Μόνιμος / Permanent'
+            : 'Έκτακτος / Temporary',
           'Regular Hours': row.regular_hours,
           'Overtime Hours': row.overtime_hours,
           'Regular Rate (€/hr)': row.regular_hourly_rate,
@@ -285,7 +291,7 @@ export default function PayrollExport() {
 
       // Build header row
       const headers = [
-        'Employee Code', 'First Name', 'Last Name', 'Specialty',
+        'Employee Code', 'First Name', 'Last Name', 'Specialty', 'Type',
         'Regular Hours', 'Overtime Hours',
         'Regular Rate (€/hr)', 'Overtime Rate (€/hr)',
         'Regular Cost (€)', 'Overtime Cost (€)',
