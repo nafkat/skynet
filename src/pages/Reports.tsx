@@ -24,6 +24,7 @@ interface Employee {
   regular_hourly_rate: number;
   regular_rate_all_in: number;
   overtime_hourly_rate: number;
+  employment_type?: string;
 }
 
 interface Project {
@@ -85,7 +86,7 @@ export default function Reports() {
   const fetchFilterData = async () => {
     try {
       const [employeesRes, projectsRes, specialtiesRes] = await Promise.all([
-        supabase.from('employees').select('id, employee_code, first_name, last_name, regular_hourly_rate, regular_rate_all_in, overtime_hourly_rate').order('employee_code'),
+        supabase.from('employees').select('id, employee_code, first_name, last_name, regular_hourly_rate, regular_rate_all_in, overtime_hourly_rate, employment_type').order('employee_code'),
         supabase.from('projects').select('id, project_code, project_name').order('project_code'),
         supabase.from('specialties').select('*').order('code'),
       ]);
