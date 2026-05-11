@@ -77,6 +77,7 @@ interface Employee {
   phone: string | null;
   hire_date: string | null;
   notes: string | null;
+  employment_type: 'permanent' | 'temporary';
   afm: string | null;
   id_type: string | null;
   id_number: string | null;
@@ -108,6 +109,7 @@ const { t, language } = useLanguage();
   const [loading, setLoading] = useState(true);
 const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('active');
+  const [employmentFilter, setEmploymentFilter] = useState<string>('all');
   
   // Delete/Archive state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -129,6 +131,7 @@ const [searchQuery, setSearchQuery] = useState('');
   const [lastName, setLastName] = useState('');
   const [specialtyId, setSpecialtyId] = useState('');
   const [status, setStatus] = useState<'active' | 'inactive'>('active');
+  const [employmentType, setEmploymentType] = useState<'permanent' | 'temporary'>('permanent');
   
   // Form state - Work Schedule
   const [regularStart, setRegularStart] = useState('07:00');
@@ -307,6 +310,7 @@ const [searchQuery, setSearchQuery] = useState('');
     setLastName('');
     setSpecialtyId('');
     setStatus('active');
+    setEmploymentType('permanent');
     setRegularRate('');
     setRegularRateAllIn('');
     setOvertimeRate('');
@@ -332,6 +336,7 @@ const [searchQuery, setSearchQuery] = useState('');
     setLastName(employee.last_name);
     setSpecialtyId(employee.specialty_id);
     setStatus(employee.status);
+    setEmploymentType(employee.employment_type || 'permanent');
     setRegularRate(employee.regular_hourly_rate.toString());
     setRegularRateAllIn(employee.regular_rate_all_in?.toString() || '');
     setOvertimeRate(employee.overtime_hourly_rate.toString());
@@ -378,6 +383,7 @@ const [searchQuery, setSearchQuery] = useState('');
       last_name: lastName,
       specialty_id: specialtyId,
       status,
+      employment_type: employmentType,
       regular_start_time: regularStart,
       regular_end_time: regularEnd,
       phone: phone || null,
@@ -551,8 +557,9 @@ const [searchQuery, setSearchQuery] = useState('');
       emp.employee_code.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || emp.status === statusFilter;
+    const matchesEmployment = employmentFilter === 'all' || emp.employment_type === employmentFilter;
     
-    return matchesSearch && matchesStatus;
+    return matchesSearch && matchesStatus && matchesEmployment;
   });
 
   const getSpecialtyName = (specialty: Specialty | undefined) => {
@@ -769,6 +776,24 @@ const [searchQuery, setSearchQuery] = useState('');
                         </SelectContent>
                       </Select>
                     </div>
+                  </div>
+
+                  {/* Employment Type */}
+                  <div className="space-y-2">
+                    <Label>{language === 'el' ? 'Τύπος Απασχόλησης' : 'Employment Type'} *</Label>
+                    <Select value={employmentType} onValueChange={(v) => setEmploymentType(v as 'permanent' | 'temporary')}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="permanent">
+                          {language === 'el' ? 'Μόνιμος' : 'Permanent'}
+                        </SelectItem>
+                        <SelectItem value="temporary">
+                          {language === 'el' ? 'Έκτακτος' : 'Temporary'}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   {/* Daily Recorders - multi-select */}
@@ -1126,6 +1151,22 @@ const [searchQuery, setSearchQuery] = useState('');
             className="input-tablet pl-12"
           />
         </div>
+        <Select value={employmentFilter} onValueChange={setEmploymentFilter}>
+          <SelectTrigger className="w-40">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">
+              {language === 'el' ? 'Όλοι' : 'All'}
+            </SelectItem>
+            <SelectItem value="permanent">
+              {language === 'el' ? 'Μόνιμοι' : 'Permanent'}
+            </SelectItem>
+            <SelectItem value="temporary">
+              {language === 'el' ? 'Έκτακτοι' : 'Temporary'}
+            </SelectItem>
+          </SelectContent>
+        </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-48 input-tablet">
             <SelectValue />
@@ -1148,6 +1189,9 @@ const [searchQuery, setSearchQuery] = useState('');
                 <th className="table-cell text-left">{t('employees.firstName')}</th>
                 <th className="table-cell text-left">{t('employees.lastName')}</th>
                 <th className="table-cell text-left">{t('employees.specialty')}</th>
+                <th className="table-cell text-left">
+                  {language === 'el' ? 'Τύπος' : 'Type'}
+                </th>
                 <th className="table-cell text-left">{t('employees.workSchedule')}</th>
                 <th className="table-cell text-left">{t('employees.assignedRecorder')}</th>
                 <th className="table-cell text-left">{t('common.status')}</th>
@@ -1161,6 +1205,17 @@ const [searchQuery, setSearchQuery] = useState('');
                   <td className="table-cell">{employee.first_name}</td>
                   <td className="table-cell">{employee.last_name}</td>
                   <td className="table-cell">{getSpecialtyName(employee.specialties)}</td>
+                  <td className="table-cell text-sm">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                      employee.employment_type === 'permanent'
+                        ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                        : 'bg-orange-100 text-orange-800 border border-orange-300'
+                    }`}>
+                      {employee.employment_type === 'permanent'
+                        ? (language === 'el' ? 'Μόνιμος' : 'Permanent')
+                        : (language === 'el' ? 'Έκτακτος' : 'Temporary')}
+                    </span>
+                  </td>
                   <td className="table-cell font-mono text-sm">
                     {employee.regular_start_time.slice(0, 5)} - {employee.regular_end_time.slice(0, 5)}
                   </td>
