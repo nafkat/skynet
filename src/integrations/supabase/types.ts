@@ -610,6 +610,7 @@ export type Database = {
           bank_name: string | null
           created_at: string
           employee_code: string
+          employment_type: string
           first_name: string
           hire_date: string | null
           iban: string | null
@@ -634,6 +635,7 @@ export type Database = {
           bank_name?: string | null
           created_at?: string
           employee_code: string
+          employment_type?: string
           first_name: string
           hire_date?: string | null
           iban?: string | null
@@ -658,6 +660,7 @@ export type Database = {
           bank_name?: string | null
           created_at?: string
           employee_code?: string
+          employment_type?: string
           first_name?: string
           hire_date?: string | null
           iban?: string | null

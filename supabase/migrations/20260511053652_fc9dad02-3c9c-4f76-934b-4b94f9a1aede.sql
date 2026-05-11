@@ -1,0 +1,1 @@
+ALTER TABLE public.employees ADD COLUMN employment_type TEXT NOT NULL DEFAULT 'permanent' CHECK (employment_type IN ('permanent', 'temporary'));
