@@ -131,7 +131,7 @@ const [searchQuery, setSearchQuery] = useState('');
   const [lastName, setLastName] = useState('');
   const [specialtyId, setSpecialtyId] = useState('');
   const [status, setStatus] = useState<'active' | 'inactive'>('active');
-  const [employmentType, setEmploymentType] = useState<'permanent' | 'temporary'>('permanent');
+  const [employmentType, setEmploymentType] = useState<'permanent' | 'temporary' | ''>('');
   
   // Form state - Work Schedule
   const [regularStart, setRegularStart] = useState('07:00');
@@ -310,7 +310,7 @@ const [searchQuery, setSearchQuery] = useState('');
     setLastName('');
     setSpecialtyId('');
     setStatus('active');
-    setEmploymentType('permanent');
+    setEmploymentType('');
     setRegularRate('');
     setRegularRateAllIn('');
     setOvertimeRate('');
@@ -383,7 +383,7 @@ const [searchQuery, setSearchQuery] = useState('');
       last_name: lastName,
       specialty_id: specialtyId,
       status,
-      employment_type: employmentType,
+      employment_type: employmentType as 'permanent' | 'temporary',
       regular_start_time: regularStart,
       regular_end_time: regularEnd,
       phone: phone || null,
@@ -496,6 +496,11 @@ const [searchQuery, setSearchQuery] = useState('');
 
     if (!regularStart || !regularEnd) {
       toast.error(t('employees.scheduleRequired'));
+      return;
+    }
+
+    if (!employmentType) {
+      toast.error(language === 'el' ? 'Επιλέξτε τύπο απασχόλησης' : 'Select employment type');
       return;
     }
 
@@ -782,8 +787,8 @@ const [searchQuery, setSearchQuery] = useState('');
                   <div className="space-y-2">
                     <Label>{language === 'el' ? 'Τύπος Απασχόλησης' : 'Employment Type'} *</Label>
                     <Select value={employmentType} onValueChange={(v) => setEmploymentType(v as 'permanent' | 'temporary')}>
-                      <SelectTrigger>
-                        <SelectValue />
+                      <SelectTrigger className={!employmentType ? 'border-muted-foreground/50' : ''}>
+                        <SelectValue placeholder={language === 'el' ? 'Επιλέξτε τύπο...' : 'Select type...'} />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="permanent">
