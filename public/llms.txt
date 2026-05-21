@@ -1,0 +1,7 @@
+# SKYNET
+
+> SKYNET is an internal shipyard operations platform for timekeeping, procurement, announcements and HR. All functionality is behind authentication.
+
+## Pages
+
+- [Sign in](/login): Sign in to the SKYNET shipyard operations platform.
