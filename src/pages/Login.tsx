@@ -219,7 +219,7 @@ export default function Login() {
             </Button>
           </form>
         </div>
-      </div>
+      </main>
 
       {/* Forgot Password Dialog */}
       <Dialog open={showForgotPassword} onOpenChange={setShowForgotPassword}>
