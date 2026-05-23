@@ -132,7 +132,7 @@ export default function Login() {
         <Globe className="h-5 w-5" />
       </Button>
 
-      <div className="w-full max-w-md">
+      <main className="w-full max-w-md">
         {/* Logo and Title */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary text-primary-foreground mb-4">
@@ -219,7 +219,7 @@ export default function Login() {
             </Button>
           </form>
         </div>
-      </div>
+      </main>
 
       {/* Forgot Password Dialog */}
       <Dialog open={showForgotPassword} onOpenChange={setShowForgotPassword}>
