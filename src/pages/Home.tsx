@@ -400,7 +400,7 @@ export default function Home() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={signOut}
+                onClick={async () => { try { await signOut(); } catch (e) { console.error(e); } window.location.href = '/login'; }}
                 className="text-muted-foreground hover:text-destructive"
               >
                 <LogOut className="h-5 w-5" />
