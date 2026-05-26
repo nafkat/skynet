@@ -127,11 +127,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error };
   };
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
+  const clearAuthState = () => {
+    setSession(null);
+    setUser(null);
     setBaseRole(null);
     setIsActive(true);
     setPermissions([]);
+    setLoading(false);
+  };
+
+  const signOut = async () => {
+    clearAuthState();
+    try {
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
+      if (error) throw error;
+    } finally {
+      clearAuthState();
+    }
   };
 
   const isAdmin = baseRole === 'admin';

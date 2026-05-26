@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 
 export default function Login() {
   const { t, language, setLanguage } = useLanguage();
-  const { user, loading, signIn, isActive } = useAuth();
+  const { user, loading, signIn, signOut, isActive } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -47,7 +47,7 @@ export default function Login() {
               ? 'Ο λογαριασμός σας είναι ανενεργός. Επικοινωνήστε με τον Διαχειριστή.' 
               : 'Your account is inactive. Contact Administrator.'}
           </p>
-          <Button variant="outline" onClick={() => supabase.auth.signOut()}>
+          <Button variant="outline" onClick={async () => { await signOut(); window.location.replace('/login'); }}>
             <LogOut className="h-4 w-4 mr-2" />
             {language === 'el' ? 'Αποσύνδεση' : 'Logout'}
           </Button>
