@@ -99,24 +99,65 @@ serve(async (req) => {
       );
     }
 
-    // Invite the user via magic link
-    const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
-      data: {
-        full_name: display_name || email.split("@")[0],
+    // Generate invite link WITHOUT sending email (bypass Supabase built-in SMTP rate limit)
+    const redirectTo = `${req.headers.get("origin") || Deno.env.get("SITE_URL") || "https://skynetshipyard.app"}/home`;
+    const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
+      type: "invite",
+      email,
+      options: {
+        data: { full_name: display_name || email.split("@")[0] },
+        redirectTo,
       },
-      redirectTo: `${req.headers.get("origin") || Deno.env.get("SITE_URL") || "https://skynet.lovable.app"}/home`,
     });
 
-    if (inviteError) {
-      console.error("Invite error:", inviteError);
+    if (linkError || !linkData?.user) {
+      console.error("Generate link error:", linkError);
       return new Response(
-        JSON.stringify({ error: inviteError.message }),
+        JSON.stringify({ error: linkError?.message || "Failed to generate invite link" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const newUserId = inviteData.user.id;
-    console.log("User invited successfully:", newUserId);
+    const newUserId = linkData.user.id;
+    const inviteUrl = linkData.properties?.action_link;
+    console.log("Invite link generated for user:", newUserId);
+
+    // Send invite email via Resend (avoids Supabase SMTP rate limit)
+    const resendApiKey = Deno.env.get("RESEND_API_KEY");
+    const fromEmail = Deno.env.get("FROM_EMAIL") || "onboarding@resend.dev";
+    if (resendApiKey && inviteUrl) {
+      try {
+        const emailRes = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${resendApiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from: `Skynet Shipyard <${fromEmail}>`,
+            to: [email],
+            subject: "You've been invited to Skynet Shipyard",
+            html: `
+              <div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#0f172a">
+                <h2 style="margin:0 0 16px">Welcome${display_name ? `, ${display_name}` : ""}!</h2>
+                <p>You have been invited to join <strong>Skynet Shipyard</strong>. Click the button below to accept your invitation and set up your account.</p>
+                <p style="margin:32px 0">
+                  <a href="${inviteUrl}" style="background:#0ea5e9;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">Accept invitation</a>
+                </p>
+                <p style="font-size:12px;color:#64748b">If the button does not work, copy and paste this link:<br/><a href="${inviteUrl}">${inviteUrl}</a></p>
+              </div>
+            `,
+          }),
+        });
+        if (!emailRes.ok) {
+          console.error("Resend send failed:", emailRes.status, await emailRes.text());
+        }
+      } catch (e) {
+        console.error("Resend exception:", e);
+      }
+    } else {
+      console.warn("RESEND_API_KEY not set or no invite URL — email not sent");
+    }
 
     // Create profile (without base_role - role is stored in user_roles for security)
     const { error: profileInsertError } = await adminClient.from("profiles").upsert({
