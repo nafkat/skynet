@@ -198,7 +198,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           <Button
             variant="ghost"
             className="w-full justify-start gap-3 h-12 px-4 text-muted-foreground hover:text-destructive"
-            onClick={signOut}
+            onClick={async () => { try { await signOut(); } catch (e) { console.error(e); } window.location.href = '/login'; }}
           >
             <LogOut className="h-5 w-5" />
             <span>{t('auth.logout')}</span>
