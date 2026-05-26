@@ -149,7 +149,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearAuthState();
     try {
       const { error } = await supabase.auth.signOut({ scope: 'local' });
-      if (error) throw error;
+      if (error) console.warn('Logout session cleanup warning:', error.message);
     } finally {
       clearAuthState();
     }
