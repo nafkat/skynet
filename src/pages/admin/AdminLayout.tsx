@@ -33,28 +33,8 @@ export default function AdminLayout() {
   const { signOut, isAdmin, loading } = useAuth();
   const { language, setLanguage } = useLanguage();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [pendingDevices, setPendingDevices] = useState(0);
   const handleClose = useCallback(() => setIsSidebarOpen(false), []);
 
-  useEffect(() => {
-    const fetchPending = async () => {
-      const { count } = await supabase
-        .from('trusted_devices')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'pending');
-      setPendingDevices(count || 0);
-    };
-    fetchPending();
-
-    const channel = supabase
-      .channel('pending_devices_badge')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'trusted_devices' }, fetchPending)
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
 
   useEffect(() => {
     if (!loading && !isAdmin) {
