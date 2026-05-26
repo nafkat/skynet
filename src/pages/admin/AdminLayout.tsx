@@ -128,7 +128,6 @@ export default function AdminLayout() {
           
           {navigationItems.map((item) => {
             const isActive = isActiveRoute(item.path, item.exact);
-            const showBadge = item.path === '/admin/devices' && pendingDevices > 0;
             return (
               <Link
                 key={item.path}
@@ -139,14 +138,10 @@ export default function AdminLayout() {
                 <span className="font-medium flex-1">
                   {language === 'el' ? item.labelEl : item.labelEn}
                 </span>
-                {showBadge && (
-                  <span className="ml-auto inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-yellow-500 text-white text-xs font-semibold">
-                    {pendingDevices}
-                  </span>
-                )}
               </Link>
             );
           })}
+
         </nav>
 
         <div className="p-4 border-t border-sidebar-border space-y-2">
