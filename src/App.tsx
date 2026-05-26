@@ -36,7 +36,7 @@ import AnnouncementsList from "./pages/AnnouncementsList";
 import AnnouncementCreate from "./pages/AnnouncementCreate";
 import AnnouncementDetails from "./pages/AnnouncementDetails";
 import Messages from "./pages/Messages";
-import DevicePending from "./pages/DevicePending";
+
 
 // Procurement Pages
 import ProcurementLayout from "./pages/procurement/ProcurementLayout";
