@@ -879,6 +879,7 @@ export type Database = {
       }
       permission_templates: {
         Row: {
+          base_role: Database["public"]["Enums"]["app_role"]
           created_at: string
           created_by: string | null
           description: string | null
@@ -887,6 +888,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          base_role?: Database["public"]["Enums"]["app_role"]
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -895,6 +897,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          base_role?: Database["public"]["Enums"]["app_role"]
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -1611,6 +1614,10 @@ export type Database = {
       can_access_employee: {
         Args: { _employee_id: string; _user_id: string }
         Returns: boolean
+      }
+      compute_user_role_from_templates: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"]
       }
       get_all_users_with_profiles: {
         Args: never
