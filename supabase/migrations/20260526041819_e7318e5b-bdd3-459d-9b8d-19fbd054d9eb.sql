@@ -1,0 +1,14 @@
+GRANT EXECUTE ON FUNCTION public.has_elevated_role(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.has_role(uuid, app_role) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_admin(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.has_permission(uuid, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.has_module_access(uuid, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.has_action_permission(uuid, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_user_active(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.can_access_employee(uuid, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_user_base_role(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_timekeeper_only(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_today_athens(date) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_user_email(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_all_users_with_profiles() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_permission_audit_logs(integer) TO authenticated;
