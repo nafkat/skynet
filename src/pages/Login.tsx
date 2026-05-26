@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,7 +11,7 @@ import { toast } from 'sonner';
 
 export default function Login() {
   const { t, language, setLanguage } = useLanguage();
-  const { user, loading, signIn, isActive } = useAuth();
+  const { user, loading, signIn, signOut, isActive } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -47,7 +46,7 @@ export default function Login() {
               ? 'Ο λογαριασμός σας είναι ανενεργός. Επικοινωνήστε με τον Διαχειριστή.' 
               : 'Your account is inactive. Contact Administrator.'}
           </p>
-          <Button variant="outline" onClick={() => supabase.auth.signOut()}>
+          <Button variant="outline" onClick={async () => { await signOut(); window.location.replace('/login'); }}>
             <LogOut className="h-4 w-4 mr-2" />
             {language === 'el' ? 'Αποσύνδεση' : 'Logout'}
           </Button>
