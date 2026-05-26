@@ -64,9 +64,9 @@ function ProtectedRoute({
   children: React.ReactNode;
   requiredRoles?: ('admin' | 'hr' | 'timekeeper')[];
 }) {
-  const { user, role, loading, deviceStatus } = useAuth();
+  const { user, role, loading } = useAuth();
 
-  if (loading || deviceStatus === 'checking') {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-pulse text-muted-foreground">Loading...</div>
@@ -78,10 +78,6 @@ function ProtectedRoute({
     return <Navigate to="/login" replace />;
   }
 
-  // Device not approved — redirect to pending screen
-  if (deviceStatus === 'pending' || deviceStatus === 'blocked') {
-    return <Navigate to="/device-pending" replace />;
-  }
 
   if (requiredRoles && role && !requiredRoles.includes(role)) {
     // Redirect to home launcher for unauthorized roles
