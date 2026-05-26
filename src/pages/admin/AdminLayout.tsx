@@ -24,8 +24,8 @@ const navigationItems = [
   { path: '/admin/templates', icon: FileStack, labelEn: 'Roles', labelEl: 'Ρόλοι' },
   { path: '/admin/companies', icon: Building2, labelEn: 'Companies', labelEl: 'Εταιρίες' },
   { path: '/admin/audit', icon: ClipboardList, labelEn: 'Audit', labelEl: 'Έλεγχος' },
-  { path: '/admin/devices', icon: Shield, labelEn: 'Devices', labelEl: 'Συσκευές' },
 ];
+
 
 export default function AdminLayout() {
   const location = useLocation();
@@ -33,28 +33,8 @@ export default function AdminLayout() {
   const { signOut, isAdmin, loading } = useAuth();
   const { language, setLanguage } = useLanguage();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [pendingDevices, setPendingDevices] = useState(0);
   const handleClose = useCallback(() => setIsSidebarOpen(false), []);
 
-  useEffect(() => {
-    const fetchPending = async () => {
-      const { count } = await supabase
-        .from('trusted_devices')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'pending');
-      setPendingDevices(count || 0);
-    };
-    fetchPending();
-
-    const channel = supabase
-      .channel('pending_devices_badge')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'trusted_devices' }, fetchPending)
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
 
   useEffect(() => {
     if (!loading && !isAdmin) {
@@ -148,7 +128,6 @@ export default function AdminLayout() {
           
           {navigationItems.map((item) => {
             const isActive = isActiveRoute(item.path, item.exact);
-            const showBadge = item.path === '/admin/devices' && pendingDevices > 0;
             return (
               <Link
                 key={item.path}
@@ -159,14 +138,10 @@ export default function AdminLayout() {
                 <span className="font-medium flex-1">
                   {language === 'el' ? item.labelEl : item.labelEn}
                 </span>
-                {showBadge && (
-                  <span className="ml-auto inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-yellow-500 text-white text-xs font-semibold">
-                    {pendingDevices}
-                  </span>
-                )}
               </Link>
             );
           })}
+
         </nav>
 
         <div className="p-4 border-t border-sidebar-border space-y-2">

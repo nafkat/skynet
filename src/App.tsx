@@ -22,7 +22,7 @@ import AdminUsers from "./pages/admin/AdminUsers";
 import AdminTemplates from "./pages/admin/AdminTemplates";
 import AdminAudit from "./pages/admin/AdminAudit";
 import Companies from "./pages/admin/Companies";
-import AdminTrustedDevices from "./pages/admin/AdminTrustedDevices";
+
 import TimeEntry from "./pages/TimeEntry";
 import Employees from "./pages/Employees";
 import Projects from "./pages/Projects";
@@ -36,7 +36,7 @@ import AnnouncementsList from "./pages/AnnouncementsList";
 import AnnouncementCreate from "./pages/AnnouncementCreate";
 import AnnouncementDetails from "./pages/AnnouncementDetails";
 import Messages from "./pages/Messages";
-import DevicePending from "./pages/DevicePending";
+
 
 // Procurement Pages
 import ProcurementLayout from "./pages/procurement/ProcurementLayout";
@@ -64,9 +64,9 @@ function ProtectedRoute({
   children: React.ReactNode;
   requiredRoles?: ('admin' | 'hr' | 'timekeeper')[];
 }) {
-  const { user, role, loading, deviceStatus } = useAuth();
+  const { user, role, loading } = useAuth();
 
-  if (loading || deviceStatus === 'checking') {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-pulse text-muted-foreground">Loading...</div>
@@ -78,10 +78,6 @@ function ProtectedRoute({
     return <Navigate to="/login" replace />;
   }
 
-  // Device not approved — redirect to pending screen
-  if (deviceStatus === 'pending' || deviceStatus === 'blocked') {
-    return <Navigate to="/device-pending" replace />;
-  }
 
   if (requiredRoles && role && !requiredRoles.includes(role)) {
     // Redirect to home launcher for unauthorized roles
@@ -116,7 +112,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path="/device-pending" element={<DevicePending />} />
+      
       
       <Route path="/" element={<RoleBasedRedirect />} />
       
@@ -143,7 +139,7 @@ function AppRoutes() {
         <Route path="templates" element={<AdminTemplates />} />
         <Route path="companies" element={<Companies />} />
         <Route path="audit" element={<AdminAudit />} />
-        <Route path="devices" element={<AdminTrustedDevices />} />
+        
       </Route>
       
       {/* Admin Dashboard - Admin and HR only */}
