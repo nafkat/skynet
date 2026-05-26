@@ -116,7 +116,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path="/device-pending" element={<DevicePending />} />
+      
       
       <Route path="/" element={<RoleBasedRedirect />} />
       
