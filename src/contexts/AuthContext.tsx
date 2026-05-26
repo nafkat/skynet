@@ -36,6 +36,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [permissions, setPermissions] = useState<string[]>([]);
 
+  const clearPersistedAuthSession = () => {
+    if (typeof window === 'undefined') return;
+
+    Object.keys(window.localStorage)
+      .filter((key) => key === 'supabase.auth.token' || (key.startsWith('sb-') && key.includes('-auth-token')))
+      .forEach((key) => window.localStorage.removeItem(key));
+  };
+
   const fetchUserData = async (userId: string) => {
     try {
       const { data: profileData } = await supabase
@@ -128,6 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const clearAuthState = () => {
+    clearPersistedAuthSession();
     setSession(null);
     setUser(null);
     setBaseRole(null);
@@ -140,7 +149,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearAuthState();
     try {
       const { error } = await supabase.auth.signOut({ scope: 'local' });
-      if (error) throw error;
+      if (error) console.warn('Logout session cleanup warning:', error.message);
     } finally {
       clearAuthState();
     }
