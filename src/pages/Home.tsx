@@ -247,7 +247,7 @@ export default function Home() {
               ? 'Επικοινωνήστε με τον Διαχειριστή.' 
               : 'Contact Admin.'}
           </p>
-          <Button variant="outline" onClick={signOut}>
+          <Button variant="outline" onClick={async () => { try { await signOut(); } catch (e) { console.error(e); } window.location.href = '/login'; }}>
             <LogOut className="h-4 w-4 mr-2" />
             {language === 'el' ? 'Αποσύνδεση' : 'Logout'}
           </Button>
