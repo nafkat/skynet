@@ -143,7 +143,7 @@ function AppRoutes() {
         <Route path="templates" element={<AdminTemplates />} />
         <Route path="companies" element={<Companies />} />
         <Route path="audit" element={<AdminAudit />} />
-        <Route path="devices" element={<AdminTrustedDevices />} />
+        
       </Route>
       
       {/* Admin Dashboard - Admin and HR only */}
