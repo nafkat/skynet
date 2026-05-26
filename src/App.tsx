@@ -22,7 +22,7 @@ import AdminUsers from "./pages/admin/AdminUsers";
 import AdminTemplates from "./pages/admin/AdminTemplates";
 import AdminAudit from "./pages/admin/AdminAudit";
 import Companies from "./pages/admin/Companies";
-import AdminTrustedDevices from "./pages/admin/AdminTrustedDevices";
+
 import TimeEntry from "./pages/TimeEntry";
 import Employees from "./pages/Employees";
 import Projects from "./pages/Projects";
