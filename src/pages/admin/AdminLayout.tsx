@@ -24,8 +24,8 @@ const navigationItems = [
   { path: '/admin/templates', icon: FileStack, labelEn: 'Roles', labelEl: 'Ρόλοι' },
   { path: '/admin/companies', icon: Building2, labelEn: 'Companies', labelEl: 'Εταιρίες' },
   { path: '/admin/audit', icon: ClipboardList, labelEn: 'Audit', labelEl: 'Έλεγχος' },
-  { path: '/admin/devices', icon: Shield, labelEn: 'Devices', labelEl: 'Συσκευές' },
 ];
+
 
 export default function AdminLayout() {
   const location = useLocation();
