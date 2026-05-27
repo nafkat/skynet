@@ -100,7 +100,7 @@ interface AppUser {
 
 export default function Employees() {
 const { t, language } = useLanguage();
-  const { hasElevatedRole, isAdmin } = useAuth();
+  const { hasElevatedRole, isAdmin, user } = useAuth();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [specialties, setSpecialties] = useState<Specialty[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -201,13 +201,15 @@ const [searchQuery, setSearchQuery] = useState('');
       setEmployeeProjects(employeeProjectsRes.data || []);
       setAppUsers(usersWithNames);
 
-      // Build recorders-by-employee map for list display
+      // Build recorders-by-employee map for list display (hide admins — implicit)
+      const adminIds = new Set(usersWithNames.filter(u => u.role === 'admin').map(u => u.user_id));
       const { data: allRecorders } = await supabase
         .from('employee_recorders')
         .select('employee_id, user_id');
       if (allRecorders) {
         const map: Record<string, string[]> = {};
         allRecorders.forEach((r: any) => {
+          if (adminIds.has(r.user_id)) return; // hide admins from display
           const u = usersWithNames.find(x => x.user_id === r.user_id);
           if (!map[r.employee_id]) map[r.employee_id] = [];
           map[r.employee_id].push(u?.full_name || r.user_id.slice(0, 8));
@@ -351,12 +353,13 @@ const [searchQuery, setSearchQuery] = useState('');
     setIban(employee.iban || '');
     setBankName(employee.bank_name || '');
 
-    // Fetch current recorders for this employee
+    // Fetch current recorders for this employee (exclude admins — they're implicit)
+    const adminIds = new Set(appUsers.filter(u => u.role === 'admin').map(u => u.user_id));
     const { data: recorderData } = await supabase
       .from('employee_recorders')
       .select('user_id')
       .eq('employee_id', employee.id);
-    setSelectedRecorderIds(recorderData?.map(r => r.user_id) || []);
+    setSelectedRecorderIds((recorderData?.map(r => r.user_id) || []).filter(id => !adminIds.has(id)));
 
     // Load allowed projects for this employee
     const empProjects = employeeProjects
@@ -445,16 +448,26 @@ const [searchQuery, setSearchQuery] = useState('');
         }
       }
 
-      // Save recorder assignments
+      // Save recorder assignments (admins are auto-assigned via trigger and cannot be removed)
       if (employeeId) {
-        await supabase
-          .from('employee_recorders')
-          .delete()
-          .eq('employee_id', employeeId);
+        const adminIds = new Set(appUsers.filter(u => u.role === 'admin').map(u => u.user_id));
+        // Only delete non-admin recorder rows
+        const nonAdminIds = appUsers.filter(u => u.role !== 'admin').map(u => u.user_id);
+        if (nonAdminIds.length > 0) {
+          await supabase
+            .from('employee_recorders')
+            .delete()
+            .eq('employee_id', employeeId)
+            .in('user_id', nonAdminIds);
+        }
 
-        if (selectedRecorderIds.length > 0) {
+        // Always include current HR user (auto-assigned)
+        const finalIds = new Set(selectedRecorderIds.filter(id => !adminIds.has(id)));
+        if (user && !isAdmin) finalIds.add(user.id);
+
+        if (finalIds.size > 0) {
           await supabase.from('employee_recorders').insert(
-            selectedRecorderIds.map(userId => ({
+            Array.from(finalIds).map(userId => ({
               employee_id: employeeId,
               user_id: userId,
             }))
@@ -504,10 +517,8 @@ const [searchQuery, setSearchQuery] = useState('');
       return;
     }
 
-    if (selectedRecorderIds.length === 0) {
-      toast.error(language === 'el' ? 'Επιλέξτε τουλάχιστον έναν υπεύθυνο καταγραφής' : 'Select at least one daily recorder');
-      return;
-    }
+    // Note: admins are auto-assigned via DB trigger and HR is auto-included on save,
+    // so no minimum-selection validation is required.
 
     if (hasElevatedRole && !payRatesValid()) {
       toast.error(t('employees.payRatesRequired'));
@@ -807,37 +818,48 @@ const [searchQuery, setSearchQuery] = useState('');
                       {language === 'el' ? 'Υπεύθυνοι Καταγραφής' : 'Daily Recorders'} *
                     </Label>
                     <div className="border rounded-lg p-3 space-y-2 max-h-40 overflow-y-auto bg-background">
-                      {appUsers.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">
-                          {language === 'el' ? 'Δεν υπάρχουν διαθέσιμοι χρήστες' : 'No users available'}
-                        </p>
-                      ) : (
-                        appUsers.map((user) => (
-                          <label
-                            key={user.user_id}
-                            className="flex items-center gap-3 cursor-pointer hover:bg-muted/50 rounded p-1"
-                          >
-                            <input
-                              type="checkbox"
-                              className="w-4 h-4 rounded"
-                              checked={selectedRecorderIds.includes(user.user_id)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedRecorderIds(prev => [...prev, user.user_id]);
-                                } else {
-                                  setSelectedRecorderIds(prev => prev.filter(id => id !== user.user_id));
-                                }
-                              }}
-                            />
-                            <span className="text-sm">
-                              {user.full_name || user.user_id.slice(0, 8)}
-                              <span className="text-muted-foreground ml-1">
-                                ({t(`role.${user.role}`)})
+                      {(() => {
+                        // Hide admins entirely (always assigned); show current HR as disabled+checked.
+                        const visibleUsers = appUsers.filter(u => u.role !== 'admin');
+                        if (visibleUsers.length === 0) {
+                          return (
+                            <p className="text-sm text-muted-foreground">
+                              {language === 'el' ? 'Δεν υπάρχουν διαθέσιμοι χρήστες' : 'No users available'}
+                            </p>
+                          );
+                        }
+                        return visibleUsers.map((u) => {
+                          const isSelf = !!user && u.user_id === user.id;
+                          return (
+                            <label
+                              key={u.user_id}
+                              className={`flex items-center gap-3 rounded p-1 ${isSelf ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer hover:bg-muted/50'}`}
+                            >
+                              <input
+                                type="checkbox"
+                                className="w-4 h-4 rounded"
+                                checked={isSelf ? true : selectedRecorderIds.includes(u.user_id)}
+                                disabled={isSelf}
+                                onChange={(e) => {
+                                  if (isSelf) return;
+                                  if (e.target.checked) {
+                                    setSelectedRecorderIds(prev => [...prev, u.user_id]);
+                                  } else {
+                                    setSelectedRecorderIds(prev => prev.filter(id => id !== u.user_id));
+                                  }
+                                }}
+                              />
+                              <span className="text-sm">
+                                {u.full_name || u.user_id.slice(0, 8)}
+                                <span className="text-muted-foreground ml-1">
+                                  ({t(`role.${u.role}`)})
+                                  {isSelf && ` — ${language === 'el' ? 'εσύ — αυτόματα' : 'you — automatic'}`}
+                                </span>
                               </span>
-                            </span>
-                          </label>
-                        ))
-                      )}
+                            </label>
+                          );
+                        });
+                      })()}
                     </div>
                     {selectedRecorderIds.length > 0 && (
                       <p className="text-xs text-muted-foreground">
