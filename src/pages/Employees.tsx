@@ -353,12 +353,13 @@ const [searchQuery, setSearchQuery] = useState('');
     setIban(employee.iban || '');
     setBankName(employee.bank_name || '');
 
-    // Fetch current recorders for this employee
+    // Fetch current recorders for this employee (exclude admins — they're implicit)
+    const adminIds = new Set(appUsers.filter(u => u.role === 'admin').map(u => u.user_id));
     const { data: recorderData } = await supabase
       .from('employee_recorders')
       .select('user_id')
       .eq('employee_id', employee.id);
-    setSelectedRecorderIds(recorderData?.map(r => r.user_id) || []);
+    setSelectedRecorderIds((recorderData?.map(r => r.user_id) || []).filter(id => !adminIds.has(id)));
 
     // Load allowed projects for this employee
     const empProjects = employeeProjects
