@@ -818,37 +818,48 @@ const [searchQuery, setSearchQuery] = useState('');
                       {language === 'el' ? 'Υπεύθυνοι Καταγραφής' : 'Daily Recorders'} *
                     </Label>
                     <div className="border rounded-lg p-3 space-y-2 max-h-40 overflow-y-auto bg-background">
-                      {appUsers.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">
-                          {language === 'el' ? 'Δεν υπάρχουν διαθέσιμοι χρήστες' : 'No users available'}
-                        </p>
-                      ) : (
-                        appUsers.map((user) => (
-                          <label
-                            key={user.user_id}
-                            className="flex items-center gap-3 cursor-pointer hover:bg-muted/50 rounded p-1"
-                          >
-                            <input
-                              type="checkbox"
-                              className="w-4 h-4 rounded"
-                              checked={selectedRecorderIds.includes(user.user_id)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedRecorderIds(prev => [...prev, user.user_id]);
-                                } else {
-                                  setSelectedRecorderIds(prev => prev.filter(id => id !== user.user_id));
-                                }
-                              }}
-                            />
-                            <span className="text-sm">
-                              {user.full_name || user.user_id.slice(0, 8)}
-                              <span className="text-muted-foreground ml-1">
-                                ({t(`role.${user.role}`)})
+                      {(() => {
+                        // Hide admins entirely (always assigned); show current HR as disabled+checked.
+                        const visibleUsers = appUsers.filter(u => u.role !== 'admin');
+                        if (visibleUsers.length === 0) {
+                          return (
+                            <p className="text-sm text-muted-foreground">
+                              {language === 'el' ? 'Δεν υπάρχουν διαθέσιμοι χρήστες' : 'No users available'}
+                            </p>
+                          );
+                        }
+                        return visibleUsers.map((u) => {
+                          const isSelf = !!user && u.user_id === user.id;
+                          return (
+                            <label
+                              key={u.user_id}
+                              className={`flex items-center gap-3 rounded p-1 ${isSelf ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer hover:bg-muted/50'}`}
+                            >
+                              <input
+                                type="checkbox"
+                                className="w-4 h-4 rounded"
+                                checked={isSelf ? true : selectedRecorderIds.includes(u.user_id)}
+                                disabled={isSelf}
+                                onChange={(e) => {
+                                  if (isSelf) return;
+                                  if (e.target.checked) {
+                                    setSelectedRecorderIds(prev => [...prev, u.user_id]);
+                                  } else {
+                                    setSelectedRecorderIds(prev => prev.filter(id => id !== u.user_id));
+                                  }
+                                }}
+                              />
+                              <span className="text-sm">
+                                {u.full_name || u.user_id.slice(0, 8)}
+                                <span className="text-muted-foreground ml-1">
+                                  ({t(`role.${u.role}`)})
+                                  {isSelf && ` — ${language === 'el' ? 'εσύ — αυτόματα' : 'you — automatic'}`}
+                                </span>
                               </span>
-                            </span>
-                          </label>
-                        ))
-                      )}
+                            </label>
+                          );
+                        });
+                      })()}
                     </div>
                     {selectedRecorderIds.length > 0 && (
                       <p className="text-xs text-muted-foreground">
