@@ -517,10 +517,8 @@ const [searchQuery, setSearchQuery] = useState('');
       return;
     }
 
-    if (selectedRecorderIds.length === 0) {
-      toast.error(language === 'el' ? 'Επιλέξτε τουλάχιστον έναν υπεύθυνο καταγραφής' : 'Select at least one daily recorder');
-      return;
-    }
+    // Note: admins are auto-assigned via DB trigger and HR is auto-included on save,
+    // so no minimum-selection validation is required.
 
     if (hasElevatedRole && !payRatesValid()) {
       toast.error(t('employees.payRatesRequired'));
