@@ -349,7 +349,7 @@ export default function Home() {
       {/* Dark overlay for readability */}
       <div className="absolute inset-0 bg-black/55 z-0" />
       {/* Header */}
-      <header className="border-b border-white/10 bg-black/30 backdrop-blur-md sticky top-0 z-50">
+      <header className="border-b border-white/10 bg-black/50 backdrop-blur-md sticky top-0 z-50 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
@@ -358,18 +358,18 @@ export default function Home() {
                 <HomeIcon className="h-5 w-5" />
               </div>
               <div>
-                <h1 className="text-xl font-bold tracking-tight text-foreground">SKYNET</h1>
-                <p className="text-xs text-white/60 hidden sm:block">
+                <h1 className="text-xl font-bold tracking-tight text-white">SKYNET</h1>
+                <p className="text-xs text-white/70 hidden sm:block">
                   {language === 'el' ? 'Πλατφόρμα Λειτουργιών Ναυπηγείου' : 'Shipyard Operations Platform'}
                 </p>
               </div>
             </div>
 
             {/* Breadcrumb - Center */}
-            <div className="hidden md:flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="hidden md:flex items-center gap-2 text-sm text-white/70">
               <HomeIcon className="h-4 w-4" />
               <span>/</span>
-              <span className="text-foreground font-medium">
+              <span className="text-white font-medium">
                 {language === 'el' ? 'Αρχική' : 'Home'}
               </span>
             </div>
@@ -380,7 +380,7 @@ export default function Home() {
                 variant="ghost"
                 size="sm"
                 onClick={toggleLanguage}
-                className="hidden sm:flex"
+                className="hidden sm:flex text-white/70 hover:text-white hover:bg-white/10"
               >
                 <Globe className="h-4 w-4 mr-2" />
                 {language === 'en' ? 'EL' : 'EN'}
@@ -388,11 +388,11 @@ export default function Home() {
 
               <div className="flex items-center gap-2">
                 <div className="text-right hidden sm:block">
-                  <p className="text-sm font-medium text-foreground truncate max-w-[150px]">
+                  <p className="text-sm font-medium text-white truncate max-w-[150px]">
                     {user?.email}
                   </p>
                 </div>
-                <Badge variant={getRoleBadgeVariant()} className="shrink-0">
+                <Badge variant={getRoleBadgeVariant()} className="shrink-0 bg-white/10 text-white border-white/20">
                   {getRoleLabel()}
                 </Badge>
               </div>
@@ -401,7 +401,7 @@ export default function Home() {
                 variant="ghost"
                 size="icon"
                 onClick={async () => { try { await signOut(); } catch (e) { console.error(e); } window.location.href = '/login'; }}
-                className="text-muted-foreground hover:text-destructive"
+                className="text-white/70 hover:text-white hover:bg-white/10"
               >
                 <LogOut className="h-5 w-5" />
               </Button>
