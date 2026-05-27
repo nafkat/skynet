@@ -448,16 +448,26 @@ const [searchQuery, setSearchQuery] = useState('');
         }
       }
 
-      // Save recorder assignments
+      // Save recorder assignments (admins are auto-assigned via trigger and cannot be removed)
       if (employeeId) {
-        await supabase
-          .from('employee_recorders')
-          .delete()
-          .eq('employee_id', employeeId);
+        const adminIds = new Set(appUsers.filter(u => u.role === 'admin').map(u => u.user_id));
+        // Only delete non-admin recorder rows
+        const nonAdminIds = appUsers.filter(u => u.role !== 'admin').map(u => u.user_id);
+        if (nonAdminIds.length > 0) {
+          await supabase
+            .from('employee_recorders')
+            .delete()
+            .eq('employee_id', employeeId)
+            .in('user_id', nonAdminIds);
+        }
 
-        if (selectedRecorderIds.length > 0) {
+        // Always include current HR user (auto-assigned)
+        const finalIds = new Set(selectedRecorderIds.filter(id => !adminIds.has(id)));
+        if (user && !isAdmin) finalIds.add(user.id);
+
+        if (finalIds.size > 0) {
           await supabase.from('employee_recorders').insert(
-            selectedRecorderIds.map(userId => ({
+            Array.from(finalIds).map(userId => ({
               employee_id: employeeId,
               user_id: userId,
             }))
