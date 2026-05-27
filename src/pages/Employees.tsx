@@ -201,13 +201,15 @@ const [searchQuery, setSearchQuery] = useState('');
       setEmployeeProjects(employeeProjectsRes.data || []);
       setAppUsers(usersWithNames);
 
-      // Build recorders-by-employee map for list display
+      // Build recorders-by-employee map for list display (hide admins — implicit)
+      const adminIds = new Set(usersWithNames.filter(u => u.role === 'admin').map(u => u.user_id));
       const { data: allRecorders } = await supabase
         .from('employee_recorders')
         .select('employee_id, user_id');
       if (allRecorders) {
         const map: Record<string, string[]> = {};
         allRecorders.forEach((r: any) => {
+          if (adminIds.has(r.user_id)) return; // hide admins from display
           const u = usersWithNames.find(x => x.user_id === r.user_id);
           if (!map[r.employee_id]) map[r.employee_id] = [];
           map[r.employee_id].push(u?.full_name || r.user_id.slice(0, 8));
