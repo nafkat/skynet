@@ -100,7 +100,7 @@ interface AppUser {
 
 export default function Employees() {
 const { t, language } = useLanguage();
-  const { hasElevatedRole, isAdmin } = useAuth();
+  const { hasElevatedRole, isAdmin, user } = useAuth();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [specialties, setSpecialties] = useState<Specialty[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
