@@ -543,6 +543,69 @@ export default function ReviewFlagsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!editTarget} onOpenChange={(o) => !o && setEditTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('Edit time entry', 'Επεξεργασία καταχώρησης')}</DialogTitle>
+            <DialogDescription>
+              {(() => {
+                const e = editTarget ? entries[editTarget.time_entry_id] : null;
+                const emp = e ? employees[e.employee_id] : null;
+                return emp
+                  ? `${emp.last_name} ${emp.first_name} (${emp.employee_code})`
+                  : '';
+              })()}
+              <span className="block text-xs mt-1">
+                {t(
+                  'Saving will auto-resolve this flag.',
+                  'Με την αποθήκευση η σημαία θα επιλυθεί αυτόματα.'
+                )}
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>{t('Project', 'Έργο')}</Label>
+              <Select value={editProjectId} onValueChange={setEditProjectId}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {allProjects.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.project_code} — {p.project_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>{t('Date', 'Ημερομηνία')}</Label>
+              <Input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>{t('Start', 'Έναρξη')}</Label>
+                <Input type="time" value={editStart} onChange={(e) => setEditStart(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>{t('End', 'Λήξη')}</Label>
+                <Input type="time" value={editEnd} onChange={(e) => setEditEnd(e.target.value)} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditTarget(null)} disabled={editSubmitting}>
+              {t('Cancel', 'Άκυρο')}
+            </Button>
+            <Button onClick={handleEditSave} disabled={editSubmitting}>
+              <Pencil className="h-4 w-4 mr-1.5" />
+              {t('Save', 'Αποθήκευση')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       </div>
     </div>
     </MainLayout>
