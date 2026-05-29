@@ -334,14 +334,26 @@ export default function ReviewFlagsPage() {
                 {t('Resolved', 'Επιλύθηκε')}
               </Badge>
             ) : (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => { setResolveTarget(f); setResolveNotes(''); }}
-              >
-                <CheckCircle2 className="h-4 w-4 mr-1.5" />
-                {t('Resolve (no change needed)', 'Επίλυση (χωρίς αλλαγή)')}
-              </Button>
+              <div className="flex items-center gap-2">
+                {!entry?.is_deleted && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => openEdit(f)}
+                  >
+                    <Pencil className="h-4 w-4 mr-1.5" />
+                    {t('Edit entry', 'Επεξεργασία')}
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => { setResolveTarget(f); setResolveNotes(''); }}
+                >
+                  <CheckCircle2 className="h-4 w-4 mr-1.5" />
+                  {t('Resolve (no change needed)', 'Επίλυση (χωρίς αλλαγή)')}
+                </Button>
+              </div>
             )}
           </div>
 
