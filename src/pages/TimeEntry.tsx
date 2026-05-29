@@ -710,63 +710,196 @@ export default function TimeEntry() {
 
             {/* Employee */}
             <div className="space-y-2">
-              <Label className="text-sm font-medium">{t('timeEntry.selectEmployee')}</Label>
-              <Select 
-                value={selectedEmployee} 
-                onValueChange={setSelectedEmployee}
-                disabled={formMode === 'edit'}
-              >
-                <SelectTrigger className="input-tablet">
-                  <SelectValue placeholder={t('timeEntry.selectEmployee')} />
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px]">
-                  {/* Recently used today section */}
-                  {recentlyUsedEmployees.length > 0 && (
-                    <>
-                      <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                        <Users className="h-3 w-3" />
-                        {t('timeEntry.recentlyUsedToday')}
-                      </div>
-                      {recentlyUsedEmployees.map((emp) => {
-                        const count = employeeEntryCounts.get(emp.id) || 0;
-                        return (
-                          <SelectItem key={`recent-${emp.id}`} value={emp.id}>
-                            <div className="flex items-center justify-between w-full gap-3">
-                              <span>{emp.first_name} {emp.last_name} ({emp.employee_code})</span>
-                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 font-normal shrink-0">
-                                {count} {t('timeEntry.entriesToday')}
-                              </Badge>
-                            </div>
-                          </SelectItem>
-                        );
-                      })}
-                      <Separator className="my-1" />
-                      <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-                        {language === 'el' ? 'Όλοι οι εργαζόμενοι' : 'All employees'}
-                      </div>
-                    </>
-                  )}
-                  {/* All employees */}
-                  {employees.map((emp) => {
-                    const count = employeeEntryCounts.get(emp.id) || 0;
-                    return (
-                      <SelectItem key={emp.id} value={emp.id}>
-                        <div className="flex items-center justify-between w-full gap-3">
-                          <span>{emp.first_name} {emp.last_name} ({emp.employee_code})</span>
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 font-normal shrink-0">
-                            {count} {t('timeEntry.entriesToday')}
-                          </Badge>
+              <div className="flex items-center justify-between gap-2">
+                <Label className="text-sm font-medium">{t('timeEntry.selectEmployee')}</Label>
+                {multiSelectAllowed && (
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="multi-mode-toggle" className="text-xs text-muted-foreground cursor-pointer">
+                      {t('timeEntry.multipleEmployees')}
+                    </Label>
+                    <Switch
+                      id="multi-mode-toggle"
+                      checked={multiMode}
+                      onCheckedChange={(v) => {
+                        setMultiMode(v);
+                        if (v) {
+                          setSelectedEmployee('');
+                        } else {
+                          setSelectedEmployeeIds([]);
+                        }
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {!multiMode ? (
+                <Select 
+                  value={selectedEmployee} 
+                  onValueChange={setSelectedEmployee}
+                  disabled={formMode === 'edit'}
+                >
+                  <SelectTrigger className="input-tablet">
+                    <SelectValue placeholder={t('timeEntry.selectEmployee')} />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {/* Recently used today section */}
+                    {recentlyUsedEmployees.length > 0 && (
+                      <>
+                        <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                          <Users className="h-3 w-3" />
+                          {t('timeEntry.recentlyUsedToday')}
                         </div>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
+                        {recentlyUsedEmployees.map((emp) => {
+                          const count = employeeEntryCounts.get(emp.id) || 0;
+                          return (
+                            <SelectItem key={`recent-${emp.id}`} value={emp.id}>
+                              <div className="flex items-center justify-between w-full gap-3">
+                                <span>{emp.first_name} {emp.last_name} ({emp.employee_code})</span>
+                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 font-normal shrink-0">
+                                  {count} {t('timeEntry.entriesToday')}
+                                </Badge>
+                              </div>
+                            </SelectItem>
+                          );
+                        })}
+                        <Separator className="my-1" />
+                        <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                          {language === 'el' ? 'Όλοι οι εργαζόμενοι' : 'All employees'}
+                        </div>
+                      </>
+                    )}
+                    {/* All employees */}
+                    {employees.map((emp) => {
+                      const count = employeeEntryCounts.get(emp.id) || 0;
+                      return (
+                        <SelectItem key={emp.id} value={emp.id}>
+                          <div className="flex items-center justify-between w-full gap-3">
+                            <span>{emp.first_name} {emp.last_name} ({emp.employee_code})</span>
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 font-normal shrink-0">
+                              {count} {t('timeEntry.entriesToday')}
+                            </Badge>
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <>
+                  <Popover open={employeePickerOpen} onOpenChange={setEmployeePickerOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        role="combobox"
+                        className="input-tablet w-full justify-between font-normal"
+                      >
+                        <span className="truncate">
+                          {selectedEmployeeIds.length === 0
+                            ? t('timeEntry.selectEmployees')
+                            : `${selectedEmployeeIds.length} ${t('timeEntry.selectedCount')}`}
+                        </span>
+                        <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="p-0 w-[min(560px,90vw)]"
+                      align="start"
+                    >
+                      <Command>
+                        <CommandInput placeholder={t('timeEntry.searchEmployees')} />
+                        <div className="flex items-center justify-between gap-2 px-2 py-1.5 border-b">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() => setSelectedEmployeeIds(employees.map(e => e.id))}
+                          >
+                            {t('timeEntry.selectAll')}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() => setSelectedEmployeeIds([])}
+                          >
+                            {t('timeEntry.clearSelection')}
+                          </Button>
+                        </div>
+                        <CommandList>
+                          <CommandEmpty>{t('timeEntry.noEmployeesFound')}</CommandEmpty>
+                          <CommandGroup>
+                            {employees.map((emp) => {
+                              const checked = selectedEmployeeIds.includes(emp.id);
+                              const count = employeeEntryCounts.get(emp.id) || 0;
+                              return (
+                                <CommandItem
+                                  key={emp.id}
+                                  value={`${emp.first_name} ${emp.last_name} ${emp.employee_code}`}
+                                  onSelect={() => {
+                                    setSelectedEmployeeIds(prev =>
+                                      checked ? prev.filter(id => id !== emp.id) : [...prev, emp.id]
+                                    );
+                                  }}
+                                  className="cursor-pointer"
+                                >
+                                  <Checkbox checked={checked} className="mr-2" />
+                                  <span className="flex-1">
+                                    {emp.first_name} {emp.last_name} ({emp.employee_code})
+                                  </span>
+                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 font-normal shrink-0 ml-2">
+                                    {count} {t('timeEntry.entriesToday')}
+                                  </Badge>
+                                </CommandItem>
+                              );
+                            })}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+
+                  {/* Selected chips */}
+                  {selectedEmployeeIds.length > 0 && (
+                    <ScrollArea className="max-h-24 mt-2">
+                      <div className="flex flex-wrap gap-1.5">
+                        {selectedEmployeeIds.map(id => {
+                          const emp = employees.find(e => e.id === id);
+                          if (!emp) return null;
+                          return (
+                            <Badge
+                              key={id}
+                              variant="secondary"
+                              className="pl-2 pr-1 py-0.5 gap-1 text-xs font-normal"
+                            >
+                              {emp.first_name} {emp.last_name}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setSelectedEmployeeIds(prev => prev.filter(x => x !== id))
+                                }
+                                className="hover:bg-muted-foreground/20 rounded-sm p-0.5"
+                                aria-label={`Remove ${emp.first_name} ${emp.last_name}`}
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    </ScrollArea>
+                  )}
+                </>
+              )}
+
               {formMode === 'edit' && (
                 <p className="text-xs text-muted-foreground">{t('timeEntry.employeeReadOnly')}</p>
               )}
-              {/* Pay rate warning */}
-              {selectedEmployee && !hasValidPayRates && (
+              {/* Pay rate warning (single mode) */}
+              {!multiMode && selectedEmployee && !hasValidPayRates && (
                 <div className="mt-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 flex items-start gap-2">
                   <AlertCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
                   <div>
