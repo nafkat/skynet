@@ -21,12 +21,17 @@ import {
   ArrowRight,
   CalendarIcon,
   Users,
-  FileSpreadsheet
+  FileSpreadsheet,
+  ChevronRight,
+  ChevronDown
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { usePendingCorrections } from '@/hooks/usePendingCorrections';
 import { format, startOfWeek, endOfWeek, startOfDay, endOfDay, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { EntryReviewFlagButton } from '@/components/EntryReviewFlagButton';
+import { EntryReviewFlagBell } from '@/components/EntryReviewFlagBell';
+import { useEntryReviewFlags } from '@/hooks/useEntryReviewFlags';
 
 interface TimeEntry {
   id: string;
