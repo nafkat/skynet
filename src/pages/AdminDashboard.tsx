@@ -73,6 +73,7 @@ interface Specialty {
 }
 
 interface LaborByProject {
+  projectId: string;
   projectCode: string;
   projectName: string;
   totalHours: number;
@@ -81,6 +82,20 @@ interface LaborByProject {
   allInCost: number;
   otCost: number;
   overtimePercentage: number;
+  entryIds: string[];
+}
+
+interface EmployeeBreakdown {
+  employeeId: string;
+  employeeName: string;
+  specialtyName: string;
+  totalHours: number;
+  overtimeHours: number;
+  regularCost: number;
+  allInCost: number;
+  otCost: number;
+  overtimePercentage: number;
+  entryIds: string[];
 }
 
 interface LaborBySpecialty {
