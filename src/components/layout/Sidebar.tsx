@@ -16,7 +16,8 @@ import {
   Home,
   Megaphone,
   Shield,
-  MessageSquare
+  MessageSquare,
+  Flag
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -36,6 +37,16 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { signOut, isAdmin, isHR, hasElevatedRole, role } = useAuth();
   const { pendingCount } = usePendingCorrections();
   const { unreadCount: messageUnreadCount } = useUnreadMessageCount();
+  const { openCount: reviewFlagCount } = (() => {
+    // Lazy require to avoid circular hooks in non-elevated users
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const m = require('@/hooks/useEntryReviewFlags');
+      return m.useEntryReviewFlags();
+    } catch {
+      return { openCount: 0 };
+    }
+  })();
 
   // Auto-close on navigation (mobile only)
   useEffect(() => {
