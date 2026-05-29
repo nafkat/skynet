@@ -832,7 +832,7 @@ export default function AdminDashboard() {
                       const employees = employeesByProject.get(item.projectId) ?? [];
                       const projectHasFlags = hasOpenFlags(item.entryIds);
                       return (
-                        <>
+                        <Fragment key={item.projectId}>
                           <tr
                             key={item.projectId}
                             className={cn(
