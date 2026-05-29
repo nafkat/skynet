@@ -821,6 +821,11 @@ export default function TimeEntry() {
                       <p className="text-sm text-muted-foreground">
                         {entry.projects.project_code} - {entry.projects.project_name}
                       </p>
+                      {hasElevatedRole && entry.employees?.specialty_id && specialtyMap[entry.employees.specialty_id] && (
+                        <Badge variant="secondary" className="mt-1 text-[10px] font-normal h-5 px-1.5">
+                          {specialtyMap[entry.employees.specialty_id]}
+                        </Badge>
+                      )}
                     </div>
                     <div className="text-right">
                       <p className="font-mono text-sm">
