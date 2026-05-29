@@ -15,6 +15,7 @@ import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import PayrollExport from "./pages/PayrollExport";
+import ReviewFlags from "./pages/admin/ReviewFlags";
 
 // Admin Console Pages
 import AdminLayout from "./pages/admin/AdminLayout";
@@ -161,6 +162,17 @@ function AppRoutes() {
           </ProtectedRoute>
         } 
       />
+
+      {/* Pending Reviews - Admin and HR only */}
+      <Route 
+        path="/admin/review-flags" 
+        element={
+          <ProtectedRoute requiredRoles={['admin', 'hr']}>
+            <ReviewFlags />
+          </ProtectedRoute>
+        } 
+      />
+      
       
       
       {/* Announcements Module - Admin and HR only */}

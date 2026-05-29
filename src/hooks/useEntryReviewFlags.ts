@@ -15,31 +15,54 @@ export interface EntryReviewFlag {
   updated_at: string;
 }
 
+export interface EntryReviewFlagComment {
+  id: string;
+  flag_id: string;
+  author_id: string;
+  comment: string;
+  created_at: string;
+}
+
+const RESOLVED_WINDOW_HOURS = 72;
+
 /**
- * Fetches all OPEN review flags + total count, subscribes to realtime changes.
- * Used by both the bell-icon and per-row badges across dashboards/reports.
+ * Fetches OPEN flags + recently RESOLVED flags (last 72h), subscribes to realtime.
  */
 export function useEntryReviewFlags() {
   const { hasElevatedRole } = useAuth();
   const [flags, setFlags] = useState<EntryReviewFlag[]>([]);
+  const [resolvedRecent, setResolvedRecent] = useState<EntryReviewFlag[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchFlags = useCallback(async () => {
     if (!hasElevatedRole) {
       setFlags([]);
+      setResolvedRecent([]);
       setLoading(false);
       return;
     }
     setLoading(true);
-    const { data, error } = await supabase
-      .from('entry_review_flags')
-      .select('*')
-      .eq('status', 'open')
-      .order('created_at', { ascending: false });
+    const sinceISO = new Date(
+      Date.now() - RESOLVED_WINDOW_HOURS * 60 * 60 * 1000
+    ).toISOString();
 
-    if (!error && data) {
-      setFlags(data as EntryReviewFlag[]);
-    }
+    const [openRes, resolvedRes] = await Promise.all([
+      supabase
+        .from('entry_review_flags')
+        .select('*')
+        .eq('status', 'open')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('entry_review_flags')
+        .select('*')
+        .eq('status', 'resolved')
+        .gte('resolved_at', sinceISO)
+        .order('resolved_at', { ascending: false }),
+    ]);
+
+    if (!openRes.error && openRes.data) setFlags(openRes.data as EntryReviewFlag[]);
+    if (!resolvedRes.error && resolvedRes.data)
+      setResolvedRecent(resolvedRes.data as EntryReviewFlag[]);
     setLoading(false);
   }, [hasElevatedRole]);
 
@@ -47,27 +70,21 @@ export function useEntryReviewFlags() {
     fetchFlags();
   }, [fetchFlags]);
 
-  // Realtime subscription
   useEffect(() => {
     if (!hasElevatedRole) return;
-
     const channel = supabase
       .channel('entry_review_flags_changes')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'entry_review_flags' },
-        () => {
-          fetchFlags();
-        }
+        () => fetchFlags()
       )
       .subscribe();
-
     return () => {
       supabase.removeChannel(channel);
     };
   }, [hasElevatedRole, fetchFlags]);
 
-  // Helper: get open flags for one or many entry IDs
   const getFlagsForEntries = useCallback(
     (entryIds: string[]) => {
       const set = new Set(entryIds);
@@ -83,7 +100,9 @@ export function useEntryReviewFlags() {
 
   return {
     flags,
+    resolvedRecent,
     openCount: flags.length,
+    resolvedRecentCount: resolvedRecent.length,
     loading,
     refetch: fetchFlags,
     getFlagsForEntries,
@@ -91,10 +110,6 @@ export function useEntryReviewFlags() {
   };
 }
 
-/**
- * Raises a review flag for one or many time_entry IDs.
- * Returns count of flags created.
- */
 export async function raiseEntryReviewFlag(
   timeEntryIds: string[],
   reason: string,
@@ -103,28 +118,20 @@ export async function raiseEntryReviewFlag(
   if (!reason.trim() || timeEntryIds.length === 0) {
     return { success: false, count: 0, error: 'Missing reason or entry IDs' };
   }
-
   const rows = timeEntryIds.map((id) => ({
     time_entry_id: id,
     raised_by: raisedBy,
     reason: reason.trim(),
     status: 'open',
   }));
-
   const { error, data } = await supabase
     .from('entry_review_flags')
     .insert(rows)
     .select('id');
-
-  if (error) {
-    return { success: false, count: 0, error: error.message };
-  }
+  if (error) return { success: false, count: 0, error: error.message };
   return { success: true, count: data?.length ?? 0 };
 }
 
-/**
- * Manually mark a flag as resolved (alternative to auto-resolve trigger).
- */
 export async function resolveEntryReviewFlag(
   flagId: string,
   resolvedBy: string,
@@ -139,7 +146,33 @@ export async function resolveEntryReviewFlag(
       resolution_notes: notes?.trim() || 'Manually resolved',
     })
     .eq('id', flagId);
+  if (error) return { success: false, error: error.message };
+  return { success: true };
+}
 
+export async function fetchFlagComments(
+  flagId: string
+): Promise<EntryReviewFlagComment[]> {
+  const { data, error } = await supabase
+    .from('entry_review_flag_comments')
+    .select('*')
+    .eq('flag_id', flagId)
+    .order('created_at', { ascending: true });
+  if (error || !data) return [];
+  return data as EntryReviewFlagComment[];
+}
+
+export async function addFlagComment(
+  flagId: string,
+  authorId: string,
+  comment: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!comment.trim()) return { success: false, error: 'Empty comment' };
+  const { error } = await supabase.from('entry_review_flag_comments').insert({
+    flag_id: flagId,
+    author_id: authorId,
+    comment: comment.trim(),
+  });
   if (error) return { success: false, error: error.message };
   return { success: true };
 }
