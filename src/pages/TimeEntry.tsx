@@ -96,6 +96,7 @@ export default function TimeEntry() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [recentEntries, setRecentEntries] = useState<TimeEntryData[]>([]);
+  const [specialtyMap, setSpecialtyMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
