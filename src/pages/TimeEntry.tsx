@@ -303,7 +303,120 @@ export default function TimeEntry() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    // ===== MULTI-SELECT BULK CREATE =====
+    if (multiMode && formMode === 'create') {
+      if (selectedEmployeeIds.length === 0) {
+        toast.error(t('timeEntry.atLeastOneEmployee'));
+        return;
+      }
+      if (!selectedProject || !startTime || !endTime) {
+        toast.error(t('common.fillAllFields') || 'Please fill in all fields');
+        return;
+      }
+      if (startTime >= endTime) {
+        toast.error(t('timeEntry.endAfterStart'));
+        return;
+      }
+
+      // Separate employees with invalid pay rates (skip them with warning)
+      const invalidRate: Employee[] = [];
+      const validEmployees: Employee[] = [];
+      selectedEmployeeIds.forEach(id => {
+        const emp = employees.find(e => e.id === id);
+        if (!emp) return;
+        const valid =
+          (emp.regular_hourly_rate ?? 0) > 0 &&
+          (emp.regular_rate_all_in ?? 0) > 0 &&
+          (emp.overtime_hourly_rate ?? 0) > 0;
+        (valid ? validEmployees : invalidRate).push(emp);
+      });
+
+      if (validEmployees.length === 0) {
+        toast.error(t('timeEntry.incompletePayRates'));
+        return;
+      }
+
+      // Pre-check overlaps against ALL existing entries (today's panel covers today;
+      // for other dates fetch fresh). Use a server query for safety.
+      setSubmitting(true);
+      try {
+        const { data: existing, error: fetchErr } = await supabase
+          .from('time_entries')
+          .select('employee_id, start_time, end_time, employees(first_name, last_name, employee_code)')
+          .eq('is_deleted', false)
+          .eq('entry_date', entryDate)
+          .in('employee_id', validEmployees.map(e => e.id));
+
+        if (fetchErr) throw fetchErr;
+
+        const conflicts: Array<{ name: string; code: string; overlap: string }> = [];
+        (existing || []).forEach((row: any) => {
+          const exStart = row.start_time.slice(0, 5);
+          const exEnd = row.end_time.slice(0, 5);
+          if (startTime < exEnd && endTime > exStart) {
+            conflicts.push({
+              name: `${row.employees?.first_name ?? ''} ${row.employees?.last_name ?? ''}`.trim(),
+              code: row.employees?.employee_code ?? '',
+              overlap: `${exStart}–${exEnd}`,
+            });
+          }
+        });
+
+        if (conflicts.length > 0) {
+          setConflictList(conflicts);
+          setConflictDialogOpen(true);
+          setSubmitting(false);
+          return;
+        }
+
+        // Bulk insert
+        const rows = validEmployees.map(emp => ({
+          employee_id: emp.id,
+          project_id: selectedProject,
+          entry_date: entryDate,
+          start_time: startTime,
+          end_time: endTime,
+          created_by: user?.id,
+          specialty_id: emp.specialty_id || null,
+        }));
+
+        const { error: insertErr } = await supabase.from('time_entries').insert(rows);
+        if (insertErr) {
+          if (insertErr.message?.includes('Overlap detected')) {
+            toast.error(t('timeEntry.overlapError'));
+          } else {
+            throw insertErr;
+          }
+          setSubmitting(false);
+          return;
+        }
+
+        toast.success(
+          t('timeEntry.bulkSuccess').replace('{count}', String(validEmployees.length))
+        );
+
+        if (invalidRate.length > 0) {
+          toast.warning(
+            `${t('timeEntry.invalidPayRatesList')} ${invalidRate
+              .map(e => `${e.first_name} ${e.last_name}`)
+              .join(', ')}`
+          );
+        }
+
+        resetForm();
+        setMultiMode(false);
+        fetchData();
+      } catch (error: any) {
+        console.error('Error:', error);
+        toast.error(error.message || 'An error occurred');
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
+    // ===== SINGLE-SELECT (original flow) =====
     if (!selectedEmployee || !selectedProject || !startTime || !endTime) {
       toast.error(t('common.fillAllFields') || 'Please fill in all fields');
       return;
