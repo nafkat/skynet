@@ -38,6 +38,7 @@ import { format } from 'date-fns';
 import { formatDate } from '@/lib/dateUtils';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { EntryReviewFlagButton } from '@/components/EntryReviewFlagButton';
 
 interface Employee {
   id: string;
@@ -95,6 +96,7 @@ export default function TimeEntry() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [recentEntries, setRecentEntries] = useState<TimeEntryData[]>([]);
+  const [specialtyMap, setSpecialtyMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
@@ -185,9 +187,17 @@ export default function TimeEntry() {
         .order('start_time', { ascending: false })
         .limit(50);
 
+      // Specialties lookup (id → name) — used for the small label under employee name
+      const { data: specialtiesData } = await supabase
+        .from('specialties')
+        .select('id, name');
+      const specMap: Record<string, string> = {};
+      (specialtiesData || []).forEach((s: any) => { specMap[s.id] = s.name; });
+
       setEmployees(employeesData || []);
       setProjects(projectsData || []);
       setRecentEntries((entriesData as TimeEntryData[]) || []);
+      setSpecialtyMap(specMap);
       setLastRefresh(new Date());
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -811,6 +821,11 @@ export default function TimeEntry() {
                       <p className="text-sm text-muted-foreground">
                         {entry.projects.project_code} - {entry.projects.project_name}
                       </p>
+                      {hasElevatedRole && entry.employees?.specialty_id && specialtyMap[entry.employees.specialty_id] && (
+                        <Badge variant="secondary" className="mt-1 text-[10px] font-normal h-5 px-1.5">
+                          {specialtyMap[entry.employees.specialty_id]}
+                        </Badge>
+                      )}
                     </div>
                     <div className="text-right">
                       <p className="font-mono text-sm">
@@ -877,6 +892,12 @@ export default function TimeEntry() {
                           )}
                         </Button>
                       )}
+
+                      {/* 🚩 Review flag button — Admin/HR only (component handles role check) */}
+                      <EntryReviewFlagButton
+                        timeEntryIds={[entry.id]}
+                        contextLabel={`${entry.employees.first_name} ${entry.employees.last_name} — ${entry.projects.project_code}`}
+                      />
                     </div>
                   </div>
 
