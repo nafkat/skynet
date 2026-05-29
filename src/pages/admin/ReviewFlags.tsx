@@ -34,6 +34,7 @@ import { format } from 'date-fns';
 import { el, enUS } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { MainLayout } from '@/components/layout/MainLayout';
 
 interface EntryInfo {
   id: string;
