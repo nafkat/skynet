@@ -10,7 +10,7 @@ import {
   type EntryReviewFlag,
   type EntryReviewFlagComment,
 } from '@/hooks/useEntryReviewFlags';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -25,13 +25,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { Flag, CheckCircle2, MessageSquare, ChevronDown, Clock, Pencil } from 'lucide-react';
+import { Flag, CheckCircle2, MessageSquare, ChevronDown, Clock, Pencil, Plus, Trash2, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 import { el, enUS } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -54,6 +64,15 @@ interface EmployeeInfo { id: string; first_name: string; last_name: string; empl
 interface ProjectInfo { id: string; project_code: string; project_name: string; }
 interface ProfileInfo { user_id: string; full_name: string | null; display_name: string | null; }
 
+interface Segment {
+  id: string | null; // null = new (insert), string = existing (update)
+  project_id: string;
+  start_time: string; // HH:MM
+  end_time: string;   // HH:MM
+  is_flagged: boolean; // the originally flagged entry
+  _pending_delete?: boolean;
+}
+
 export default function ReviewFlagsPage() {
   const { language } = useLanguage();
   const { user, hasElevatedRole } = useAuth();
@@ -71,14 +90,14 @@ export default function ReviewFlagsPage() {
   const [newCommentByFlag, setNewCommentByFlag] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
-  // Edit entry dialog state
+  // Split-edit dialog state
   const [allProjects, setAllProjects] = useState<ProjectInfo[]>([]);
   const [editTarget, setEditTarget] = useState<EntryReviewFlag | null>(null);
-  const [editProjectId, setEditProjectId] = useState('');
   const [editDate, setEditDate] = useState('');
-  const [editStart, setEditStart] = useState('');
-  const [editEnd, setEditEnd] = useState('');
+  const [segments, setSegments] = useState<Segment[]>([]);
+  const [editReason, setEditReason] = useState('');
   const [editSubmitting, setEditSubmitting] = useState(false);
+  const [confirmDeleteFlagged, setConfirmDeleteFlagged] = useState<number | null>(null);
 
   const dateLocale = language === 'el' ? el : enUS;
   const t = (en: string, gr: string) => (language === 'el' ? gr : en);
@@ -179,7 +198,7 @@ export default function ReviewFlagsPage() {
     const res = await resolveEntryReviewFlag(resolveTarget.id, user.id, resolveNotes);
     setSubmitting(false);
     if (res.success) {
-      toast.success(t('Flag resolved', 'Η σημαία επιλύθηκε'));
+      toast.success(t('Flag marked as resolved', 'Η σημαία επιλύθηκε'));
       setResolveTarget(null);
       setResolveNotes('');
       refetch();
@@ -200,79 +219,185 @@ export default function ReviewFlagsPage() {
     })();
   }, [hasElevatedRole]);
 
-  const openEdit = (f: EntryReviewFlag) => {
+  const openEdit = async (f: EntryReviewFlag) => {
     const entry = entries[f.time_entry_id];
     if (!entry) {
       toast.error(t('Entry not loaded yet', 'Η καταχώρηση δεν φορτώθηκε'));
       return;
     }
-    setEditTarget(f);
-    setEditProjectId(entry.project_id);
-    setEditDate(entry.entry_date);
-    setEditStart(entry.start_time.slice(0, 5));
-    setEditEnd(entry.end_time.slice(0, 5));
-  };
+    // Load ALL entries for this employee on this date
+    const { data, error } = await supabase
+      .from('time_entries')
+      .select('id, project_id, start_time, end_time')
+      .eq('employee_id', entry.employee_id)
+      .eq('entry_date', entry.entry_date)
+      .eq('is_deleted', false)
+      .order('start_time');
 
-  const handleEditSave = async () => {
-    if (!editTarget) return;
-    const entry = entries[editTarget.time_entry_id];
-    if (!entry) return;
-
-    if (!editProjectId || !editDate || !editStart || !editEnd) {
-      toast.error(t('Please fill in all fields', 'Συμπληρώστε όλα τα πεδία'));
+    if (error) {
+      toast.error(error.message);
       return;
     }
-    if (editStart >= editEnd) {
-      toast.error(t('End time must be after start time', 'Η λήξη πρέπει να είναι μετά την έναρξη'));
+
+    const segs: Segment[] = (data || []).map((e: any) => ({
+      id: e.id,
+      project_id: e.project_id,
+      start_time: (e.start_time as string).slice(0, 5),
+      end_time: (e.end_time as string).slice(0, 5),
+      is_flagged: e.id === entry.id,
+    }));
+
+    setEditTarget(f);
+    setEditDate(entry.entry_date);
+    setSegments(segs);
+    setEditReason('');
+  };
+
+  const addSegment = () => {
+    const lastEnd = segments
+      .filter((s) => !s._pending_delete)
+      .reduce((max, s) => (s.end_time > max ? s.end_time : max), '');
+    setSegments([
+      ...segments,
+      {
+        id: null,
+        project_id: '',
+        start_time: lastEnd || '',
+        end_time: '',
+        is_flagged: false,
+      },
+    ]);
+  };
+
+  const updateSegment = (idx: number, patch: Partial<Segment>) => {
+    setSegments((prev) => prev.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
+  };
+
+  const removeSegment = (idx: number) => {
+    const seg = segments[idx];
+    if (seg.is_flagged) {
+      // Require extra confirmation for the flagged entry
+      setConfirmDeleteFlagged(idx);
       return;
+    }
+    setSegments((prev) => {
+      // If it had an id (existing row), mark for delete; if it was new, drop it
+      if (prev[idx].id) {
+        return prev.map((s, i) => (i === idx ? { ...s, _pending_delete: true } : s));
+      }
+      return prev.filter((_, i) => i !== idx);
+    });
+  };
+
+  const confirmRemoveFlagged = () => {
+    if (confirmDeleteFlagged === null) return;
+    const idx = confirmDeleteFlagged;
+    setSegments((prev) => prev.map((s, i) => (i === idx ? { ...s, _pending_delete: true } : s)));
+    setConfirmDeleteFlagged(null);
+  };
+
+  const handleSplitSave = async () => {
+    if (!editTarget || !user) return;
+    if (!editReason.trim()) {
+      toast.error(t('Reason is required', 'Η αιτιολογία είναι υποχρεωτική'));
+      return;
+    }
+
+    const active = segments.filter((s) => !s._pending_delete);
+    if (active.length === 0) {
+      toast.error(t('At least one segment is required', 'Απαιτείται τουλάχιστον ένα τμήμα'));
+      return;
+    }
+
+    // Per-row validation
+    for (const s of active) {
+      if (!s.project_id || !s.start_time || !s.end_time) {
+        toast.error(t('Fill all fields in every segment', 'Συμπληρώστε όλα τα πεδία σε κάθε τμήμα'));
+        return;
+      }
+      if (s.start_time >= s.end_time) {
+        toast.error(t('End must be after start in every segment', 'Η λήξη πρέπει να είναι μετά την έναρξη'));
+        return;
+      }
+    }
+
+    // Overlap check between active segments
+    const sorted = [...active].sort((a, b) => a.start_time.localeCompare(b.start_time));
+    for (let i = 1; i < sorted.length; i++) {
+      if (sorted[i].start_time < sorted[i - 1].end_time) {
+        toast.error(t('Segments overlap', 'Τα τμήματα επικαλύπτονται'));
+        return;
+      }
     }
 
     setEditSubmitting(true);
     try {
-      // Client-side overlap check against other entries of same employee/date
-      const { data: sameDay } = await supabase
-        .from('time_entries')
-        .select('id, start_time, end_time')
-        .eq('employee_id', entry.employee_id)
-        .eq('entry_date', editDate)
-        .eq('is_deleted', false);
+      const entry = entries[editTarget.time_entry_id];
 
-      const overlap = (sameDay || []).find((e: any) => {
-        if (e.id === entry.id) return false;
-        const s = (e.start_time as string).slice(0, 5);
-        const en = (e.end_time as string).slice(0, 5);
-        return editStart < en && editEnd > s;
-      });
-      if (overlap) {
-        toast.error(t('Overlaps with another entry', 'Επικαλύπτεται με άλλη καταχώρηση'));
-        setEditSubmitting(false);
-        return;
+      // DELETE (soft) segments marked for deletion
+      const toDelete = segments.filter((s) => s._pending_delete && s.id);
+      for (const s of toDelete) {
+        const { error } = await supabase
+          .from('time_entries')
+          .update({
+            is_deleted: true,
+            deleted_at: new Date().toISOString(),
+            deleted_by: user.id,
+            delete_reason: `[SPLIT] ${editReason.trim()}`,
+          })
+          .eq('id', s.id!);
+        if (error) throw error;
       }
 
-      const { error } = await supabase
-        .from('time_entries')
-        .update({
-          project_id: editProjectId,
+      // UPDATE existing kept segments
+      const toUpdate = segments.filter((s) => !s._pending_delete && s.id);
+      for (const s of toUpdate) {
+        const { error } = await supabase
+          .from('time_entries')
+          .update({
+            project_id: s.project_id,
+            start_time: s.start_time,
+            end_time: s.end_time,
+          })
+          .eq('id', s.id!);
+        if (error) throw error;
+      }
+
+      // INSERT new segments — created_by = current admin/hr (B1)
+      const toInsert = segments.filter((s) => !s._pending_delete && !s.id);
+      if (toInsert.length > 0) {
+        const rows = toInsert.map((s) => ({
+          employee_id: entry.employee_id,
+          project_id: s.project_id,
           entry_date: editDate,
-          start_time: editStart,
-          end_time: editEnd,
-        })
-        .eq('id', entry.id);
-
-      if (error) {
-        if (error.message?.includes('Overlap detected')) {
-          toast.error(t('Overlaps with another entry', 'Επικαλύπτεται με άλλη καταχώρηση'));
-        } else {
-          throw error;
-        }
-        return;
+          start_time: s.start_time,
+          end_time: s.end_time,
+          created_by: user.id,
+        }));
+        const { error } = await supabase.from('time_entries').insert(rows);
+        if (error) throw error;
       }
 
-      toast.success(t('Entry updated — flag auto-resolved', 'Η καταχώρηση ενημερώθηκε — η σημαία επιλύθηκε αυτόματα'));
+      // Add reason as a comment on the flag (audit trail visible in UI)
+      await addFlagComment(editTarget.id, user.id, `[SPLIT] ${editReason.trim()}`);
+
+      toast.success(
+        t('Entries updated. Flag stays open until manually resolved.',
+          'Οι καταχωρήσεις ενημερώθηκαν. Η σημαία παραμένει ανοιχτή μέχρι χειροκίνητη επίλυση.')
+      );
       setEditTarget(null);
+      setSegments([]);
+      setEditReason('');
       refetch();
+      // Refresh comments if this flag is expanded
+      if (expandedFlag === editTarget.id) loadComments(editTarget.id);
     } catch (err: any) {
-      toast.error(err.message || t('Failed', 'Αποτυχία'));
+      const msg = err?.message || '';
+      if (msg.includes('Overlap detected')) {
+        toast.error(t('Overlap detected with existing entries', 'Επικάλυψη με υπάρχουσες καταχωρήσεις'));
+      } else {
+        toast.error(msg || t('Failed', 'Αποτυχία'));
+      }
     } finally {
       setEditSubmitting(false);
     }
@@ -347,11 +472,10 @@ export default function ReviewFlagsPage() {
                 )}
                 <Button
                   size="sm"
-                  variant="outline"
                   onClick={() => { setResolveTarget(f); setResolveNotes(''); }}
                 >
                   <CheckCircle2 className="h-4 w-4 mr-1.5" />
-                  {t('Resolve (no change needed)', 'Επίλυση (χωρίς αλλαγή)')}
+                  {t('Mark as resolved', 'Επίλυση')}
                 </Button>
               </div>
             )}
@@ -434,11 +558,13 @@ export default function ReviewFlagsPage() {
     return <div className="p-6">Access denied</div>;
   }
 
+  const activeSegments = segments.filter((s) => !s._pending_delete);
+
   return (
     <MainLayout>
     <div className="container mx-auto p-6 max-w-5xl space-y-6 relative z-10">
       <div className="bg-background/95 backdrop-blur rounded-lg p-6 shadow-lg">
-      
+
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -508,26 +634,27 @@ export default function ReviewFlagsPage() {
         </TabsContent>
       </Tabs>
 
+      {/* MARK AS RESOLVED dialog */}
       <Dialog open={!!resolveTarget} onOpenChange={(o) => !o && setResolveTarget(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t('Resolve flag (no change needed)', 'Επίλυση σημαίας (χωρίς αλλαγή)')}</DialogTitle>
+            <DialogTitle>{t('Mark flag as resolved', 'Επίλυση σημαίας')}</DialogTitle>
             <DialogDescription>
               {t(
-                'Use this when the entry was reviewed and no edit is required. The raiser will see your note.',
-                'Χρησιμοποιήστε όταν η καταχώρηση ελέγχθηκε και δεν χρειάζεται διόρθωση. Ο raiser θα δει την σημείωσή σας.'
+                'Close this review flag. Use after all needed edits and comments are done.',
+                'Κλείσιμο της σημαίας επανελέγχου. Χρησιμοποιήστε αφού γίνουν όλες οι απαραίτητες διορθώσεις και σχόλια.'
               )}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
             <Label htmlFor="resolve-notes">
-              {t('Reason', 'Αιτιολογία')} <span className="text-destructive">*</span>
+              {t('Resolution note', 'Σημείωση επίλυσης')} <span className="text-destructive">*</span>
             </Label>
             <Textarea
               id="resolve-notes"
               value={resolveNotes}
               onChange={(e) => setResolveNotes(e.target.value)}
-              placeholder={t('Why no change is needed…', 'Γιατί δεν χρειάζεται αλλαγή…')}
+              placeholder={t('Short summary of the outcome…', 'Σύντομη περιγραφή του αποτελέσματος…')}
               rows={4}
               maxLength={500}
             />
@@ -538,74 +665,165 @@ export default function ReviewFlagsPage() {
             </Button>
             <Button onClick={handleResolve} disabled={!resolveNotes.trim() || submitting}>
               <CheckCircle2 className="h-4 w-4 mr-1.5" />
-              {t('Resolve', 'Επίλυση')}
+              {t('Mark as resolved', 'Επίλυση')}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!editTarget} onOpenChange={(o) => !o && setEditTarget(null)}>
-        <DialogContent>
+      {/* SPLIT EDIT dialog */}
+      <Dialog open={!!editTarget} onOpenChange={(o) => { if (!o) { setEditTarget(null); setSegments([]); setEditReason(''); } }}>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{t('Edit time entry', 'Επεξεργασία καταχώρησης')}</DialogTitle>
+            <DialogTitle>{t('Edit time entries', 'Επεξεργασία καταχωρήσεων')}</DialogTitle>
             <DialogDescription>
               {(() => {
                 const e = editTarget ? entries[editTarget.time_entry_id] : null;
                 const emp = e ? employees[e.employee_id] : null;
                 return emp
-                  ? `${emp.last_name} ${emp.first_name} (${emp.employee_code})`
+                  ? `${emp.last_name} ${emp.first_name} (${emp.employee_code}) — ${format(new Date(editDate || e!.entry_date), 'dd/MM/yyyy', { locale: dateLocale })}`
                   : '';
               })()}
-              <span className="block text-xs mt-1">
+              <span className="block text-xs mt-1 text-muted-foreground">
                 {t(
-                  'Saving will auto-resolve this flag.',
-                  'Με την αποθήκευση η σημαία θα επιλυθεί αυτόματα.'
+                  'Add, edit or remove segments. The flag stays open until you manually mark it resolved.',
+                  'Προσθέστε, επεξεργαστείτε ή διαγράψτε τμήματα. Η σημαία παραμένει ανοιχτή μέχρι να την επιλύσετε χειροκίνητα.'
                 )}
               </span>
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>{t('Project', 'Έργο')}</Label>
-              <Select value={editProjectId} onValueChange={setEditProjectId}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {allProjects.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.project_code} — {p.project_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>{t('Date', 'Ημερομηνία')}</Label>
-              <Input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>{t('Start', 'Έναρξη')}</Label>
-                <Input type="time" value={editStart} onChange={(e) => setEditStart(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>{t('End', 'Λήξη')}</Label>
-                <Input type="time" value={editEnd} onChange={(e) => setEditEnd(e.target.value)} />
-              </div>
-            </div>
+
+          <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
+            {segments.map((seg, idx) => {
+              if (seg._pending_delete) {
+                return (
+                  <div key={idx} className="border border-dashed border-destructive/50 rounded-md p-2 text-xs text-destructive flex items-center justify-between bg-destructive/5">
+                    <span className="line-through">
+                      {(allProjects.find((p) => p.id === seg.project_id)?.project_code) || '—'} {seg.start_time}–{seg.end_time}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => updateSegment(idx, { _pending_delete: false })}
+                    >
+                      {t('Undo', 'Αναίρεση')}
+                    </Button>
+                  </div>
+                );
+              }
+              return (
+                <div
+                  key={idx}
+                  className={cn(
+                    'grid grid-cols-[1fr_auto_auto_auto] gap-2 items-end border rounded-md p-2',
+                    seg.is_flagged && 'border-orange-300 bg-orange-50/30'
+                  )}
+                >
+                  <div className="space-y-1 min-w-0">
+                    {seg.is_flagged && (
+                      <Badge variant="outline" className="text-[10px] h-4 border-orange-400 text-orange-700">
+                        <Flag className="h-2.5 w-2.5 mr-1" />
+                        {t('Flagged', 'Σημαία')}
+                      </Badge>
+                    )}
+                    <Select value={seg.project_id} onValueChange={(v) => updateSegment(idx, { project_id: v })}>
+                      <SelectTrigger className="h-9">
+                        <SelectValue placeholder={t('Select project', 'Επιλέξτε έργο')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {allProjects.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.project_code} — {p.project_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Input
+                    type="time"
+                    value={seg.start_time}
+                    onChange={(e) => updateSegment(idx, { start_time: e.target.value })}
+                    className="h-9 w-28"
+                  />
+                  <Input
+                    type="time"
+                    value={seg.end_time}
+                    onChange={(e) => updateSegment(idx, { end_time: e.target.value })}
+                    className="h-9 w-28"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 text-destructive hover:text-destructive"
+                    onClick={() => removeSegment(idx)}
+                    title={t('Remove segment', 'Αφαίρεση τμήματος')}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              );
+            })}
+
+            <Button variant="outline" size="sm" onClick={addSegment} className="w-full">
+              <Plus className="h-4 w-4 mr-1.5" />
+              {t('Add segment', 'Προσθήκη τμήματος')}
+            </Button>
           </div>
+
+          <div className="space-y-2 pt-2 border-t">
+            <Label htmlFor="edit-reason">
+              {t('Reason for change', 'Αιτιολογία αλλαγής')} <span className="text-destructive">*</span>
+            </Label>
+            <Textarea
+              id="edit-reason"
+              value={editReason}
+              onChange={(e) => setEditReason(e.target.value)}
+              placeholder={t('Why are these changes being made?', 'Γιατί γίνονται αυτές οι αλλαγές;')}
+              rows={2}
+              maxLength={500}
+            />
+            <p className="text-xs text-muted-foreground">
+              {t('This reason will be added as a comment on the flag.', 'Η αιτιολογία θα προστεθεί ως σχόλιο στη σημαία.')}
+            </p>
+          </div>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditTarget(null)} disabled={editSubmitting}>
               {t('Cancel', 'Άκυρο')}
             </Button>
-            <Button onClick={handleEditSave} disabled={editSubmitting}>
+            <Button onClick={handleSplitSave} disabled={editSubmitting || activeSegments.length === 0 || !editReason.trim()}>
               <Pencil className="h-4 w-4 mr-1.5" />
-              {t('Save', 'Αποθήκευση')}
+              {t('Save changes', 'Αποθήκευση')}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Confirmation for deleting the FLAGGED entry */}
+      <AlertDialog open={confirmDeleteFlagged !== null} onOpenChange={(o) => !o && setConfirmDeleteFlagged(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              {t('Delete the flagged entry?', 'Διαγραφή της σημανθείσας καταχώρησης;')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t(
+                'You are about to delete the entry that was originally flagged for review. This will be logged in the audit trail. Continue?',
+                'Πρόκειται να διαγράψετε την καταχώρηση που σημάνθηκε για επανέλεγχο. Η ενέργεια θα καταγραφεί στο audit log. Συνέχεια;'
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('Cancel', 'Άκυρο')}</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmRemoveFlagged} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {t('Yes, delete', 'Ναι, διαγραφή')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       </div>
     </div>
     </MainLayout>
