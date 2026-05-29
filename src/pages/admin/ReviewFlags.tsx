@@ -322,7 +322,10 @@ export default function ReviewFlagsPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-5xl space-y-6">
+    <MainLayout>
+    <div className="container mx-auto p-6 max-w-5xl space-y-6 relative z-10">
+      <div className="bg-background/95 backdrop-blur rounded-lg p-6 shadow-lg">
+      
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
