@@ -1010,11 +1010,15 @@ export default function TimeEntry() {
                 </Button>
               )}
               
-              <Button type="submit" className="flex-1 btn-tablet" disabled={submitting || (selectedEmployee && !hasValidPayRates)}>
+              <Button type="submit" className="flex-1 btn-tablet" disabled={submitting || (!multiMode && selectedEmployee && !hasValidPayRates)}>
                 {formMode === 'create' ? (
                   <>
                     <Plus className="h-5 w-5 mr-2" />
-                    {submitting ? t('common.loading') : t('timeEntry.register')}
+                    {submitting
+                      ? t('common.loading')
+                      : multiMode && selectedEmployeeIds.length > 0
+                        ? t('timeEntry.bulkRegister').replace('{count}', String(selectedEmployeeIds.length))
+                        : t('timeEntry.register')}
                   </>
                 ) : hasElevatedRole ? (
                   <>
