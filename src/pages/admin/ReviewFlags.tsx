@@ -430,6 +430,8 @@ export default function ReviewFlagsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
+    </MainLayout>
   );
 }
