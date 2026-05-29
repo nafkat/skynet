@@ -689,6 +689,38 @@ export type Database = {
           },
         ]
       }
+      entry_review_flag_comments: {
+        Row: {
+          author_id: string
+          comment: string
+          created_at: string
+          flag_id: string
+          id: string
+        }
+        Insert: {
+          author_id: string
+          comment: string
+          created_at?: string
+          flag_id: string
+          id?: string
+        }
+        Update: {
+          author_id?: string
+          comment?: string
+          created_at?: string
+          flag_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entry_review_flag_comments_flag_id_fkey"
+            columns: ["flag_id"]
+            isOneToOne: false
+            referencedRelation: "entry_review_flags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       entry_review_flags: {
         Row: {
           created_at: string
