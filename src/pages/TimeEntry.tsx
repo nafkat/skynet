@@ -130,6 +130,23 @@ export default function TimeEntry() {
   const [startTime, setStartTime] = useState('07:00');
   const [endTime, setEndTime] = useState('14:00');
 
+  // Multi-select state (desktop/tablet only, create mode only)
+  const isMobile = useIsMobile();
+  const [multiMode, setMultiMode] = useState(false);
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
+  const [employeePickerOpen, setEmployeePickerOpen] = useState(false);
+  const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
+  const [conflictList, setConflictList] = useState<Array<{ name: string; code: string; overlap: string }>>([]);
+  const multiSelectAllowed = !isMobile && formMode === 'create';
+
+  // Auto-disable multi mode when switching to edit or to mobile
+  useEffect(() => {
+    if (!multiSelectAllowed && multiMode) {
+      setMultiMode(false);
+      setSelectedEmployeeIds([]);
+    }
+  }, [multiSelectAllowed, multiMode]);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
