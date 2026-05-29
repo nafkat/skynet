@@ -126,8 +126,8 @@ export function EntryReviewFlagButton({
               </span>
             )}
             {language === 'el'
-              ? 'Η σημαία θα ειδοποιήσει real-time τους άλλους Admin/HR χρήστες. Όταν διορθωθεί η καταχώρηση, η σημαία κλείνει αυτόματα.'
-              : 'The flag notifies other Admin/HR users in real-time. When the entry is edited or deleted, the flag auto-resolves.'}
+              ? 'Η σημαία θα ειδοποιήσει real-time τους άλλους Admin/HR χρήστες. Η επίλυση γίνεται χειροκίνητα από τη σελίδα "Εκκρεμή Επανελέγχου".'
+              : 'The flag notifies other Admin/HR users in real-time. Resolution is manual from the Pending Reviews page.'}
           </DialogDescription>
         </DialogHeader>
 
