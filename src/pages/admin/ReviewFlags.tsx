@@ -188,6 +188,96 @@ export default function ReviewFlagsPage() {
     }
   };
 
+  // Load all projects once for the edit selector (Admin/HR see all)
+  useEffect(() => {
+    if (!hasElevatedRole) return;
+    (async () => {
+      const { data } = await supabase
+        .from('projects')
+        .select('id, project_code, project_name')
+        .order('project_code');
+      setAllProjects((data as ProjectInfo[]) || []);
+    })();
+  }, [hasElevatedRole]);
+
+  const openEdit = (f: EntryReviewFlag) => {
+    const entry = entries[f.time_entry_id];
+    if (!entry) {
+      toast.error(t('Entry not loaded yet', 'Η καταχώρηση δεν φορτώθηκε'));
+      return;
+    }
+    setEditTarget(f);
+    setEditProjectId(entry.project_id);
+    setEditDate(entry.entry_date);
+    setEditStart(entry.start_time.slice(0, 5));
+    setEditEnd(entry.end_time.slice(0, 5));
+  };
+
+  const handleEditSave = async () => {
+    if (!editTarget) return;
+    const entry = entries[editTarget.time_entry_id];
+    if (!entry) return;
+
+    if (!editProjectId || !editDate || !editStart || !editEnd) {
+      toast.error(t('Please fill in all fields', 'Συμπληρώστε όλα τα πεδία'));
+      return;
+    }
+    if (editStart >= editEnd) {
+      toast.error(t('End time must be after start time', 'Η λήξη πρέπει να είναι μετά την έναρξη'));
+      return;
+    }
+
+    setEditSubmitting(true);
+    try {
+      // Client-side overlap check against other entries of same employee/date
+      const { data: sameDay } = await supabase
+        .from('time_entries')
+        .select('id, start_time, end_time')
+        .eq('employee_id', entry.employee_id)
+        .eq('entry_date', editDate)
+        .eq('is_deleted', false);
+
+      const overlap = (sameDay || []).find((e: any) => {
+        if (e.id === entry.id) return false;
+        const s = (e.start_time as string).slice(0, 5);
+        const en = (e.end_time as string).slice(0, 5);
+        return editStart < en && editEnd > s;
+      });
+      if (overlap) {
+        toast.error(t('Overlaps with another entry', 'Επικαλύπτεται με άλλη καταχώρηση'));
+        setEditSubmitting(false);
+        return;
+      }
+
+      const { error } = await supabase
+        .from('time_entries')
+        .update({
+          project_id: editProjectId,
+          entry_date: editDate,
+          start_time: editStart,
+          end_time: editEnd,
+        })
+        .eq('id', entry.id);
+
+      if (error) {
+        if (error.message?.includes('Overlap detected')) {
+          toast.error(t('Overlaps with another entry', 'Επικαλύπτεται με άλλη καταχώρηση'));
+        } else {
+          throw error;
+        }
+        return;
+      }
+
+      toast.success(t('Entry updated — flag auto-resolved', 'Η καταχώρηση ενημερώθηκε — η σημαία επιλύθηκε αυτόματα'));
+      setEditTarget(null);
+      refetch();
+    } catch (err: any) {
+      toast.error(err.message || t('Failed', 'Αποτυχία'));
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
   const userName = (id: string | null) => {
     if (!id) return '—';
     const p = profiles[id];
