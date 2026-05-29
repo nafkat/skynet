@@ -38,6 +38,7 @@ import { format } from 'date-fns';
 import { formatDate } from '@/lib/dateUtils';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { EntryReviewFlagButton } from '@/components/EntryReviewFlagButton';
 
 interface Employee {
   id: string;
