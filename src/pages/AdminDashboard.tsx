@@ -118,8 +118,9 @@ type DateRangeType = 'today' | 'thisWeek' | 'custom';
 
 export default function AdminDashboard() {
   const { t, language } = useLanguage();
-  const { hasElevatedRole, loading: authLoading } = useAuth();
+  const { hasElevatedRole, isAdmin, loading: authLoading } = useAuth();
   const { pendingCount } = usePendingCorrections();
+  const { hasOpenFlags, getFlagsForEntries } = useEntryReviewFlags();
   
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
