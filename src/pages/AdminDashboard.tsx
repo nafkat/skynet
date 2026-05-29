@@ -272,6 +272,7 @@ export default function AdminDashboard() {
     
     filteredEntries.forEach(entry => {
       const existing = projectMap.get(entry.project_id) || {
+        projectId: entry.project_id,
         projectCode: entry.projects.project_code,
         projectName: entry.projects.project_name,
         totalHours: 0,
@@ -280,6 +281,7 @@ export default function AdminDashboard() {
         allInCost: 0,
         otCost: 0,
         overtimePercentage: 0,
+        entryIds: [] as string[],
       };
       
       const regularHours = entry.regular_minutes / 60;
@@ -292,6 +294,7 @@ export default function AdminDashboard() {
       existing.regularCost += regularHours * (entry.employees.regular_hourly_rate || 0);
       existing.allInCost += regularHours * (entry.employees.regular_rate_all_in || 0);
       existing.otCost += overtimeHours * (entry.employees.overtime_hourly_rate || 0);
+      existing.entryIds.push(entry.id);
       
       projectMap.set(entry.project_id, existing);
     });
@@ -306,6 +309,63 @@ export default function AdminDashboard() {
 
     return Array.from(projectMap.values()).sort((a, b) => b.totalHours - a.totalHours);
   }, [filteredEntries]);
+
+  // Employee breakdown per project (for expandable rows)
+  const employeesByProject = useMemo(() => {
+    const result = new Map<string, EmployeeBreakdown[]>();
+
+    filteredEntries.forEach(entry => {
+      const projectKey = entry.project_id;
+      const employeeKey = entry.employee_id;
+      const list = result.get(projectKey) || [];
+
+      let row = list.find(r => r.employeeId === employeeKey);
+      if (!row) {
+        const entrySpecialtyId = entry.specialty_id ?? entry.employees.specialty_id;
+        const specialty = specialties.find(s => s.id === entrySpecialtyId);
+        const specialtyName = specialty
+          ? (language === 'el' ? specialty.name_el : specialty.name_en)
+          : (language === 'el' ? 'Άγνωστη' : 'Unknown');
+        row = {
+          employeeId: employeeKey,
+          employeeName: `${entry.employees.first_name} ${entry.employees.last_name}`,
+          specialtyName,
+          totalHours: 0,
+          overtimeHours: 0,
+          regularCost: 0,
+          allInCost: 0,
+          otCost: 0,
+          overtimePercentage: 0,
+          entryIds: [],
+        };
+        list.push(row);
+      }
+
+      const regularHours = entry.regular_minutes / 60;
+      const overtimeHours = entry.overtime_minutes / 60;
+
+      row.totalHours += entry.duration_minutes / 60;
+      row.overtimeHours += overtimeHours;
+      row.regularCost += regularHours * (entry.employees.regular_hourly_rate || 0);
+      row.allInCost += regularHours * (entry.employees.regular_rate_all_in || 0);
+      row.otCost += overtimeHours * (entry.employees.overtime_hourly_rate || 0);
+      row.entryIds.push(entry.id);
+
+      result.set(projectKey, list);
+    });
+
+    // Compute OT% and sort
+    result.forEach((list, key) => {
+      list.forEach(r => {
+        r.overtimePercentage = r.totalHours > 0 ? (r.overtimeHours / r.totalHours) * 100 : 0;
+      });
+      list.sort((a, b) => b.totalHours - a.totalHours);
+      result.set(key, list);
+    });
+
+    return result;
+  }, [filteredEntries, specialties, language]);
+
 
   // Labor by Specialty - aligned with dashboard cost logic
   const laborBySpecialty = useMemo(() => {
