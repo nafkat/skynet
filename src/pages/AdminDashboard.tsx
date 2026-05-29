@@ -795,6 +795,7 @@ export default function AdminDashboard() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border">
+                      <th className="w-8 py-3 px-1"></th>
                       <th className="text-left py-3 px-2 text-sm font-medium text-muted-foreground">
                         {language === 'el' ? 'Κωδικός' : 'Code'}
                       </th>
@@ -822,27 +823,156 @@ export default function AdminDashboard() {
                       <th className="text-right py-3 px-2 text-sm font-medium text-muted-foreground">
                         {language === 'el' ? 'Υπερ. %' : 'OT %'}
                       </th>
+                      <th className="w-12 py-3 px-1"></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {laborByProject.map((item, index) => (
-                      <tr key={index} className="border-b border-border/50 last:border-0">
-                        <td className="py-3 px-2 font-mono text-sm">{item.projectCode}</td>
-                        <td className="py-3 px-2">{item.projectName}</td>
-                        <td className="py-3 px-2 text-right tabular-nums">{formatHours(item.totalHours)}</td>
-                        <td className="py-3 px-2 text-right tabular-nums">{formatHours(item.overtimeHours)}</td>
-                        <td className="py-3 px-2 text-right tabular-nums">{formatCurrency(item.regularCost)}</td>
-                        <td className="py-3 px-2 text-right tabular-nums">{formatCurrency(item.regularCost + item.otCost)}</td>
-                        <td className="py-3 px-2 text-right tabular-nums text-primary font-medium">{formatCurrency(item.allInCost + item.otCost)}</td>
-                        <td className="py-3 px-2 text-right tabular-nums">{formatCurrency(item.otCost)}</td>
-                        <td className={cn(
-                          "py-3 px-2 text-right tabular-nums",
-                          item.overtimePercentage > 30 && "font-semibold"
-                        )}>
-                          {item.overtimePercentage.toFixed(0)}%
-                        </td>
-                      </tr>
-                    ))}
+                    {laborByProject.map((item) => {
+                      const isExpanded = expandedProjects.has(item.projectId);
+                      const employees = employeesByProject.get(item.projectId) ?? [];
+                      const projectHasFlags = hasOpenFlags(item.entryIds);
+                      return (
+                        <>
+                          <tr
+                            key={item.projectId}
+                            className={cn(
+                              "border-b border-border/50 cursor-pointer hover:bg-muted/30 transition-colors",
+                              isExpanded && "bg-muted/20"
+                            )}
+                            onClick={() => toggleProject(item.projectId)}
+                          >
+                            <td className="py-3 px-1 text-center">
+                              {isExpanded ? (
+                                <ChevronDown className="h-4 w-4 inline text-muted-foreground" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4 inline text-muted-foreground" />
+                              )}
+                            </td>
+                            <td className="py-3 px-2 font-mono text-sm">{item.projectCode}</td>
+                            <td className="py-3 px-2">
+                              <span className="inline-flex items-center gap-2">
+                                {item.projectName}
+                                {projectHasFlags && (
+                                  <span className="inline-flex items-center gap-1 text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded border border-orange-300">
+                                    ⚠ {language === 'el' ? 'Υπό επανέλεγχο' : 'Under review'}
+                                  </span>
+                                )}
+                              </span>
+                            </td>
+                            <td className="py-3 px-2 text-right tabular-nums">{formatHours(item.totalHours)}</td>
+                            <td className="py-3 px-2 text-right tabular-nums">{formatHours(item.overtimeHours)}</td>
+                            <td className="py-3 px-2 text-right tabular-nums">{formatCurrency(item.regularCost)}</td>
+                            <td className="py-3 px-2 text-right tabular-nums">{formatCurrency(item.regularCost + item.otCost)}</td>
+                            <td className="py-3 px-2 text-right tabular-nums text-primary font-medium">{formatCurrency(item.allInCost + item.otCost)}</td>
+                            <td className="py-3 px-2 text-right tabular-nums">{formatCurrency(item.otCost)}</td>
+                            <td className={cn(
+                              "py-3 px-2 text-right tabular-nums",
+                              item.overtimePercentage > 30 && "font-semibold"
+                            )}>
+                              {item.overtimePercentage.toFixed(0)}%
+                            </td>
+                            <td className="py-3 px-1"></td>
+                          </tr>
+                          {isExpanded && (
+                            <tr key={`${item.projectId}-exp`} className="border-b border-border/50 bg-muted/10">
+                              <td colSpan={11} className="p-0">
+                                <div className="px-4 py-3">
+                                  <div className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
+                                    {language === 'el' ? 'Εργαζόμενοι' : 'Employees'} ({employees.length})
+                                  </div>
+                                  {employees.length === 0 ? (
+                                    <div className="text-sm text-muted-foreground py-3 text-center">
+                                      {t('common.noData')}
+                                    </div>
+                                  ) : (
+                                    <table className="w-full text-sm">
+                                      <thead>
+                                        <tr className="border-b border-border/60">
+                                          <th className="text-left py-2 px-2 text-xs font-medium text-muted-foreground">
+                                            {language === 'el' ? 'Εργαζόμενος' : 'Employee'}
+                                          </th>
+                                          <th className="text-left py-2 px-2 text-xs font-medium text-muted-foreground">
+                                            {language === 'el' ? 'Ειδικότητα' : 'Specialty'}
+                                          </th>
+                                          <th className="text-right py-2 px-2 text-xs font-medium text-muted-foreground">
+                                            {language === 'el' ? 'Συν. Ώρες' : 'Total Hours'}
+                                          </th>
+                                          <th className="text-right py-2 px-2 text-xs font-medium text-muted-foreground">
+                                            {language === 'el' ? 'Υπερωρίες' : 'Overtime'}
+                                          </th>
+                                          <th className="text-right py-2 px-2 text-xs font-medium text-muted-foreground">
+                                            {language === 'el' ? 'Σύνολο (Κανονικά)' : 'Total (Regular)'}
+                                          </th>
+                                          <th className="text-right py-2 px-2 text-xs font-medium text-muted-foreground">
+                                            {t('reports.totalRegularPlusOT')}
+                                          </th>
+                                          <th className="text-right py-2 px-2 text-xs font-medium text-muted-foreground">
+                                            {t('reports.totalAllInPlusOT')}
+                                          </th>
+                                          <th className="text-right py-2 px-2 text-xs font-medium text-muted-foreground">
+                                            {t('reports.totalOT')}
+                                          </th>
+                                          <th className="text-right py-2 px-2 text-xs font-medium text-muted-foreground">
+                                            {language === 'el' ? 'Υπερ. %' : 'OT %'}
+                                          </th>
+                                          <th className="text-right py-2 px-2 text-xs font-medium text-muted-foreground w-32">
+                                            {language === 'el' ? 'Ενέργειες' : 'Actions'}
+                                          </th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {employees.map((emp) => {
+                                          const empFlags = getFlagsForEntries(emp.entryIds);
+                                          return (
+                                            <tr
+                                              key={emp.employeeId}
+                                              className={cn(
+                                                "border-b border-border/30 last:border-0 hover:bg-background/60",
+                                                empFlags.length > 0 && "bg-orange-50/40"
+                                              )}
+                                            >
+                                              <td className="py-2 px-2">
+                                                <span className="inline-flex items-center gap-1.5">
+                                                  {emp.employeeName}
+                                                  {empFlags.length > 0 && (
+                                                    <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded border border-orange-300">
+                                                      ⚠ {empFlags.length}
+                                                    </span>
+                                                  )}
+                                                </span>
+                                              </td>
+                                              <td className="py-2 px-2 text-muted-foreground">{emp.specialtyName}</td>
+                                              <td className="py-2 px-2 text-right tabular-nums">{formatHours(emp.totalHours)}</td>
+                                              <td className="py-2 px-2 text-right tabular-nums">{formatHours(emp.overtimeHours)}</td>
+                                              <td className="py-2 px-2 text-right tabular-nums">{formatCurrency(emp.regularCost)}</td>
+                                              <td className="py-2 px-2 text-right tabular-nums">{formatCurrency(emp.regularCost + emp.otCost)}</td>
+                                              <td className="py-2 px-2 text-right tabular-nums text-primary font-medium">{formatCurrency(emp.allInCost + emp.otCost)}</td>
+                                              <td className="py-2 px-2 text-right tabular-nums">{formatCurrency(emp.otCost)}</td>
+                                              <td className={cn(
+                                                "py-2 px-2 text-right tabular-nums",
+                                                emp.overtimePercentage > 30 && "font-semibold"
+                                              )}>
+                                                {emp.overtimePercentage.toFixed(0)}%
+                                              </td>
+                                              <td className="py-2 px-2 text-right" onClick={(e) => e.stopPropagation()}>
+                                                <EntryReviewFlagButton
+                                                  timeEntryIds={emp.entryIds}
+                                                  contextLabel={`${emp.employeeName} — ${item.projectName}`}
+                                                />
+                                              </td>
+                                            </tr>
+                                          );
+                                        })}
+                                      </tbody>
+                                    </table>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
