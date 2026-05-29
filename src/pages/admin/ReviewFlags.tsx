@@ -71,6 +71,15 @@ export default function ReviewFlagsPage() {
   const [newCommentByFlag, setNewCommentByFlag] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
+  // Edit entry dialog state
+  const [allProjects, setAllProjects] = useState<ProjectInfo[]>([]);
+  const [editTarget, setEditTarget] = useState<EntryReviewFlag | null>(null);
+  const [editProjectId, setEditProjectId] = useState('');
+  const [editDate, setEditDate] = useState('');
+  const [editStart, setEditStart] = useState('');
+  const [editEnd, setEditEnd] = useState('');
+  const [editSubmitting, setEditSubmitting] = useState(false);
+
   const dateLocale = language === 'el' ? el : enUS;
   const t = (en: string, gr: string) => (language === 'el' ? gr : en);
 
