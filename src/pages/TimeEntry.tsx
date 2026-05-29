@@ -187,9 +187,17 @@ export default function TimeEntry() {
         .order('start_time', { ascending: false })
         .limit(50);
 
+      // Specialties lookup (id → name) — used for the small label under employee name
+      const { data: specialtiesData } = await supabase
+        .from('specialties')
+        .select('id, name');
+      const specMap: Record<string, string> = {};
+      (specialtiesData || []).forEach((s: any) => { specMap[s.id] = s.name; });
+
       setEmployees(employeesData || []);
       setProjects(projectsData || []);
       setRecentEntries((entriesData as TimeEntryData[]) || []);
+      setSpecialtyMap(specMap);
       setLastRefresh(new Date());
     } catch (error) {
       console.error('Error fetching data:', error);
