@@ -689,6 +689,45 @@ export type Database = {
           },
         ]
       }
+      entry_review_flags: {
+        Row: {
+          created_at: string
+          id: string
+          raised_by: string
+          reason: string
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+          time_entry_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          raised_by: string
+          reason: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          time_entry_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          raised_by?: string
+          reason?: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          time_entry_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       locked_periods: {
         Row: {
           end_date: string

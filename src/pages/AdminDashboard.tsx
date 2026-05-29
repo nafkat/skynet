@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, Fragment } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -21,12 +21,17 @@ import {
   ArrowRight,
   CalendarIcon,
   Users,
-  FileSpreadsheet
+  FileSpreadsheet,
+  ChevronRight,
+  ChevronDown
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { usePendingCorrections } from '@/hooks/usePendingCorrections';
 import { format, startOfWeek, endOfWeek, startOfDay, endOfDay, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { EntryReviewFlagButton } from '@/components/EntryReviewFlagButton';
+import { EntryReviewFlagBell } from '@/components/EntryReviewFlagBell';
+import { useEntryReviewFlags } from '@/hooks/useEntryReviewFlags';
 
 interface TimeEntry {
   id: string;
@@ -68,6 +73,7 @@ interface Specialty {
 }
 
 interface LaborByProject {
+  projectId: string;
   projectCode: string;
   projectName: string;
   totalHours: number;
@@ -76,6 +82,20 @@ interface LaborByProject {
   allInCost: number;
   otCost: number;
   overtimePercentage: number;
+  entryIds: string[];
+}
+
+interface EmployeeBreakdown {
+  employeeId: string;
+  employeeName: string;
+  specialtyName: string;
+  totalHours: number;
+  overtimeHours: number;
+  regularCost: number;
+  allInCost: number;
+  otCost: number;
+  overtimePercentage: number;
+  entryIds: string[];
 }
 
 interface LaborBySpecialty {
@@ -98,8 +118,9 @@ type DateRangeType = 'today' | 'thisWeek' | 'custom';
 
 export default function AdminDashboard() {
   const { t, language } = useLanguage();
-  const { hasElevatedRole, loading: authLoading } = useAuth();
+  const { hasElevatedRole, isAdmin, loading: authLoading } = useAuth();
   const { pendingCount } = usePendingCorrections();
+  const { hasOpenFlags, getFlagsForEntries } = useEntryReviewFlags();
   
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -115,6 +136,17 @@ export default function AdminDashboard() {
   
   // Payroll Export Modal
   const [payrollModalOpen, setPayrollModalOpen] = useState(false);
+  
+  // Expanded project rows (for employee breakdown)
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
+  const toggleProject = (projectId: string) => {
+    setExpandedProjects(prev => {
+      const next = new Set(prev);
+      if (next.has(projectId)) next.delete(projectId);
+      else next.add(projectId);
+      return next;
+    });
+  };
   
   // Last refresh timestamp
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
@@ -252,6 +284,7 @@ export default function AdminDashboard() {
     
     filteredEntries.forEach(entry => {
       const existing = projectMap.get(entry.project_id) || {
+        projectId: entry.project_id,
         projectCode: entry.projects.project_code,
         projectName: entry.projects.project_name,
         totalHours: 0,
@@ -260,6 +293,7 @@ export default function AdminDashboard() {
         allInCost: 0,
         otCost: 0,
         overtimePercentage: 0,
+        entryIds: [] as string[],
       };
       
       const regularHours = entry.regular_minutes / 60;
@@ -272,6 +306,7 @@ export default function AdminDashboard() {
       existing.regularCost += regularHours * (entry.employees.regular_hourly_rate || 0);
       existing.allInCost += regularHours * (entry.employees.regular_rate_all_in || 0);
       existing.otCost += overtimeHours * (entry.employees.overtime_hourly_rate || 0);
+      existing.entryIds.push(entry.id);
       
       projectMap.set(entry.project_id, existing);
     });
@@ -286,6 +321,63 @@ export default function AdminDashboard() {
 
     return Array.from(projectMap.values()).sort((a, b) => b.totalHours - a.totalHours);
   }, [filteredEntries]);
+
+  // Employee breakdown per project (for expandable rows)
+  const employeesByProject = useMemo(() => {
+    const result = new Map<string, EmployeeBreakdown[]>();
+
+    filteredEntries.forEach(entry => {
+      const projectKey = entry.project_id;
+      const employeeKey = entry.employee_id;
+      const list = result.get(projectKey) || [];
+
+      let row = list.find(r => r.employeeId === employeeKey);
+      if (!row) {
+        const entrySpecialtyId = entry.specialty_id ?? entry.employees.specialty_id;
+        const specialty = specialties.find(s => s.id === entrySpecialtyId);
+        const specialtyName = specialty
+          ? (language === 'el' ? specialty.name_el : specialty.name_en)
+          : (language === 'el' ? 'Άγνωστη' : 'Unknown');
+        row = {
+          employeeId: employeeKey,
+          employeeName: `${entry.employees.first_name} ${entry.employees.last_name}`,
+          specialtyName,
+          totalHours: 0,
+          overtimeHours: 0,
+          regularCost: 0,
+          allInCost: 0,
+          otCost: 0,
+          overtimePercentage: 0,
+          entryIds: [],
+        };
+        list.push(row);
+      }
+
+      const regularHours = entry.regular_minutes / 60;
+      const overtimeHours = entry.overtime_minutes / 60;
+
+      row.totalHours += entry.duration_minutes / 60;
+      row.overtimeHours += overtimeHours;
+      row.regularCost += regularHours * (entry.employees.regular_hourly_rate || 0);
+      row.allInCost += regularHours * (entry.employees.regular_rate_all_in || 0);
+      row.otCost += overtimeHours * (entry.employees.overtime_hourly_rate || 0);
+      row.entryIds.push(entry.id);
+
+      result.set(projectKey, list);
+    });
+
+    // Compute OT% and sort
+    result.forEach((list, key) => {
+      list.forEach(r => {
+        r.overtimePercentage = r.totalHours > 0 ? (r.overtimeHours / r.totalHours) * 100 : 0;
+      });
+      list.sort((a, b) => b.totalHours - a.totalHours);
+      result.set(key, list);
+    });
+
+    return result;
+  }, [filteredEntries, specialties, language]);
+
 
   // Labor by Specialty - aligned with dashboard cost logic
   const laborBySpecialty = useMemo(() => {
@@ -395,13 +487,16 @@ export default function AdminDashboard() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">
-              {language === 'el' ? 'Διοικητικός Πίνακας' : 'Admin Dashboard'}
+              {isAdmin
+                ? (language === 'el' ? 'Διοικητικός Πίνακας' : 'Admin Dashboard')
+                : (language === 'el' ? 'Πίνακας HR' : 'HR Dashboard')}
             </h1>
             <p className="text-muted-foreground mt-1">
               {language === 'el' ? 'Επισκόπηση εργασίας και κόστους' : 'Labor and cost overview'}
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <EntryReviewFlagBell />
             <RefreshButton onRefresh={fetchData} lastRefresh={lastRefresh} />
             <Button className="btn-tablet gap-2" onClick={() => setPayrollModalOpen(true)}>
               <FileSpreadsheet className="h-5 w-5" />
@@ -700,6 +795,7 @@ export default function AdminDashboard() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border">
+                      <th className="w-8 py-3 px-1"></th>
                       <th className="text-left py-3 px-2 text-sm font-medium text-muted-foreground">
                         {language === 'el' ? 'Κωδικός' : 'Code'}
                       </th>
@@ -727,27 +823,156 @@ export default function AdminDashboard() {
                       <th className="text-right py-3 px-2 text-sm font-medium text-muted-foreground">
                         {language === 'el' ? 'Υπερ. %' : 'OT %'}
                       </th>
+                      <th className="w-12 py-3 px-1"></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {laborByProject.map((item, index) => (
-                      <tr key={index} className="border-b border-border/50 last:border-0">
-                        <td className="py-3 px-2 font-mono text-sm">{item.projectCode}</td>
-                        <td className="py-3 px-2">{item.projectName}</td>
-                        <td className="py-3 px-2 text-right tabular-nums">{formatHours(item.totalHours)}</td>
-                        <td className="py-3 px-2 text-right tabular-nums">{formatHours(item.overtimeHours)}</td>
-                        <td className="py-3 px-2 text-right tabular-nums">{formatCurrency(item.regularCost)}</td>
-                        <td className="py-3 px-2 text-right tabular-nums">{formatCurrency(item.regularCost + item.otCost)}</td>
-                        <td className="py-3 px-2 text-right tabular-nums text-primary font-medium">{formatCurrency(item.allInCost + item.otCost)}</td>
-                        <td className="py-3 px-2 text-right tabular-nums">{formatCurrency(item.otCost)}</td>
-                        <td className={cn(
-                          "py-3 px-2 text-right tabular-nums",
-                          item.overtimePercentage > 30 && "font-semibold"
-                        )}>
-                          {item.overtimePercentage.toFixed(0)}%
-                        </td>
-                      </tr>
-                    ))}
+                    {laborByProject.map((item) => {
+                      const isExpanded = expandedProjects.has(item.projectId);
+                      const employees = employeesByProject.get(item.projectId) ?? [];
+                      const projectHasFlags = hasOpenFlags(item.entryIds);
+                      return (
+                        <Fragment key={item.projectId}>
+                          <tr
+                            key={item.projectId}
+                            className={cn(
+                              "border-b border-border/50 cursor-pointer hover:bg-muted/30 transition-colors",
+                              isExpanded && "bg-muted/20"
+                            )}
+                            onClick={() => toggleProject(item.projectId)}
+                          >
+                            <td className="py-3 px-1 text-center">
+                              {isExpanded ? (
+                                <ChevronDown className="h-4 w-4 inline text-muted-foreground" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4 inline text-muted-foreground" />
+                              )}
+                            </td>
+                            <td className="py-3 px-2 font-mono text-sm">{item.projectCode}</td>
+                            <td className="py-3 px-2">
+                              <span className="inline-flex items-center gap-2">
+                                {item.projectName}
+                                {projectHasFlags && (
+                                  <span className="inline-flex items-center gap-1 text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded border border-orange-300">
+                                    ⚠ {language === 'el' ? 'Υπό επανέλεγχο' : 'Under review'}
+                                  </span>
+                                )}
+                              </span>
+                            </td>
+                            <td className="py-3 px-2 text-right tabular-nums">{formatHours(item.totalHours)}</td>
+                            <td className="py-3 px-2 text-right tabular-nums">{formatHours(item.overtimeHours)}</td>
+                            <td className="py-3 px-2 text-right tabular-nums">{formatCurrency(item.regularCost)}</td>
+                            <td className="py-3 px-2 text-right tabular-nums">{formatCurrency(item.regularCost + item.otCost)}</td>
+                            <td className="py-3 px-2 text-right tabular-nums text-primary font-medium">{formatCurrency(item.allInCost + item.otCost)}</td>
+                            <td className="py-3 px-2 text-right tabular-nums">{formatCurrency(item.otCost)}</td>
+                            <td className={cn(
+                              "py-3 px-2 text-right tabular-nums",
+                              item.overtimePercentage > 30 && "font-semibold"
+                            )}>
+                              {item.overtimePercentage.toFixed(0)}%
+                            </td>
+                            <td className="py-3 px-1"></td>
+                          </tr>
+                          {isExpanded && (
+                            <tr key={`${item.projectId}-exp`} className="border-b border-border/50 bg-muted/10">
+                              <td colSpan={11} className="p-0">
+                                <div className="px-4 py-3">
+                                  <div className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
+                                    {language === 'el' ? 'Εργαζόμενοι' : 'Employees'} ({employees.length})
+                                  </div>
+                                  {employees.length === 0 ? (
+                                    <div className="text-sm text-muted-foreground py-3 text-center">
+                                      {t('common.noData')}
+                                    </div>
+                                  ) : (
+                                    <table className="w-full text-sm">
+                                      <thead>
+                                        <tr className="border-b border-border/60">
+                                          <th className="text-left py-2 px-2 text-xs font-medium text-muted-foreground">
+                                            {language === 'el' ? 'Εργαζόμενος' : 'Employee'}
+                                          </th>
+                                          <th className="text-left py-2 px-2 text-xs font-medium text-muted-foreground">
+                                            {language === 'el' ? 'Ειδικότητα' : 'Specialty'}
+                                          </th>
+                                          <th className="text-right py-2 px-2 text-xs font-medium text-muted-foreground">
+                                            {language === 'el' ? 'Συν. Ώρες' : 'Total Hours'}
+                                          </th>
+                                          <th className="text-right py-2 px-2 text-xs font-medium text-muted-foreground">
+                                            {language === 'el' ? 'Υπερωρίες' : 'Overtime'}
+                                          </th>
+                                          <th className="text-right py-2 px-2 text-xs font-medium text-muted-foreground">
+                                            {language === 'el' ? 'Σύνολο (Κανονικά)' : 'Total (Regular)'}
+                                          </th>
+                                          <th className="text-right py-2 px-2 text-xs font-medium text-muted-foreground">
+                                            {t('reports.totalRegularPlusOT')}
+                                          </th>
+                                          <th className="text-right py-2 px-2 text-xs font-medium text-muted-foreground">
+                                            {t('reports.totalAllInPlusOT')}
+                                          </th>
+                                          <th className="text-right py-2 px-2 text-xs font-medium text-muted-foreground">
+                                            {t('reports.totalOT')}
+                                          </th>
+                                          <th className="text-right py-2 px-2 text-xs font-medium text-muted-foreground">
+                                            {language === 'el' ? 'Υπερ. %' : 'OT %'}
+                                          </th>
+                                          <th className="text-right py-2 px-2 text-xs font-medium text-muted-foreground w-32">
+                                            {language === 'el' ? 'Ενέργειες' : 'Actions'}
+                                          </th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {employees.map((emp) => {
+                                          const empFlags = getFlagsForEntries(emp.entryIds);
+                                          return (
+                                            <tr
+                                              key={emp.employeeId}
+                                              className={cn(
+                                                "border-b border-border/30 last:border-0 hover:bg-background/60",
+                                                empFlags.length > 0 && "bg-orange-50/40"
+                                              )}
+                                            >
+                                              <td className="py-2 px-2">
+                                                <span className="inline-flex items-center gap-1.5">
+                                                  {emp.employeeName}
+                                                  {empFlags.length > 0 && (
+                                                    <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded border border-orange-300">
+                                                      ⚠ {empFlags.length}
+                                                    </span>
+                                                  )}
+                                                </span>
+                                              </td>
+                                              <td className="py-2 px-2 text-muted-foreground">{emp.specialtyName}</td>
+                                              <td className="py-2 px-2 text-right tabular-nums">{formatHours(emp.totalHours)}</td>
+                                              <td className="py-2 px-2 text-right tabular-nums">{formatHours(emp.overtimeHours)}</td>
+                                              <td className="py-2 px-2 text-right tabular-nums">{formatCurrency(emp.regularCost)}</td>
+                                              <td className="py-2 px-2 text-right tabular-nums">{formatCurrency(emp.regularCost + emp.otCost)}</td>
+                                              <td className="py-2 px-2 text-right tabular-nums text-primary font-medium">{formatCurrency(emp.allInCost + emp.otCost)}</td>
+                                              <td className="py-2 px-2 text-right tabular-nums">{formatCurrency(emp.otCost)}</td>
+                                              <td className={cn(
+                                                "py-2 px-2 text-right tabular-nums",
+                                                emp.overtimePercentage > 30 && "font-semibold"
+                                              )}>
+                                                {emp.overtimePercentage.toFixed(0)}%
+                                              </td>
+                                              <td className="py-2 px-2 text-right" onClick={(e) => e.stopPropagation()}>
+                                                <EntryReviewFlagButton
+                                                  timeEntryIds={emp.entryIds}
+                                                  contextLabel={`${emp.employeeName} — ${item.projectName}`}
+                                                />
+                                              </td>
+                                            </tr>
+                                          );
+                                        })}
+                                      </tbody>
+                                    </table>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
