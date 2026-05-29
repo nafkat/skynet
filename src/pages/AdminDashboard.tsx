@@ -487,13 +487,16 @@ export default function AdminDashboard() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">
-              {language === 'el' ? 'Διοικητικός Πίνακας' : 'Admin Dashboard'}
+              {isAdmin
+                ? (language === 'el' ? 'Διοικητικός Πίνακας' : 'Admin Dashboard')
+                : (language === 'el' ? 'Πίνακας HR' : 'HR Dashboard')}
             </h1>
             <p className="text-muted-foreground mt-1">
               {language === 'el' ? 'Επισκόπηση εργασίας και κόστους' : 'Labor and cost overview'}
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <EntryReviewFlagBell />
             <RefreshButton onRefresh={fetchData} lastRefresh={lastRefresh} />
             <Button className="btn-tablet gap-2" onClick={() => setPayrollModalOpen(true)}>
               <FileSpreadsheet className="h-5 w-5" />
