@@ -892,6 +892,12 @@ export default function TimeEntry() {
                           )}
                         </Button>
                       )}
+
+                      {/* 🚩 Review flag button — Admin/HR only (component handles role check) */}
+                      <EntryReviewFlagButton
+                        timeEntryIds={[entry.id]}
+                        contextLabel={`${entry.employees.first_name} ${entry.employees.last_name} — ${entry.projects.project_code}`}
+                      />
                     </div>
                   </div>
 
