@@ -70,6 +70,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     { path: '/projects', icon: FolderKanban, label: t('nav.projects'), show: hasElevatedRole },
     { path: '/specialties', icon: Wrench, label: t('nav.specialties'), show: hasElevatedRole },
     { path: '/corrections', icon: GitPullRequest, label: t('nav.corrections'), show: hasElevatedRole },
+    { path: '/admin/review-flags', icon: Flag, label: language === 'el' ? 'Εκκρεμή Επανελέγχου' : 'Pending Reviews', show: hasElevatedRole },
     { path: '/reports', icon: FileBarChart, label: t('nav.reports'), show: hasElevatedRole },
     { path: '/admin/payroll-export', icon: FileSpreadsheet, label: language === 'el' ? 'Εξαγωγή Μισθοδοσίας' : 'Payroll Export', show: hasElevatedRole },
   ];
@@ -105,6 +106,11 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           {item.path === '/messages' && messageUnreadCount > 0 && (
             <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-destructive rounded-full min-w-[20px] animate-pulse">
               {messageUnreadCount}
+            </span>
+          )}
+          {item.path === '/admin/review-flags' && reviewFlagCount > 0 && (
+            <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-orange-500 rounded-full min-w-[20px] animate-pulse">
+              {reviewFlagCount}
             </span>
           )}
         </span>
