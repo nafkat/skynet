@@ -1289,6 +1289,37 @@ export default function TimeEntry() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Bulk overlap conflicts dialog */}
+      <Dialog open={conflictDialogOpen} onOpenChange={setConflictDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              {t('timeEntry.bulkOverlapTitle')}
+            </DialogTitle>
+            <DialogDescription>{t('timeEntry.bulkOverlapDesc')}</DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[320px] pr-2">
+            <ul className="space-y-2 py-2">
+              {conflictList.map((c, idx) => (
+                <li
+                  key={`${c.code}-${idx}`}
+                  className="flex items-center justify-between gap-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm"
+                >
+                  <span className="font-medium">
+                    {c.name} <span className="text-muted-foreground">({c.code})</span>
+                  </span>
+                  <span className="font-mono text-xs text-destructive">{c.overlap}</span>
+                </li>
+              ))}
+            </ul>
+          </ScrollArea>
+          <DialogFooter>
+            <Button onClick={() => setConflictDialogOpen(false)}>{t('common.ok') || 'OK'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 }
