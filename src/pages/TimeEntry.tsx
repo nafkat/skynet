@@ -243,6 +243,7 @@ export default function TimeEntry() {
     setStartTime('07:00');
     setEndTime('14:00');
     setCorrectionReason('');
+    setSelectedEmployeeIds([]);
   };
 
   const handleEdit = (entry: TimeEntryData) => {
