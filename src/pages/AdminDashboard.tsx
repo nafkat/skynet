@@ -137,6 +137,17 @@ export default function AdminDashboard() {
   // Payroll Export Modal
   const [payrollModalOpen, setPayrollModalOpen] = useState(false);
   
+  // Expanded project rows (for employee breakdown)
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
+  const toggleProject = (projectId: string) => {
+    setExpandedProjects(prev => {
+      const next = new Set(prev);
+      if (next.has(projectId)) next.delete(projectId);
+      else next.add(projectId);
+      return next;
+    });
+  };
+  
   // Last refresh timestamp
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
 
