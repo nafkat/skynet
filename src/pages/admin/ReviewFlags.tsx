@@ -31,7 +31,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { Flag, CheckCircle2, MessageSquare, ChevronDown, Clock } from 'lucide-react';
+import { Flag, CheckCircle2, MessageSquare, ChevronDown, Clock, Pencil } from 'lucide-react';
 import { format } from 'date-fns';
 import { el, enUS } from 'date-fns/locale';
 import { toast } from 'sonner';
