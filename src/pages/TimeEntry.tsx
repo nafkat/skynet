@@ -24,7 +24,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { DatePicker } from '@/components/ui/date-picker';
-import { Clock, Plus, Edit2, AlertCircle, X, Save, FileEdit, Trash2, Users, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
+import { Clock, Plus, Edit2, AlertCircle, X, Save, FileEdit, Trash2, Users, AlertTriangle, CheckCircle, XCircle, Check, ChevronsUpDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { usePendingCorrections } from '@/hooks/usePendingCorrections';
 import {
@@ -39,6 +39,12 @@ import { formatDate } from '@/lib/dateUtils';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { EntryReviewFlagButton } from '@/components/EntryReviewFlagButton';
+import { Switch } from '@/components/ui/switch';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Employee {
   id: string;
@@ -123,6 +129,23 @@ export default function TimeEntry() {
   const [entryDate, setEntryDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [startTime, setStartTime] = useState('07:00');
   const [endTime, setEndTime] = useState('14:00');
+
+  // Multi-select state (desktop/tablet only, create mode only)
+  const isMobile = useIsMobile();
+  const [multiMode, setMultiMode] = useState(false);
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
+  const [employeePickerOpen, setEmployeePickerOpen] = useState(false);
+  const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
+  const [conflictList, setConflictList] = useState<Array<{ name: string; code: string; overlap: string }>>([]);
+  const multiSelectAllowed = !isMobile && formMode === 'create';
+
+  // Auto-disable multi mode when switching to edit or to mobile
+  useEffect(() => {
+    if (!multiSelectAllowed && multiMode) {
+      setMultiMode(false);
+      setSelectedEmployeeIds([]);
+    }
+  }, [multiSelectAllowed, multiMode]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -220,6 +243,7 @@ export default function TimeEntry() {
     setStartTime('07:00');
     setEndTime('14:00');
     setCorrectionReason('');
+    setSelectedEmployeeIds([]);
   };
 
   const handleEdit = (entry: TimeEntryData) => {
@@ -279,7 +303,120 @@ export default function TimeEntry() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    // ===== MULTI-SELECT BULK CREATE =====
+    if (multiMode && formMode === 'create') {
+      if (selectedEmployeeIds.length === 0) {
+        toast.error(t('timeEntry.atLeastOneEmployee'));
+        return;
+      }
+      if (!selectedProject || !startTime || !endTime) {
+        toast.error(t('common.fillAllFields') || 'Please fill in all fields');
+        return;
+      }
+      if (startTime >= endTime) {
+        toast.error(t('timeEntry.endAfterStart'));
+        return;
+      }
+
+      // Separate employees with invalid pay rates (skip them with warning)
+      const invalidRate: Employee[] = [];
+      const validEmployees: Employee[] = [];
+      selectedEmployeeIds.forEach(id => {
+        const emp = employees.find(e => e.id === id);
+        if (!emp) return;
+        const valid =
+          (emp.regular_hourly_rate ?? 0) > 0 &&
+          (emp.regular_rate_all_in ?? 0) > 0 &&
+          (emp.overtime_hourly_rate ?? 0) > 0;
+        (valid ? validEmployees : invalidRate).push(emp);
+      });
+
+      if (validEmployees.length === 0) {
+        toast.error(t('timeEntry.incompletePayRates'));
+        return;
+      }
+
+      // Pre-check overlaps against ALL existing entries (today's panel covers today;
+      // for other dates fetch fresh). Use a server query for safety.
+      setSubmitting(true);
+      try {
+        const { data: existing, error: fetchErr } = await supabase
+          .from('time_entries')
+          .select('employee_id, start_time, end_time, employees(first_name, last_name, employee_code)')
+          .eq('is_deleted', false)
+          .eq('entry_date', entryDate)
+          .in('employee_id', validEmployees.map(e => e.id));
+
+        if (fetchErr) throw fetchErr;
+
+        const conflicts: Array<{ name: string; code: string; overlap: string }> = [];
+        (existing || []).forEach((row: any) => {
+          const exStart = row.start_time.slice(0, 5);
+          const exEnd = row.end_time.slice(0, 5);
+          if (startTime < exEnd && endTime > exStart) {
+            conflicts.push({
+              name: `${row.employees?.first_name ?? ''} ${row.employees?.last_name ?? ''}`.trim(),
+              code: row.employees?.employee_code ?? '',
+              overlap: `${exStart}–${exEnd}`,
+            });
+          }
+        });
+
+        if (conflicts.length > 0) {
+          setConflictList(conflicts);
+          setConflictDialogOpen(true);
+          setSubmitting(false);
+          return;
+        }
+
+        // Bulk insert
+        const rows = validEmployees.map(emp => ({
+          employee_id: emp.id,
+          project_id: selectedProject,
+          entry_date: entryDate,
+          start_time: startTime,
+          end_time: endTime,
+          created_by: user?.id,
+          specialty_id: emp.specialty_id || null,
+        }));
+
+        const { error: insertErr } = await supabase.from('time_entries').insert(rows);
+        if (insertErr) {
+          if (insertErr.message?.includes('Overlap detected')) {
+            toast.error(t('timeEntry.overlapError'));
+          } else {
+            throw insertErr;
+          }
+          setSubmitting(false);
+          return;
+        }
+
+        toast.success(
+          t('timeEntry.bulkSuccess').replace('{count}', String(validEmployees.length))
+        );
+
+        if (invalidRate.length > 0) {
+          toast.warning(
+            `${t('timeEntry.invalidPayRatesList')} ${invalidRate
+              .map(e => `${e.first_name} ${e.last_name}`)
+              .join(', ')}`
+          );
+        }
+
+        resetForm();
+        setMultiMode(false);
+        fetchData();
+      } catch (error: any) {
+        console.error('Error:', error);
+        toast.error(error.message || 'An error occurred');
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
+    // ===== SINGLE-SELECT (original flow) =====
     if (!selectedEmployee || !selectedProject || !startTime || !endTime) {
       toast.error(t('common.fillAllFields') || 'Please fill in all fields');
       return;
@@ -573,63 +710,196 @@ export default function TimeEntry() {
 
             {/* Employee */}
             <div className="space-y-2">
-              <Label className="text-sm font-medium">{t('timeEntry.selectEmployee')}</Label>
-              <Select 
-                value={selectedEmployee} 
-                onValueChange={setSelectedEmployee}
-                disabled={formMode === 'edit'}
-              >
-                <SelectTrigger className="input-tablet">
-                  <SelectValue placeholder={t('timeEntry.selectEmployee')} />
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px]">
-                  {/* Recently used today section */}
-                  {recentlyUsedEmployees.length > 0 && (
-                    <>
-                      <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                        <Users className="h-3 w-3" />
-                        {t('timeEntry.recentlyUsedToday')}
-                      </div>
-                      {recentlyUsedEmployees.map((emp) => {
-                        const count = employeeEntryCounts.get(emp.id) || 0;
-                        return (
-                          <SelectItem key={`recent-${emp.id}`} value={emp.id}>
-                            <div className="flex items-center justify-between w-full gap-3">
-                              <span>{emp.first_name} {emp.last_name} ({emp.employee_code})</span>
-                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 font-normal shrink-0">
-                                {count} {t('timeEntry.entriesToday')}
-                              </Badge>
-                            </div>
-                          </SelectItem>
-                        );
-                      })}
-                      <Separator className="my-1" />
-                      <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-                        {language === 'el' ? 'Όλοι οι εργαζόμενοι' : 'All employees'}
-                      </div>
-                    </>
-                  )}
-                  {/* All employees */}
-                  {employees.map((emp) => {
-                    const count = employeeEntryCounts.get(emp.id) || 0;
-                    return (
-                      <SelectItem key={emp.id} value={emp.id}>
-                        <div className="flex items-center justify-between w-full gap-3">
-                          <span>{emp.first_name} {emp.last_name} ({emp.employee_code})</span>
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 font-normal shrink-0">
-                            {count} {t('timeEntry.entriesToday')}
-                          </Badge>
+              <div className="flex items-center justify-between gap-2">
+                <Label className="text-sm font-medium">{t('timeEntry.selectEmployee')}</Label>
+                {multiSelectAllowed && (
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="multi-mode-toggle" className="text-xs text-muted-foreground cursor-pointer">
+                      {t('timeEntry.multipleEmployees')}
+                    </Label>
+                    <Switch
+                      id="multi-mode-toggle"
+                      checked={multiMode}
+                      onCheckedChange={(v) => {
+                        setMultiMode(v);
+                        if (v) {
+                          setSelectedEmployee('');
+                        } else {
+                          setSelectedEmployeeIds([]);
+                        }
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {!multiMode ? (
+                <Select 
+                  value={selectedEmployee} 
+                  onValueChange={setSelectedEmployee}
+                  disabled={formMode === 'edit'}
+                >
+                  <SelectTrigger className="input-tablet">
+                    <SelectValue placeholder={t('timeEntry.selectEmployee')} />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {/* Recently used today section */}
+                    {recentlyUsedEmployees.length > 0 && (
+                      <>
+                        <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                          <Users className="h-3 w-3" />
+                          {t('timeEntry.recentlyUsedToday')}
                         </div>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
+                        {recentlyUsedEmployees.map((emp) => {
+                          const count = employeeEntryCounts.get(emp.id) || 0;
+                          return (
+                            <SelectItem key={`recent-${emp.id}`} value={emp.id}>
+                              <div className="flex items-center justify-between w-full gap-3">
+                                <span>{emp.first_name} {emp.last_name} ({emp.employee_code})</span>
+                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 font-normal shrink-0">
+                                  {count} {t('timeEntry.entriesToday')}
+                                </Badge>
+                              </div>
+                            </SelectItem>
+                          );
+                        })}
+                        <Separator className="my-1" />
+                        <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                          {language === 'el' ? 'Όλοι οι εργαζόμενοι' : 'All employees'}
+                        </div>
+                      </>
+                    )}
+                    {/* All employees */}
+                    {employees.map((emp) => {
+                      const count = employeeEntryCounts.get(emp.id) || 0;
+                      return (
+                        <SelectItem key={emp.id} value={emp.id}>
+                          <div className="flex items-center justify-between w-full gap-3">
+                            <span>{emp.first_name} {emp.last_name} ({emp.employee_code})</span>
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 font-normal shrink-0">
+                              {count} {t('timeEntry.entriesToday')}
+                            </Badge>
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <>
+                  <Popover open={employeePickerOpen} onOpenChange={setEmployeePickerOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        role="combobox"
+                        className="input-tablet w-full justify-between font-normal"
+                      >
+                        <span className="truncate">
+                          {selectedEmployeeIds.length === 0
+                            ? t('timeEntry.selectEmployees')
+                            : `${selectedEmployeeIds.length} ${t('timeEntry.selectedCount')}`}
+                        </span>
+                        <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="p-0 w-[min(560px,90vw)]"
+                      align="start"
+                    >
+                      <Command>
+                        <CommandInput placeholder={t('timeEntry.searchEmployees')} />
+                        <div className="flex items-center justify-between gap-2 px-2 py-1.5 border-b">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() => setSelectedEmployeeIds(employees.map(e => e.id))}
+                          >
+                            {t('timeEntry.selectAll')}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() => setSelectedEmployeeIds([])}
+                          >
+                            {t('timeEntry.clearSelection')}
+                          </Button>
+                        </div>
+                        <CommandList>
+                          <CommandEmpty>{t('timeEntry.noEmployeesFound')}</CommandEmpty>
+                          <CommandGroup>
+                            {employees.map((emp) => {
+                              const checked = selectedEmployeeIds.includes(emp.id);
+                              const count = employeeEntryCounts.get(emp.id) || 0;
+                              return (
+                                <CommandItem
+                                  key={emp.id}
+                                  value={`${emp.first_name} ${emp.last_name} ${emp.employee_code}`}
+                                  onSelect={() => {
+                                    setSelectedEmployeeIds(prev =>
+                                      checked ? prev.filter(id => id !== emp.id) : [...prev, emp.id]
+                                    );
+                                  }}
+                                  className="cursor-pointer"
+                                >
+                                  <Checkbox checked={checked} className="mr-2" />
+                                  <span className="flex-1">
+                                    {emp.first_name} {emp.last_name} ({emp.employee_code})
+                                  </span>
+                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 font-normal shrink-0 ml-2">
+                                    {count} {t('timeEntry.entriesToday')}
+                                  </Badge>
+                                </CommandItem>
+                              );
+                            })}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+
+                  {/* Selected chips */}
+                  {selectedEmployeeIds.length > 0 && (
+                    <ScrollArea className="max-h-24 mt-2">
+                      <div className="flex flex-wrap gap-1.5">
+                        {selectedEmployeeIds.map(id => {
+                          const emp = employees.find(e => e.id === id);
+                          if (!emp) return null;
+                          return (
+                            <Badge
+                              key={id}
+                              variant="secondary"
+                              className="pl-2 pr-1 py-0.5 gap-1 text-xs font-normal"
+                            >
+                              {emp.first_name} {emp.last_name}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setSelectedEmployeeIds(prev => prev.filter(x => x !== id))
+                                }
+                                className="hover:bg-muted-foreground/20 rounded-sm p-0.5"
+                                aria-label={`Remove ${emp.first_name} ${emp.last_name}`}
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    </ScrollArea>
+                  )}
+                </>
+              )}
+
               {formMode === 'edit' && (
                 <p className="text-xs text-muted-foreground">{t('timeEntry.employeeReadOnly')}</p>
               )}
-              {/* Pay rate warning */}
-              {selectedEmployee && !hasValidPayRates && (
+              {/* Pay rate warning (single mode) */}
+              {!multiMode && selectedEmployee && !hasValidPayRates && (
                 <div className="mt-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 flex items-start gap-2">
                   <AlertCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
                   <div>
@@ -740,11 +1010,15 @@ export default function TimeEntry() {
                 </Button>
               )}
               
-              <Button type="submit" className="flex-1 btn-tablet" disabled={submitting || (selectedEmployee && !hasValidPayRates)}>
+              <Button type="submit" className="flex-1 btn-tablet" disabled={submitting || (!multiMode && selectedEmployee && !hasValidPayRates)}>
                 {formMode === 'create' ? (
                   <>
                     <Plus className="h-5 w-5 mr-2" />
-                    {submitting ? t('common.loading') : t('timeEntry.register')}
+                    {submitting
+                      ? t('common.loading')
+                      : multiMode && selectedEmployeeIds.length > 0
+                        ? t('timeEntry.bulkRegister').replace('{count}', String(selectedEmployeeIds.length))
+                        : t('timeEntry.register')}
                   </>
                 ) : hasElevatedRole ? (
                   <>
@@ -1012,6 +1286,37 @@ export default function TimeEntry() {
             >
               {deleting ? t('common.loading') : (isDeleteRequest ? t('timeEntry.requestDeletion') : t('common.delete'))}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk overlap conflicts dialog */}
+      <Dialog open={conflictDialogOpen} onOpenChange={setConflictDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              {t('timeEntry.bulkOverlapTitle')}
+            </DialogTitle>
+            <DialogDescription>{t('timeEntry.bulkOverlapDesc')}</DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[320px] pr-2">
+            <ul className="space-y-2 py-2">
+              {conflictList.map((c, idx) => (
+                <li
+                  key={`${c.code}-${idx}`}
+                  className="flex items-center justify-between gap-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm"
+                >
+                  <span className="font-medium">
+                    {c.name} <span className="text-muted-foreground">({c.code})</span>
+                  </span>
+                  <span className="font-mono text-xs text-destructive">{c.overlap}</span>
+                </li>
+              ))}
+            </ul>
+          </ScrollArea>
+          <DialogFooter>
+            <Button onClick={() => setConflictDialogOpen(false)}>{t('common.ok') || 'OK'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
