@@ -23,6 +23,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePendingCorrections } from '@/hooks/usePendingCorrections';
 import { useUnreadMessageCount } from '@/hooks/useEmployeeMessages';
+import { useEntryReviewFlags } from '@/hooks/useEntryReviewFlags';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
@@ -37,16 +38,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { signOut, isAdmin, isHR, hasElevatedRole, role } = useAuth();
   const { pendingCount } = usePendingCorrections();
   const { unreadCount: messageUnreadCount } = useUnreadMessageCount();
-  const { openCount: reviewFlagCount } = (() => {
-    // Lazy require to avoid circular hooks in non-elevated users
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const m = require('@/hooks/useEntryReviewFlags');
-      return m.useEntryReviewFlags();
-    } catch {
-      return { openCount: 0 };
-    }
-  })();
+  const { openCount: reviewFlagCount } = useEntryReviewFlags();
 
   // Auto-close on navigation (mobile only)
   useEffect(() => {
