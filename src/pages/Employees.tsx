@@ -946,12 +946,12 @@ const [searchQuery, setSearchQuery] = useState('');
                         <Label>{t('employees.regularRate')} *</Label>
                         <Input
                           type="number"
-                          step="0.01"
-                          min="0.01"
+                          step="0.001"
+                          min="0.001"
                           value={regularRate}
                           onChange={(e) => setRegularRate(e.target.value)}
                           className={`input-tablet ${parseFloat(regularRate) <= 0 ? 'border-destructive' : ''}`}
-                          placeholder="0.00"
+                          placeholder="0.000"
                           required
                         />
                       </div>
@@ -959,12 +959,12 @@ const [searchQuery, setSearchQuery] = useState('');
                         <Label>{t('employees.regularRateAllIn')} *</Label>
                         <Input
                           type="number"
-                          step="0.01"
-                          min="0.01"
+                          step="0.001"
+                          min="0.001"
                           value={regularRateAllIn}
                           onChange={(e) => setRegularRateAllIn(e.target.value)}
                           className={`input-tablet ${parseFloat(regularRateAllIn) <= 0 ? 'border-destructive' : ''}`}
-                          placeholder="0.00"
+                          placeholder="0.000"
                           required
                         />
                       </div>
@@ -972,12 +972,12 @@ const [searchQuery, setSearchQuery] = useState('');
                         <Label>{t('employees.overtimeRate')} *</Label>
                         <Input
                           type="number"
-                          step="0.01"
-                          min="0.01"
+                          step="0.001"
+                          min="0.001"
                           value={overtimeRate}
                           onChange={(e) => setOvertimeRate(e.target.value)}
                           className={`input-tablet ${parseFloat(overtimeRate) <= 0 ? 'border-destructive' : ''}`}
-                          placeholder="0.00"
+                          placeholder="0.000"
                           required
                         />
                       </div>
