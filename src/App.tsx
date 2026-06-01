@@ -257,7 +257,7 @@ function AppRoutes() {
       <Route 
         path="/reports" 
         element={
-          <ProtectedRoute requiredRoles={['admin', 'hr']}>
+          <ProtectedRoute requiredRoles={['admin', 'hr', 'timekeeper']}>
             <Reports />
           </ProtectedRoute>
         } 

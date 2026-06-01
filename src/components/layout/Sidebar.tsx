@@ -71,7 +71,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     { path: '/specialties', icon: Wrench, label: t('nav.specialties'), show: hasElevatedRole },
     { path: '/corrections', icon: GitPullRequest, label: t('nav.corrections'), show: hasElevatedRole },
     { path: '/admin/review-flags', icon: Flag, label: language === 'el' ? 'Εκκρεμή Επανελέγχου' : 'Pending Reviews', show: hasElevatedRole },
-    { path: '/reports', icon: FileBarChart, label: t('nav.reports'), show: hasElevatedRole },
+    { path: '/reports', icon: FileBarChart, label: t('nav.reports'), show: true },
     { path: '/admin/payroll-export', icon: FileSpreadsheet, label: language === 'el' ? 'Εξαγωγή Μισθοδοσίας' : 'Payroll Export', show: hasElevatedRole },
   ];
 
