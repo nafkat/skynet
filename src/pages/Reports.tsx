@@ -112,7 +112,7 @@ export default function Reports() {
         .from('time_entries')
         .select(`
           *,
-          employees (id, employee_code, first_name, last_name, specialty_id, employment_type, regular_hourly_rate, overtime_hourly_rate),
+          employees (id, employee_code, first_name, last_name, specialty_id, employment_type, regular_hourly_rate, regular_rate_all_in, overtime_hourly_rate),
           projects (id, project_code, project_name)
         `)
         .eq('is_deleted', false)
