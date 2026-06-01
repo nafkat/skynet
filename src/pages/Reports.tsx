@@ -341,7 +341,7 @@ export default function Reports() {
             <FileBarChart className="h-5 w-5 mr-2" />
             {generating ? t('common.loading') : t('reports.generate')}
           </Button>
-          {reportData && (
+          {reportData && showFinancials && (
             <Button variant="outline" onClick={exportCSV} className="btn-tablet">
               <Download className="h-5 w-5 mr-2" />
               {t('reports.exportCSV')}
@@ -354,7 +354,7 @@ export default function Reports() {
       {reportData && (
         <>
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+          <div className={`grid grid-cols-1 md:grid-cols-2 ${showFinancials ? 'lg:grid-cols-5' : 'lg:grid-cols-2'} gap-6 mb-8`}>
             <div className="stat-card">
               <div className="flex items-center gap-3">
                 <Clock className="h-5 w-5 text-muted-foreground" />
@@ -369,27 +369,31 @@ export default function Reports() {
               </div>
               <span className="stat-value">{formatHours(reportData.totalOvertimeMinutes)}</span>
             </div>
-            <div className="stat-card">
-              <div className="flex items-center gap-3">
-                <DollarSign className="h-5 w-5 text-muted-foreground" />
-                <span className="stat-label">{t('reports.totalRegularPlusOT')}</span>
-              </div>
-              <span className="stat-value">{formatCurrency(reportData.totalRegularPay + reportData.totalOvertimePay)}</span>
-            </div>
-            <div className="stat-card">
-              <div className="flex items-center gap-3">
-                <DollarSign className="h-5 w-5 text-primary" />
-                <span className="stat-label">{t('reports.totalAllInPlusOT')}</span>
-              </div>
-              <span className="stat-value">{formatCurrency(reportData.totalRegularAllInPay + reportData.totalOvertimePay)}</span>
-            </div>
-            <div className="stat-card">
-              <div className="flex items-center gap-3">
-                <DollarSign className="h-5 w-5 text-warning" />
-                <span className="stat-label">{t('reports.totalOT')}</span>
-              </div>
-              <span className="stat-value">{formatCurrency(reportData.totalOvertimePay)}</span>
-            </div>
+            {showFinancials && (
+              <>
+                <div className="stat-card">
+                  <div className="flex items-center gap-3">
+                    <DollarSign className="h-5 w-5 text-muted-foreground" />
+                    <span className="stat-label">{t('reports.totalRegularPlusOT')}</span>
+                  </div>
+                  <span className="stat-value">{formatCurrency(reportData.totalRegularPay + reportData.totalOvertimePay)}</span>
+                </div>
+                <div className="stat-card">
+                  <div className="flex items-center gap-3">
+                    <DollarSign className="h-5 w-5 text-primary" />
+                    <span className="stat-label">{t('reports.totalAllInPlusOT')}</span>
+                  </div>
+                  <span className="stat-value">{formatCurrency(reportData.totalRegularAllInPay + reportData.totalOvertimePay)}</span>
+                </div>
+                <div className="stat-card">
+                  <div className="flex items-center gap-3">
+                    <DollarSign className="h-5 w-5 text-warning" />
+                    <span className="stat-label">{t('reports.totalOT')}</span>
+                  </div>
+                  <span className="stat-value">{formatCurrency(reportData.totalOvertimePay)}</span>
+                </div>
+              </>
+            )}
           </div>
 
           {/* By Employee Table */}
@@ -407,8 +411,8 @@ export default function Reports() {
                     </th>
                     <th className="table-cell text-right">{t('reports.regularHours')}</th>
                     <th className="table-cell text-right">{t('reports.overtimeHours')}</th>
-                    <th className="table-cell text-right">{t('reports.totalRegularPlusOT')}</th>
-                    <th className="table-cell text-right">{t('reports.totalAllInPlusOT')}</th>
+                    {showFinancials && <th className="table-cell text-right">{t('reports.totalRegularPlusOT')}</th>}
+                    {showFinancials && <th className="table-cell text-right">{t('reports.totalAllInPlusOT')}</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -433,8 +437,8 @@ export default function Reports() {
                       </td>
                       <td className="table-cell text-right font-mono">{formatHours(row.regularMinutes)}</td>
                       <td className="table-cell text-right font-mono text-warning">{formatHours(row.overtimeMinutes)}</td>
-                      <td className="table-cell text-right font-medium">{formatCurrency(row.regularPay + row.overtimePay)}</td>
-                      <td className="table-cell text-right font-medium text-primary">{formatCurrency(row.regularAllInPay + row.overtimePay)}</td>
+                      {showFinancials && <td className="table-cell text-right font-medium">{formatCurrency(row.regularPay + row.overtimePay)}</td>}
+                      {showFinancials && <td className="table-cell text-right font-medium text-primary">{formatCurrency(row.regularAllInPay + row.overtimePay)}</td>}
                     </tr>
                   ))}
                 </tbody>
@@ -454,8 +458,8 @@ export default function Reports() {
                     <th className="table-cell text-left">{t('projects.title')}</th>
                     <th className="table-cell text-right">{t('reports.regularHours')}</th>
                     <th className="table-cell text-right">{t('reports.overtimeHours')}</th>
-                    <th className="table-cell text-right">{t('reports.totalRegularPlusOT')}</th>
-                    <th className="table-cell text-right">{t('reports.totalAllInPlusOT')}</th>
+                    {showFinancials && <th className="table-cell text-right">{t('reports.totalRegularPlusOT')}</th>}
+                    {showFinancials && <th className="table-cell text-right">{t('reports.totalAllInPlusOT')}</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -469,8 +473,8 @@ export default function Reports() {
                       </td>
                       <td className="table-cell text-right font-mono">{formatHours(row.regularMinutes)}</td>
                       <td className="table-cell text-right font-mono text-warning">{formatHours(row.overtimeMinutes)}</td>
-                      <td className="table-cell text-right font-medium">{formatCurrency(row.laborCost)}</td>
-                      <td className="table-cell text-right font-medium text-primary">{formatCurrency(row.laborCostAllIn)}</td>
+                      {showFinancials && <td className="table-cell text-right font-medium">{formatCurrency(row.laborCost)}</td>}
+                      {showFinancials && <td className="table-cell text-right font-medium text-primary">{formatCurrency(row.laborCostAllIn)}</td>}
                     </tr>
                   ))}
                 </tbody>
