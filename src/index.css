@@ -312,6 +312,6 @@
   [role="menu"] [role="menuitemcheckbox"]:nth-child(even):not([data-highlighted]),
   [role="menu"] [role="menuitemradio"]:nth-child(even):not([data-highlighted]),
   [cmdk-list] [cmdk-item]:nth-child(even):not([data-selected="true"]) {
-    background-color: hsl(210 40% 94% / 0.85);
+    background-color: hsl(199 89% 85%);
   }
 }
