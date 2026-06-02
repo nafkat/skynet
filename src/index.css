@@ -294,4 +294,24 @@
       background-position: 100% center;
     }
   }
+
+  /* Zebra striping for all dropdown / select / combobox menus across the app.
+     Uses two subtle sky-blue tints so adjacent rows are easier to distinguish
+     when users pick employees, projects, etc. Hover/focus/selected states
+     keep their normal accent treatment via :not() guards. */
+  [role="listbox"] [role="option"]:nth-child(odd):not([data-highlighted]):not([data-state="checked"]),
+  [role="menu"] [role="menuitem"]:nth-child(odd):not([data-highlighted]),
+  [role="menu"] [role="menuitemcheckbox"]:nth-child(odd):not([data-highlighted]),
+  [role="menu"] [role="menuitemradio"]:nth-child(odd):not([data-highlighted]),
+  [cmdk-list] [cmdk-item]:nth-child(odd):not([data-selected="true"]) {
+    background-color: hsl(var(--accent) / 0.4);
+  }
+
+  [role="listbox"] [role="option"]:nth-child(even):not([data-highlighted]):not([data-state="checked"]),
+  [role="menu"] [role="menuitem"]:nth-child(even):not([data-highlighted]),
+  [role="menu"] [role="menuitemcheckbox"]:nth-child(even):not([data-highlighted]),
+  [role="menu"] [role="menuitemradio"]:nth-child(even):not([data-highlighted]),
+  [cmdk-list] [cmdk-item]:nth-child(even):not([data-selected="true"]) {
+    background-color: hsl(210 40% 94% / 0.85);
+  }
 }
