@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import {
   ArrowLeft, Edit2, Save, X, ChevronDown, ChevronUp,
   FileText, Building2, User, Calendar, Clock,
-  CheckCircle, Send, Receipt, Plus,
+  CheckCircle, Send, Receipt, Plus, Smartphone,
 } from 'lucide-react';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -394,7 +394,14 @@ export default function CostingReportDetails() {
         )}
       </div>
 
-      <div className="flex gap-3 pb-8">
+      <div className="flex gap-3 pb-8 flex-wrap">
+        <Button
+          onClick={() => navigate(`/costing/reports/${id}/field`)}
+          className="bg-blue-600 hover:bg-blue-700 text-white"
+        >
+          <Smartphone className="h-4 w-4 mr-2" />
+          {t('Field Entry', 'Καταγραφή Επί Τόπου')}
+        </Button>
         <Button variant="outline" onClick={() => navigate('/costing/new')}>
           <Plus className="h-4 w-4 mr-2" />
           {t('New Version', 'Νέα Έκδοση')}
