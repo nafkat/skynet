@@ -60,6 +60,8 @@ import MessagesLayout from "./pages/messages/MessagesLayout";
 import CostingLayout from "./pages/costing/CostingLayout";
 import CostingDashboard from "./pages/costing/CostingDashboard";
 import CostingReportsList from "./pages/costing/CostingReportsList";
+import CostingReportCreate from "./pages/costing/CostingReportCreate";
+import CostingReportDetails from "./pages/costing/CostingReportDetails";
 
 const queryClient = new QueryClient();
 
@@ -221,6 +223,8 @@ function AppRoutes() {
       >
         <Route index element={<CostingDashboard />} />
         <Route path="reports" element={<CostingReportsList />} />
+        <Route path="new" element={<CostingReportCreate />} />
+        <Route path="reports/:id" element={<CostingReportDetails />} />
       </Route>
       
       {/* Timekeeper Dashboard */}
