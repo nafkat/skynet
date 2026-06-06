@@ -99,7 +99,7 @@ const modules: ModuleTile[] = [
     description: 'Costing, estimations & job budgets.',
     descriptionEl: 'Κοστολόγηση, εκτιμήσεις & προϋπολογισμοί έργων.',
     icon: Calculator,
-    status: 'coming_soon',
+    status: 'active',
     route: '/costing',
     permissionKey: 'module.costing',
     section: 'operations',
