@@ -56,6 +56,11 @@ import MessagesDashboard from "./pages/MessagesDashboard";
 import AnnouncementsLayout from "./pages/announcements/AnnouncementsLayout";
 import MessagesLayout from "./pages/messages/MessagesLayout";
 
+// Costing Module
+import CostingLayout from "./pages/costing/CostingLayout";
+import CostingDashboard from "./pages/costing/CostingDashboard";
+import CostingReportsList from "./pages/costing/CostingReportsList";
+
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ 
@@ -203,6 +208,19 @@ function AppRoutes() {
         <Route index element={<MessagesDashboard />} />
         <Route path="dashboard" element={<MessagesDashboard />} />
         <Route path="conversations" element={<Messages />} />
+      </Route>
+
+      {/* Costing Module - Admin, HR, and users with costing.create permission */}
+      <Route
+        path="/costing"
+        element={
+          <ProtectedRoute>
+            <CostingLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<CostingDashboard />} />
+        <Route path="reports" element={<CostingReportsList />} />
       </Route>
       
       {/* Timekeeper Dashboard */}
