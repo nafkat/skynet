@@ -392,6 +392,171 @@ export type Database = {
           },
         ]
       }
+      cost_item_photos: {
+        Row: {
+          caption: string | null
+          captured_at: string
+          id: string
+          item_id: string
+          storage_path: string
+        }
+        Insert: {
+          caption?: string | null
+          captured_at?: string
+          id?: string
+          item_id: string
+          storage_path: string
+        }
+        Update: {
+          caption?: string | null
+          captured_at?: string
+          id?: string
+          item_id?: string
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cost_item_photos_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "cost_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cost_items: {
+        Row: {
+          calculation_type: string
+          created_at: string
+          description: string
+          id: string
+          quantity: number | null
+          section_id: string
+          sort_order: number
+          unit: string | null
+          unit_price: number | null
+          voice_note_text: string | null
+        }
+        Insert: {
+          calculation_type?: string
+          created_at?: string
+          description: string
+          id?: string
+          quantity?: number | null
+          section_id: string
+          sort_order?: number
+          unit?: string | null
+          unit_price?: number | null
+          voice_note_text?: string | null
+        }
+        Update: {
+          calculation_type?: string
+          created_at?: string
+          description?: string
+          id?: string
+          quantity?: number | null
+          section_id?: string
+          sort_order?: number
+          unit?: string | null
+          unit_price?: number | null
+          voice_note_text?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cost_items_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "cost_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cost_reports: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string | null
+          id: string
+          parent_report_id: string | null
+          project_id: string
+          status: string
+          updated_at: string
+          version_notes: string | null
+          version_number: number
+        }
+        Insert: {
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          parent_report_id?: string | null
+          project_id: string
+          status?: string
+          updated_at?: string
+          version_notes?: string | null
+          version_number?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          parent_report_id?: string | null
+          project_id?: string
+          status?: string
+          updated_at?: string
+          version_notes?: string | null
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cost_reports_parent_report_id_fkey"
+            columns: ["parent_report_id"]
+            isOneToOne: false
+            referencedRelation: "cost_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cost_reports_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cost_sections: {
+        Row: {
+          created_at: string
+          id: string
+          report_id: string
+          sort_order: number
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          report_id: string
+          sort_order?: number
+          title: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          report_id?: string
+          sort_order?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cost_sections_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "cost_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_allowed_projects: {
         Row: {
           created_at: string
