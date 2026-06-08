@@ -817,6 +817,40 @@ const [searchQuery, setSearchQuery] = useState('');
                     </Select>
                   </div>
 
+                  {/* Weekend Overtime */}
+                  <div className="space-y-2">
+                    <Label>
+                      {language === 'el' ? 'Υπερωρία Σαββατοκύριακου' : 'Weekend Overtime'}
+                    </Label>
+                    <div className="flex items-center justify-between p-3 border border-border rounded-lg bg-background">
+                      <div>
+                        <p className="text-sm font-medium">
+                          {language === 'el'
+                            ? 'Όλες οι ώρες Σ/Κ ως υπερωρία'
+                            : 'All weekend hours as overtime'}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {language === 'el'
+                            ? 'Σάββατο & Κυριακή → 100% υπερωρία από ώρα 1'
+                            : 'Saturday & Sunday → 100% overtime from hour 1'}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={weekendOvertime}
+                        onClick={() => setWeekendOvertime(v => !v)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                          weekendOvertime ? 'bg-primary' : 'bg-muted'
+                        }`}
+                      >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                          weekendOvertime ? 'translate-x-6' : 'translate-x-1'
+                        }`} />
+                      </button>
+                    </div>
+                  </div>
+
                   {/* Daily Recorders - multi-select */}
                   <div className="space-y-2">
                     <Label>
