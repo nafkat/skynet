@@ -133,6 +133,7 @@ const [searchQuery, setSearchQuery] = useState('');
   const [specialtyId, setSpecialtyId] = useState('');
   const [status, setStatus] = useState<'active' | 'inactive'>('active');
   const [employmentType, setEmploymentType] = useState<'permanent' | 'temporary' | ''>('');
+  const [weekendOvertime, setWeekendOvertime] = useState<boolean>(false);
   
   // Form state - Work Schedule
   const [regularStart, setRegularStart] = useState('07:00');
