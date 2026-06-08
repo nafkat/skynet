@@ -817,8 +817,8 @@ const [searchQuery, setSearchQuery] = useState('');
                     </Select>
                   </div>
 
-                  {/* Weekend Overtime */}
-                  <div className="space-y-2">
+                  {/* Weekend Overtime - Admin/HR only */}
+                  {hasElevatedRole && <div className="space-y-2">
                     <Label>
                       {language === 'el' ? 'Υπερωρία Σαββατοκύριακου' : 'Weekend Overtime'}
                     </Label>
