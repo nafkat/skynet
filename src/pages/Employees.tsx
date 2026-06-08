@@ -78,6 +78,7 @@ interface Employee {
   hire_date: string | null;
   notes: string | null;
   employment_type: 'permanent' | 'temporary';
+  weekend_overtime: boolean;
   afm: string | null;
   id_type: string | null;
   id_number: string | null;
