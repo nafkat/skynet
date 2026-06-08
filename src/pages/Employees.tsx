@@ -315,6 +315,7 @@ const [searchQuery, setSearchQuery] = useState('');
     setSpecialtyId('');
     setStatus('active');
     setEmploymentType('');
+    setWeekendOvertime(false);
     setRegularRate('');
     setRegularRateAllIn('');
     setOvertimeRate('');
