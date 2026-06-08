@@ -793,6 +793,7 @@ export type Database = {
           specialty_id: string
           status: Database["public"]["Enums"]["employee_status"]
           updated_at: string
+          weekend_overtime: boolean
         }
         Insert: {
           afm?: string | null
@@ -818,6 +819,7 @@ export type Database = {
           specialty_id: string
           status?: Database["public"]["Enums"]["employee_status"]
           updated_at?: string
+          weekend_overtime?: boolean
         }
         Update: {
           afm?: string | null
@@ -843,6 +845,7 @@ export type Database = {
           specialty_id?: string
           status?: Database["public"]["Enums"]["employee_status"]
           updated_at?: string
+          weekend_overtime?: boolean
         }
         Relationships: [
           {

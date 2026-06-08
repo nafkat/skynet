@@ -78,6 +78,7 @@ interface Employee {
   hire_date: string | null;
   notes: string | null;
   employment_type: 'permanent' | 'temporary';
+  weekend_overtime: boolean;
   afm: string | null;
   id_type: string | null;
   id_number: string | null;
@@ -132,6 +133,7 @@ const [searchQuery, setSearchQuery] = useState('');
   const [specialtyId, setSpecialtyId] = useState('');
   const [status, setStatus] = useState<'active' | 'inactive'>('active');
   const [employmentType, setEmploymentType] = useState<'permanent' | 'temporary' | ''>('');
+  const [weekendOvertime, setWeekendOvertime] = useState<boolean>(false);
   
   // Form state - Work Schedule
   const [regularStart, setRegularStart] = useState('07:00');
@@ -313,6 +315,7 @@ const [searchQuery, setSearchQuery] = useState('');
     setSpecialtyId('');
     setStatus('active');
     setEmploymentType('');
+    setWeekendOvertime(false);
     setRegularRate('');
     setRegularRateAllIn('');
     setOvertimeRate('');
@@ -339,6 +342,7 @@ const [searchQuery, setSearchQuery] = useState('');
     setSpecialtyId(employee.specialty_id);
     setStatus(employee.status);
     setEmploymentType(employee.employment_type || 'permanent');
+    setWeekendOvertime(employee.weekend_overtime ?? false);
     setRegularRate(employee.regular_hourly_rate.toString());
     setRegularRateAllIn(employee.regular_rate_all_in?.toString() || '');
     setOvertimeRate(employee.overtime_hourly_rate.toString());
@@ -387,6 +391,7 @@ const [searchQuery, setSearchQuery] = useState('');
       specialty_id: specialtyId,
       status,
       employment_type: employmentType as 'permanent' | 'temporary',
+      weekend_overtime: weekendOvertime,
       regular_start_time: regularStart,
       regular_end_time: regularEnd,
       phone: phone || null,
@@ -810,6 +815,40 @@ const [searchQuery, setSearchQuery] = useState('');
                         </SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  {/* Weekend Overtime */}
+                  <div className="space-y-2">
+                    <Label>
+                      {language === 'el' ? 'Υπερωρία Σαββατοκύριακου' : 'Weekend Overtime'}
+                    </Label>
+                    <div className="flex items-center justify-between p-3 border border-border rounded-lg bg-background">
+                      <div>
+                        <p className="text-sm font-medium">
+                          {language === 'el'
+                            ? 'Όλες οι ώρες Σ/Κ ως υπερωρία'
+                            : 'All weekend hours as overtime'}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {language === 'el'
+                            ? 'Σάββατο & Κυριακή → 100% υπερωρία από ώρα 1'
+                            : 'Saturday & Sunday → 100% overtime from hour 1'}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={weekendOvertime}
+                        onClick={() => setWeekendOvertime(v => !v)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                          weekendOvertime ? 'bg-primary' : 'bg-muted'
+                        }`}
+                      >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                          weekendOvertime ? 'translate-x-6' : 'translate-x-1'
+                        }`} />
+                      </button>
+                    </div>
                   </div>
 
                   {/* Daily Recorders - multi-select */}
