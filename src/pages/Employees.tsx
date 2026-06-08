@@ -391,6 +391,7 @@ const [searchQuery, setSearchQuery] = useState('');
       specialty_id: specialtyId,
       status,
       employment_type: employmentType as 'permanent' | 'temporary',
+      weekend_overtime: weekendOvertime,
       regular_start_time: regularStart,
       regular_end_time: regularEnd,
       phone: phone || null,
