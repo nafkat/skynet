@@ -849,7 +849,7 @@ const [searchQuery, setSearchQuery] = useState('');
                         }`} />
                       </button>
                     </div>
-                  </div>
+                  </div>}
 
                   {/* Daily Recorders - multi-select */}
                   <div className="space-y-2">
