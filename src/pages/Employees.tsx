@@ -342,6 +342,7 @@ const [searchQuery, setSearchQuery] = useState('');
     setSpecialtyId(employee.specialty_id);
     setStatus(employee.status);
     setEmploymentType(employee.employment_type || 'permanent');
+    setWeekendOvertime(employee.weekend_overtime ?? false);
     setRegularRate(employee.regular_hourly_rate.toString());
     setRegularRateAllIn(employee.regular_rate_all_in?.toString() || '');
     setOvertimeRate(employee.overtime_hourly_rate.toString());
