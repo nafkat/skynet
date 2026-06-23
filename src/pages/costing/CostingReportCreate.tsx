@@ -484,6 +484,55 @@ export default function CostingReportCreate() {
                       )}
                     </div>
 
+                    {/* Photos */}
+                    <div className="space-y-2 pt-2 border-t border-border">
+                      <Label className="text-xs">{t('Photos', 'Φωτογραφίες')}</Label>
+                      {item.photos.length > 0 && (
+                        <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                          {item.photos.map((p, idx) => (
+                            <div
+                              key={idx}
+                              className="relative aspect-square rounded-md overflow-hidden border"
+                            >
+                              <img
+                                src={p.previewUrl}
+                                alt=""
+                                className="w-full h-full object-cover"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removePhoto(sec.tempId, item.tempId, idx)}
+                                className="absolute top-0.5 right-0.5 bg-black/60 rounded-full p-0.5"
+                              >
+                                <X className="h-3 w-3 text-white" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <label className="block">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          className="hidden"
+                          onChange={(e) => {
+                            addPhotos(sec.tempId, item.tempId, e.target.files);
+                            e.currentTarget.value = '';
+                          }}
+                        />
+                        <div className="flex items-center justify-center gap-2 h-10 border-2 border-dashed border-border rounded-md cursor-pointer hover:bg-muted/30 transition-colors">
+                          <Camera className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">
+                            {item.photos.length > 0
+                              ? t('Add more photos', 'Προσθήκη φωτογραφιών')
+                              : t('Add photos', 'Προσθήκη φωτογραφιών')}
+                          </span>
+                        </div>
+                      </label>
+                    </div>
+
+
                     {canSetPrices && (
                       <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border">
                         <div className="space-y-1">
