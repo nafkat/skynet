@@ -1,53 +1,44 @@
-## Πρόβλημα 1 — "Error saving report" (infinite recursion στο RLS)
+## 1) Inline edit για items (αντί για modal)
 
-Η `cost_reports_select` policy ψάχνει αν ο user έχει items μέσα στο report (joining `cost_items` + `cost_sections`). Αλλά οι policies των `cost_items`/`cost_sections` με τη σειρά τους κάνουν join πίσω στο `cost_reports`. Αυτό προκαλεί `infinite recursion (42P17)` και αποτυγχάνει **κάθε** SELECT/INSERT στο `cost_reports` — γι' αυτό σκάει το Save as Draft (αλλά και η λίστα reports για όσους δεν είναι Admin).
+Πρόβλημα: όταν πατάς το μολυβάκι σε ένα item, ανοίγει pop-up dialog που "βγάζει" από το context της αναφοράς.
 
-### Διόρθωση (migration, χωρίς αλλαγή schema)
+Αλλαγή στο `src/pages/costing/CostingReportDetails.tsx`:
+- Αφαιρώ τελείως το `Dialog` "Edit Item".
+- Προσθέτω τοπικό state `inlineEditId` αντί για `editItem`. Όταν είναι ίσο με `item.id`, η ίδια η κάρτα του item μεταμορφώνεται σε φόρμα (Description / Calc Type / Quantity / Unit + Save/Cancel) στην **ίδια θέση** μέσα στο section, χωρίς overlay.
+- Save/Cancel αποθηκεύει inline, ενημερώνει το state μόνο για το συγκεκριμένο item (χωρίς full refetch ώστε να μην "κλείσει" το section).
 
-1. Νέα SECURITY DEFINER function `public.user_has_items_in_report(_user_id, _report_id)` που τρέχει με δικαιώματα owner και bypass-άρει RLS:
+## 2) Άδεια sections (τίτλοι χωρίς items) στο PRJ-0009
 
-```sql
-CREATE OR REPLACE FUNCTION public.user_has_items_in_report(_user_id uuid, _report_id uuid)
-RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM cost_items ci
-    JOIN cost_sections cs ON cs.id = ci.section_id
-    WHERE cs.report_id = _report_id AND ci.created_by = _user_id
-  )
-$$;
-```
+Πρόβλημα: στο CR-0001 του PRJ-0009 βλέπεις 3 τίτλους (`kapaki`, `gfgf`, `φφφφφ`) χωρίς items γιατί διέγραψες όλα τα items αλλά τα sections παρέμειναν.
 
-2. Replace τις τρεις προβληματικές policies ώστε να καλούν τη function αντί για inline EXISTS:
-   - `cost_reports_select` → χρησιμοποιεί `user_has_items_in_report(auth.uid(), id)` στο view_own clause.
-   - `cost_items_select` → απλοποιείται: ένας Field User βλέπει είτε τα δικά του items είτε αν είναι `can_view_all_cost_reports`. Δεν χρειάζεται να ψάχνει αν ο user είναι creator του report (αυτοί ούτως ή άλλως πιάνονται από `can_view_all_cost_reports` ως Manager/Admin).
-   - `cost_sections_select` → ξαναγράφεται με SECURITY DEFINER helper `can_view_cost_report(_user_id, _report_id)` που δεν επιστρέφει στα `cost_items`.
+Αλλαγή 2α — UI (`CostingReportDetails.tsx`):
+- Στο render των sections φιλτράρω τα sections με `cost_items.length === 0` ώστε να μην εμφανίζονται κενοί τίτλοι. Αν δεν υπάρχει κανένα section με items, δείχνω placeholder "No items yet — go to Field Entry to add some".
 
-Αποτέλεσμα: σπάει ο κύκλος, save λειτουργεί, και κάθε ρόλος βλέπει σωστά:
-- Admin/Manager: όλα τα reports
-- Field User: μόνο reports στα οποία έχει βάλει items (μέσω της SECURITY DEFINER function).
+Αλλαγή 2β — αυτόματο cleanup όταν διαγράφεται το τελευταίο item ενός section:
+- Στο `handleDeleteItem` μετά την επιτυχή διαγραφή, ελέγχω αν το section του διαγραμμένου item έχει 0 items και αν ναι κάνω `delete` και το section. Έτσι δεν αφήνουμε ορφανούς τίτλους.
+- Επίσης κουμπί 🗑 δίπλα στον τίτλο του section (μόνο για όσους έχουν `costing.items.delete` ή elevated), που διαγράφει το section και τα items του.
 
-## Πρόβλημα 2 — Δεν μπορείς να βάλεις φωτογραφίες όταν δημιουργείς item
+Καμία αλλαγή στη βάση/RLS — μόνο frontend logic + ένα cascade delete μέσω του υπάρχοντος client.
 
-Στην οθόνη `CostingReportCreate` (New Report) δεν υπάρχει καθόλου UI για φωτογραφίες — υπάρχει μόνο στο **Field Entry** (mobile-optimized οθόνη). Αυτό ήταν αρχικός σχεδιασμός: γρήγορη δημιουργία template στο desktop, φωτογραφίες στο πεδίο. 
+## 3) Διαφορά «Field Entry» vs «New Version»
 
-### Διόρθωση στο `CostingReportCreate.tsx`
+Αυτό είναι μόνο εξήγηση — δεν χρειάζεται αλλαγή κώδικα, αλλά προτείνω και ένα μικρό UX fix.
 
-Προσθήκη photo picker σε κάθε item, με την ίδια λογική του Field Entry:
-- Hidden `<input type="file" accept="image/*" multiple>` ανά item.
-- Preview thumbnails (grid 3 cols) με κουμπί ✕ για αφαίρεση.
-- State: επεκτείνεται το `CostItem` interface με `photos: { file: File; previewUrl: string }[]`.
-- Στο `handleSave`, μετά το insert του cost_item: upload κάθε αρχείο στο bucket `cost-photos` με path `{report.id}/{item.id}/...` και insert row στο `cost_item_photos` με `created_by = user.id`.
-- Cleanup των `URL.createObjectURL` blobs.
+- **Field Entry (μπλε κουμπί)** → ανοίγει το mobile-optimized interface (`/costing/reports/:id/field`) για να προσθέσεις γρήγορα items + φωτογραφίες στην **ίδια έκδοση** της αναφοράς, ενώ είσαι στο πεδίο. Δεν δημιουργεί νέα αναφορά.
+- **New Version (outline κουμπί)** → υποτίθεται ότι δημιουργεί καινούρια έκδοση (π.χ. CR-0001-v2) της ίδιας αναφοράς για να αλλάξεις/προσθέσεις χωρίς να χαλάσεις την προηγούμενη έκδοση που μπορεί ήδη να έχει σταλεί στον πελάτη.
 
-Δεν αλλάζει το backend — το bucket και οι RLS policies είναι ήδη έτοιμα.
+**Bug που εντόπισα:** σήμερα το «New Version» απλώς κάνει `navigate('/costing/new')` δηλαδή πάει στη φόρμα νέας αναφοράς χωρίς να προ-συμπληρώνει project ή να αυξάνει το version_number — οπότε δεν δημιουργεί πραγματική νέα έκδοση, δημιουργεί ξεχωριστή αναφορά v1.
 
-## Αρχεία που αλλάζουν
+Προτεινόμενο μικρό fix (προαιρετικό, πες μου αν το θες τώρα ή σε επόμενη φάση):
+- Το «New Version» να ανοίγει modal που ρωτάει «Version notes», και να καλεί νέα RPC/insert που: παίρνει το ίδιο `code`, βάζει `version_number = max+1` για αυτό το code, αντιγράφει sections + items (χωρίς τιμές) από την προηγούμενη έκδοση. Έτσι έχει νόημα το versioning.
+- Εναλλακτικά, αν δεν θες versioning τώρα, να αφαιρέσουμε εντελώς το κουμπί για να μην μπερδεύει.
 
-- **Νέο migration**: SECURITY DEFINER function + αναδιατύπωση 3 policies (cost_reports_select, cost_items_select, cost_sections_select). Καμία αλλαγή schema, καμία αλλαγή δεδομένων.
-- **`src/pages/costing/CostingReportCreate.tsx`**: προσθήκη photo picker + upload στο save.
+## Αρχεία που θα αλλάξουν στη Φάση 3
+- `src/pages/costing/CostingReportDetails.tsx` — inline edit, hide empty sections, cascade delete section όταν αδειάζει, (προαιρετικά) trash icon σε sections, (προαιρετικά) σωστό New Version flow.
 
-## Τι δεν αλλάζει
+## Τι ΔΕΝ αγγίζω
+- Βάση / RLS / migrations
+- `CostingFieldEntry.tsx`, `CostingReportCreate.tsx`
+- permissions/roles
 
-- Δομή πινάκων, grants, υπόλοιπες policies.
-- `CostingFieldEntry.tsx` (συνεχίζει να δουλεύει όπως είναι).
-- Permissions/ρόλοι (Φάση 1 & 2 παραμένουν).
+Πες μου: να προχωρήσω και με το New Version proper versioning (#3 fix) ή το αφήνουμε για άλλη φάση και τώρα κάνουμε μόνο #1 και #2;
