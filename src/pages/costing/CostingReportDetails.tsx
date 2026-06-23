@@ -336,6 +336,15 @@ export default function CostingReportDetails() {
           </div>
         )}
 
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => navigate(`/costing/reports/${id}/print`)}
+          title={t('Export PDF', 'Εξαγωγή PDF')}
+        >
+          <FileDown className="h-4 w-4" />
+        </Button>
+
         {canDeleteReport && (
           <Button
             variant="outline"
