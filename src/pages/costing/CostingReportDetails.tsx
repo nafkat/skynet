@@ -209,52 +209,6 @@ export default function CostingReportDetails() {
     setUpdatingStatus(false);
   };
 
-  const openInlineEdit = (item: CostItem) => {
-    setInlineEditId(item.id);
-    setEditForm({
-      description: item.description,
-      calculation_type: item.calculation_type,
-      quantity: item.quantity?.toString() ?? '',
-      unit: item.unit ?? '',
-    });
-  };
-
-  const handleSaveItem = async () => {
-    if (!inlineEditId) return;
-    if (!editForm.description.trim()) {
-      toast.error(t('Description required', 'Απαιτείται περιγραφή'));
-      return;
-    }
-    setSavingItem(true);
-    const updates = {
-      description: editForm.description.trim(),
-      calculation_type: editForm.calculation_type,
-      quantity:
-        editForm.calculation_type !== 'lumpsum' && editForm.quantity
-          ? parseFloat(editForm.quantity)
-          : null,
-      unit: editForm.unit || null,
-    };
-    const { error } = await supabase
-      .from('cost_items')
-      .update(updates)
-      .eq('id', inlineEditId);
-    if (error) {
-      toast.error(t('Error saving item', 'Σφάλμα αποθήκευσης'));
-    } else {
-      toast.success(t('Item updated', 'Η εργασία ενημερώθηκε'));
-      setSections((secs) =>
-        secs.map((s) => ({
-          ...s,
-          cost_items: s.cost_items.map((i) =>
-            i.id === inlineEditId ? { ...i, ...updates } : i,
-          ),
-        })),
-      );
-      setInlineEditId(null);
-    }
-    setSavingItem(false);
-  };
 
   const handleDeleteItem = async () => {
     if (!deleteItemId) return;
