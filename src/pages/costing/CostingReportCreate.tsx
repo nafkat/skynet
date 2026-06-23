@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 import {
-  Plus, Trash2, ChevronDown, ChevronUp, Save, ArrowLeft,
+  Plus, Trash2, ChevronDown, ChevronUp, Save, ArrowLeft, Camera, X,
 } from 'lucide-react';
 
 interface Project {
@@ -23,6 +23,11 @@ interface Project {
   assigned_shipyard_company: string;
 }
 
+interface PhotoPreview {
+  file: File;
+  previewUrl: string;
+}
+
 interface CostItem {
   tempId: string;
   description: string;
@@ -31,6 +36,7 @@ interface CostItem {
   quantity: string;
   unit: string;
   unit_price: string;
+  photos: PhotoPreview[];
 }
 
 interface CostSection {
@@ -56,6 +62,7 @@ const newItem = (): CostItem => ({
   quantity: '',
   unit: '',
   unit_price: '',
+  photos: [],
 });
 
 const newSection = (): CostSection => ({
@@ -129,6 +136,42 @@ export default function CostingReportCreate() {
       ),
     );
 
+  const addPhotos = (sectionTempId: string, itemTempId: string, files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const newPhotos: PhotoPreview[] = Array.from(files).map((file) => ({
+      file,
+      previewUrl: URL.createObjectURL(file),
+    }));
+    setSections((s) =>
+      s.map((sec) =>
+        sec.tempId === sectionTempId
+          ? {
+              ...sec,
+              items: sec.items.map((i) =>
+                i.tempId === itemTempId ? { ...i, photos: [...i.photos, ...newPhotos] } : i,
+              ),
+            }
+          : sec,
+      ),
+    );
+  };
+
+  const removePhoto = (sectionTempId: string, itemTempId: string, idx: number) =>
+    setSections((s) =>
+      s.map((sec) =>
+        sec.tempId === sectionTempId
+          ? {
+              ...sec,
+              items: sec.items.map((i) => {
+                if (i.tempId !== itemTempId) return i;
+                URL.revokeObjectURL(i.photos[idx].previewUrl);
+                return { ...i, photos: i.photos.filter((_, k) => k !== idx) };
+              }),
+            }
+          : sec,
+      ),
+    );
+
   const calcTotal = (item: CostItem): number | null => {
     if (item.calculation_type === 'lumpsum') {
       const p = parseFloat(item.unit_price);
@@ -138,6 +181,23 @@ export default function CostingReportCreate() {
     const p = parseFloat(item.unit_price);
     if (isNaN(q) || isNaN(p)) return null;
     return q * p;
+  };
+
+  const uploadItemPhoto = async (
+    reportId: string,
+    itemId: string,
+    photo: PhotoPreview,
+  ): Promise<string | null> => {
+    const ext = photo.file.name.split('.').pop() || 'jpg';
+    const path = `${reportId}/${itemId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { error } = await supabase.storage
+      .from('cost-photos')
+      .upload(path, photo.file, { contentType: photo.file.type, upsert: false });
+    if (error) {
+      console.error('Photo upload error:', error);
+      return null;
+    }
+    return path;
   };
 
   const handleSave = async () => {
@@ -183,20 +243,38 @@ export default function CostingReportCreate() {
 
         for (let ii = 0; ii < sec.items.length; ii++) {
           const item = sec.items[ii];
-          const { error: iErr } = await supabase.from('cost_items').insert({
-            section_id: section.id,
-            description: item.description,
-            voice_note_text: item.voice_note_text || null,
-            calculation_type: item.calculation_type,
-            quantity:
-              item.calculation_type !== 'lumpsum' && item.quantity
-                ? parseFloat(item.quantity)
-                : null,
-            unit: item.unit || null,
-            unit_price: canSetPrices && item.unit_price ? parseFloat(item.unit_price) : null,
-            sort_order: ii,
-          });
-          if (iErr) throw iErr;
+          const { data: insertedItem, error: iErr } = await supabase
+            .from('cost_items')
+            .insert({
+              section_id: section.id,
+              description: item.description,
+              voice_note_text: item.voice_note_text || null,
+              calculation_type: item.calculation_type,
+              quantity:
+                item.calculation_type !== 'lumpsum' && item.quantity
+                  ? parseFloat(item.quantity)
+                  : null,
+              unit: item.unit || null,
+              unit_price: canSetPrices && item.unit_price ? parseFloat(item.unit_price) : null,
+              sort_order: ii,
+              created_by: user?.id ?? null,
+            })
+            .select()
+            .single();
+          if (iErr || !insertedItem) throw iErr;
+
+          for (const photo of item.photos) {
+            const path = await uploadItemPhoto(report.id, insertedItem.id, photo);
+            if (path) {
+              await supabase.from('cost_item_photos').insert({
+                item_id: insertedItem.id,
+                storage_path: path,
+                caption: '',
+                created_by: user?.id ?? null,
+              });
+            }
+            URL.revokeObjectURL(photo.previewUrl);
+          }
         }
       }
 
@@ -405,6 +483,55 @@ export default function CostingReportCreate() {
                         </>
                       )}
                     </div>
+
+                    {/* Photos */}
+                    <div className="space-y-2 pt-2 border-t border-border">
+                      <Label className="text-xs">{t('Photos', 'Φωτογραφίες')}</Label>
+                      {item.photos.length > 0 && (
+                        <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                          {item.photos.map((p, idx) => (
+                            <div
+                              key={idx}
+                              className="relative aspect-square rounded-md overflow-hidden border"
+                            >
+                              <img
+                                src={p.previewUrl}
+                                alt=""
+                                className="w-full h-full object-cover"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removePhoto(sec.tempId, item.tempId, idx)}
+                                className="absolute top-0.5 right-0.5 bg-black/60 rounded-full p-0.5"
+                              >
+                                <X className="h-3 w-3 text-white" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <label className="block">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          className="hidden"
+                          onChange={(e) => {
+                            addPhotos(sec.tempId, item.tempId, e.target.files);
+                            e.currentTarget.value = '';
+                          }}
+                        />
+                        <div className="flex items-center justify-center gap-2 h-10 border-2 border-dashed border-border rounded-md cursor-pointer hover:bg-muted/30 transition-colors">
+                          <Camera className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">
+                            {item.photos.length > 0
+                              ? t('Add more photos', 'Προσθήκη φωτογραφιών')
+                              : t('Add photos', 'Προσθήκη φωτογραφιών')}
+                          </span>
+                        </div>
+                      </label>
+                    </div>
+
 
                     {canSetPrices && (
                       <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border">
