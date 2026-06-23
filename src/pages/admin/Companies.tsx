@@ -145,6 +145,7 @@ export default function Companies() {
         website: formData.website.trim() || null,
         is_active: formData.is_active,
         notes: formData.notes.trim() || null,
+        logo_url: formData.logo_url,
       };
 
       if (editingId) {
