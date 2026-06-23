@@ -15,7 +15,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Plus, Search, Edit, Trash2, Building2, Loader2, AlertCircle } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Building2, Loader2, AlertCircle, Image as ImageIcon, Upload, X as XIcon } from 'lucide-react';
 
 interface Company {
   id: string;
