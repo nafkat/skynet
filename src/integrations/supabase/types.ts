@@ -280,6 +280,7 @@ export type Database = {
           email: string
           id: string
           is_active: boolean
+          logo_url: string | null
           notes: string | null
           phone: string
           postal_code: string
@@ -298,6 +299,7 @@ export type Database = {
           email: string
           id?: string
           is_active?: boolean
+          logo_url?: string | null
           notes?: string | null
           phone: string
           postal_code: string
@@ -316,6 +318,7 @@ export type Database = {
           email?: string
           id?: string
           is_active?: boolean
+          logo_url?: string | null
           notes?: string | null
           phone?: string
           postal_code?: string
