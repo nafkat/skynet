@@ -15,7 +15,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Plus, Search, Edit, Trash2, Building2, Loader2, AlertCircle } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Building2, Loader2, AlertCircle, Image as ImageIcon, Upload, X as XIcon } from 'lucide-react';
 
 interface Company {
   id: string;
@@ -32,6 +32,7 @@ interface Company {
   website: string | null;
   is_active: boolean;
   notes: string | null;
+  logo_url: string | null;
 }
 
 interface FormData {
@@ -47,6 +48,7 @@ interface FormData {
   website: string;
   is_active: boolean;
   notes: string;
+  logo_url: string | null;
 }
 
 const emptyForm: FormData = {
@@ -61,7 +63,8 @@ const emptyForm: FormData = {
   email: '',
   website: '',
   is_active: true,
-  notes: ''
+  notes: '',
+  logo_url: null
 };
 
 interface FormErrors {
@@ -80,9 +83,59 @@ export default function Companies() {
   const [formData, setFormData] = useState<FormData>(emptyForm);
   const [errors, setErrors] = useState<FormErrors>({});
   const [saving, setSaving] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; id: string | null; name: string | null }>({
     isOpen: false, id: null, name: null
   });
+
+  // Load signed URL preview when formData.logo_url changes
+  useEffect(() => {
+    let cancelled = false;
+    if (!formData.logo_url) {
+      setLogoPreview(null);
+      return;
+    }
+    supabase.storage.from('company-logos').createSignedUrl(formData.logo_url, 3600).then(({ data }) => {
+      if (!cancelled && data?.signedUrl) setLogoPreview(data.signedUrl);
+    });
+    return () => { cancelled = true; };
+  }, [formData.logo_url]);
+
+  const handleLogoUpload = async (file: File) => {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error(t('Logo must be under 5MB', 'Το logo πρέπει να είναι κάτω από 5MB'));
+      return;
+    }
+    setUploadingLogo(true);
+    try {
+      const ext = file.name.split('.').pop() || 'png';
+      const path = `${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage.from('company-logos').upload(path, file, {
+        contentType: file.type, upsert: false,
+      });
+      if (error) throw error;
+      // Remove old logo if exists
+      if (formData.logo_url) {
+        await supabase.storage.from('company-logos').remove([formData.logo_url]);
+      }
+      setFormData((f) => ({ ...f, logo_url: path }));
+      toast.success(t('Logo uploaded', 'Το logo ανέβηκε'));
+    } catch (err: any) {
+      toast.error(err.message || t('Upload failed', 'Αποτυχία ανεβάσματος'));
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const handleLogoRemove = async () => {
+    if (formData.logo_url) {
+      await supabase.storage.from('company-logos').remove([formData.logo_url]);
+    }
+    setFormData((f) => ({ ...f, logo_url: null }));
+  };
+
 
   useEffect(() => {
     fetchCompanies();
@@ -142,6 +195,7 @@ export default function Companies() {
         website: formData.website.trim() || null,
         is_active: formData.is_active,
         notes: formData.notes.trim() || null,
+        logo_url: formData.logo_url,
       };
 
       if (editingId) {
@@ -178,7 +232,8 @@ export default function Companies() {
       email: company.email,
       website: company.website || '',
       is_active: company.is_active,
-      notes: company.notes || ''
+      notes: company.notes || '',
+      logo_url: company.logo_url || null,
     });
     setErrors({});
     setShowDialog(true);
@@ -341,6 +396,49 @@ export default function Companies() {
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                 rows={3}
               />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5">
+                <ImageIcon className="h-3.5 w-3.5" />
+                {t('Company Logo (for PDF header)', 'Logo Εταιρίας (για PDF)')}
+              </Label>
+              <div className="flex items-center gap-3">
+                {logoPreview ? (
+                  <div className="relative">
+                    <img src={logoPreview} alt="logo" className="h-16 w-32 object-contain border rounded bg-white p-1" />
+                    <button
+                      type="button"
+                      onClick={handleLogoRemove}
+                      className="absolute -top-2 -right-2 bg-destructive text-white rounded-full p-0.5 hover:bg-destructive/90"
+                    >
+                      <XIcon className="h-3 w-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="h-16 w-32 border-2 border-dashed rounded flex items-center justify-center text-muted-foreground text-xs">
+                    {t('No logo', 'Χωρίς logo')}
+                  </div>
+                )}
+                <label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => e.target.files?.[0] && handleLogoUpload(e.target.files[0])}
+                  />
+                  <Button type="button" variant="outline" size="sm" disabled={uploadingLogo} asChild>
+                    <span className="cursor-pointer">
+                      {uploadingLogo ? (
+                        <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                      ) : (
+                        <Upload className="h-3.5 w-3.5 mr-1.5" />
+                      )}
+                      {t('Upload Logo', 'Ανέβασμα')}
+                    </span>
+                  </Button>
+                </label>
+              </div>
+              <p className="text-[10px] text-muted-foreground">{t('PNG/JPG, max 5MB. Used as the header on cost report PDFs.', 'PNG/JPG, μέχρι 5MB. Χρησιμοποιείται ως header στα PDF αναφορών κόστους.')}</p>
             </div>
             <div className="flex items-center gap-3">
               <Switch checked={formData.is_active} onCheckedChange={(v) => setFormData({ ...formData, is_active: v })} />

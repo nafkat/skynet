@@ -63,6 +63,7 @@ import CostingReportsList from "./pages/costing/CostingReportsList";
 import CostingReportCreate from "./pages/costing/CostingReportCreate";
 import CostingReportDetails from "./pages/costing/CostingReportDetails";
 import CostingFieldEntry from "./pages/costing/CostingFieldEntry";
+import CostingReportPrint from "./pages/costing/CostingReportPrint";
 
 const queryClient = new QueryClient();
 
@@ -228,6 +229,17 @@ function AppRoutes() {
         <Route path="reports/:id" element={<CostingReportDetails />} />
         <Route path="reports/:id/field" element={<CostingFieldEntry />} />
       </Route>
+
+      {/* Costing Print View — standalone, no sidebar */}
+      <Route
+        path="/costing/reports/:id/print"
+        element={
+          <ProtectedRoute>
+            <CostingReportPrint />
+          </ProtectedRoute>
+        }
+      />
+      
       
       {/* Timekeeper Dashboard */}
       <Route 

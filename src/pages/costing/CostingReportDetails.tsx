@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import {
   ArrowLeft, Edit2, Save, X, ChevronDown, ChevronUp,
   FileText, Building2, User, Calendar, Clock,
-  CheckCircle, Send, Receipt, Plus, Smartphone, Trash2,
+  CheckCircle, Send, Receipt, Plus, Smartphone, Trash2, FileDown,
 } from 'lucide-react';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -335,6 +335,15 @@ export default function CostingReportDetails() {
             </Select>
           </div>
         )}
+
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => navigate(`/costing/reports/${id}/print`)}
+          title={t('Export PDF', 'Εξαγωγή PDF')}
+        >
+          <FileDown className="h-4 w-4" />
+        </Button>
 
         {canDeleteReport && (
           <Button
