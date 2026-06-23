@@ -83,9 +83,59 @@ export default function Companies() {
   const [formData, setFormData] = useState<FormData>(emptyForm);
   const [errors, setErrors] = useState<FormErrors>({});
   const [saving, setSaving] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; id: string | null; name: string | null }>({
     isOpen: false, id: null, name: null
   });
+
+  // Load signed URL preview when formData.logo_url changes
+  useEffect(() => {
+    let cancelled = false;
+    if (!formData.logo_url) {
+      setLogoPreview(null);
+      return;
+    }
+    supabase.storage.from('company-logos').createSignedUrl(formData.logo_url, 3600).then(({ data }) => {
+      if (!cancelled && data?.signedUrl) setLogoPreview(data.signedUrl);
+    });
+    return () => { cancelled = true; };
+  }, [formData.logo_url]);
+
+  const handleLogoUpload = async (file: File) => {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error(t('Logo must be under 5MB', 'Το logo πρέπει να είναι κάτω από 5MB'));
+      return;
+    }
+    setUploadingLogo(true);
+    try {
+      const ext = file.name.split('.').pop() || 'png';
+      const path = `${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage.from('company-logos').upload(path, file, {
+        contentType: file.type, upsert: false,
+      });
+      if (error) throw error;
+      // Remove old logo if exists
+      if (formData.logo_url) {
+        await supabase.storage.from('company-logos').remove([formData.logo_url]);
+      }
+      setFormData((f) => ({ ...f, logo_url: path }));
+      toast.success(t('Logo uploaded', 'Το logo ανέβηκε'));
+    } catch (err: any) {
+      toast.error(err.message || t('Upload failed', 'Αποτυχία ανεβάσματος'));
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const handleLogoRemove = async () => {
+    if (formData.logo_url) {
+      await supabase.storage.from('company-logos').remove([formData.logo_url]);
+    }
+    setFormData((f) => ({ ...f, logo_url: null }));
+  };
+
 
   useEffect(() => {
     fetchCompanies();
