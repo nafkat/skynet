@@ -1867,6 +1867,10 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
+      can_view_cost_report: {
+        Args: { _report_id: string; _user_id: string }
+        Returns: boolean
+      }
       compute_user_role_from_templates: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -1933,6 +1937,10 @@ export type Database = {
       recompute_user_permissions: {
         Args: { _user_id: string }
         Returns: undefined
+      }
+      user_has_items_in_report: {
+        Args: { _report_id: string; _user_id: string }
+        Returns: boolean
       }
     }
     Enums: {
