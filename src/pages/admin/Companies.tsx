@@ -32,6 +32,7 @@ interface Company {
   website: string | null;
   is_active: boolean;
   notes: string | null;
+  logo_url: string | null;
 }
 
 interface FormData {
@@ -47,6 +48,7 @@ interface FormData {
   website: string;
   is_active: boolean;
   notes: string;
+  logo_url: string | null;
 }
 
 const emptyForm: FormData = {
@@ -61,7 +63,8 @@ const emptyForm: FormData = {
   email: '',
   website: '',
   is_active: true,
-  notes: ''
+  notes: '',
+  logo_url: null
 };
 
 interface FormErrors {
