@@ -229,6 +229,17 @@ function AppRoutes() {
         <Route path="reports/:id" element={<CostingReportDetails />} />
         <Route path="reports/:id/field" element={<CostingFieldEntry />} />
       </Route>
+
+      {/* Costing Print View — standalone, no sidebar */}
+      <Route
+        path="/costing/reports/:id/print"
+        element={
+          <ProtectedRoute>
+            <CostingReportPrint />
+          </ProtectedRoute>
+        }
+      />
+      
       
       {/* Timekeeper Dashboard */}
       <Route 
