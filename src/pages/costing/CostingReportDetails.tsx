@@ -61,7 +61,7 @@ const STATUS_CONFIG: Record<
 export default function CostingReportDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { hasElevatedRole } = useAuth();
+  const { hasPermission } = useAuth();
   const { language } = useLanguage();
   const t = (en: string, el: string) => (language === 'el' ? el : en);
 
@@ -72,7 +72,10 @@ export default function CostingReportDetails() {
   const [savingPrice, setSavingPrice] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
-  const canSetPrices = hasElevatedRole;
+  const canViewCosts = hasPermission('costing.costs.view');
+  const canEditCosts = hasPermission('costing.costs.edit');
+  const canChangeStatus = hasPermission('costing.reports.change_status');
+  const canCreateReports = hasPermission('costing.reports.create');
 
   const fetchReport = async () => {
     if (!id) return;
