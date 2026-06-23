@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,12 +27,14 @@ type StatusKey = 'all' | 'draft' | 'sent' | 'agreed' | 'invoiced';
 
 export default function CostingReportsList() {
   const { language } = useLanguage();
+  const { hasPermission } = useAuth();
   const navigate = useNavigate();
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusKey>('all');
   const t = (en: string, el: string) => (language === 'el' ? el : en);
+  const canCreate = hasPermission('costing.reports.create');
 
   const fetchReports = async () => {
     setLoading(true);
@@ -103,10 +106,12 @@ export default function CostingReportsList() {
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             {t('Refresh', 'Ανανέωση')}
           </Button>
-          <Button onClick={() => navigate('/costing/new')}>
-            <Plus className="h-4 w-4 mr-2" />
-            {t('New Report', 'Νέα Αναφορά')}
-          </Button>
+          {canCreate && (
+            <Button onClick={() => navigate('/costing/new')}>
+              <Plus className="h-4 w-4 mr-2" />
+              {t('New Report', 'Νέα Αναφορά')}
+            </Button>
+          )}
         </div>
       </div>
 
