@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -10,10 +10,14 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import {
   ArrowLeft, Mic, MicOff, Camera, X, Plus,
-  Save, Check, Loader2,
+  Save, Check, Loader2, Trash2,
 } from 'lucide-react';
 import { getDailyWallpaper } from '@/hooks/useWallpaper';
 
@@ -25,6 +29,12 @@ interface Section {
 interface PhotoPreview {
   file: File;
   previewUrl: string;
+}
+
+interface ExistingPhoto {
+  id: string;
+  storage_path: string;
+  signedUrl: string;
 }
 
 const CALC_TYPES = [
@@ -44,6 +54,9 @@ declare global {
 
 export default function CostingFieldEntry() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const editingItemId = searchParams.get('edit');
+  const isEditMode = !!editingItemId;
   const navigate = useNavigate();
   const { user, hasElevatedRole, hasPermission } = useAuth();
   const { language } = useLanguage();
@@ -64,6 +77,8 @@ export default function CostingFieldEntry() {
   const [quantity, setQuantity] = useState('');
   const [unit, setUnit] = useState('');
   const [photos, setPhotos] = useState<PhotoPreview[]>([]);
+  const [existingPhotos, setExistingPhotos] = useState<ExistingPhoto[]>([]);
+  const [photosToDelete, setPhotosToDelete] = useState<{ id: string; storage_path: string }[]>([]);
 
   const [isListening, setIsListening] = useState(false);
   const [voiceSupported, setVoiceSupported] = useState(false);
@@ -71,6 +86,8 @@ export default function CostingFieldEntry() {
 
   const [saving, setSaving] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const cameraRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -96,6 +113,42 @@ export default function CostingFieldEntry() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  // Load existing item in edit mode
+  useEffect(() => {
+    if (!editingItemId) return;
+    (async () => {
+      const { data: item } = await supabase
+        .from('cost_items')
+        .select('description, calculation_type, quantity, unit, section_id')
+        .eq('id', editingItemId)
+        .single();
+      if (item) {
+        setDescription(item.description ?? '');
+        setCalcType(item.calculation_type ?? 'unit');
+        setQuantity(item.quantity?.toString() ?? '');
+        setUnit(item.unit ?? '');
+        setSelectedSectionId(item.section_id);
+      }
+
+      const { data: ph } = await supabase
+        .from('cost_item_photos')
+        .select('id, storage_path')
+        .eq('item_id', editingItemId);
+
+      if (ph && ph.length > 0) {
+        const withUrls = await Promise.all(
+          ph.map(async (p) => {
+            const { data: signed } = await supabase.storage
+              .from('cost-photos')
+              .createSignedUrl(p.storage_path, 3600);
+            return { id: p.id, storage_path: p.storage_path, signedUrl: signed?.signedUrl ?? '' };
+          })
+        );
+        setExistingPhotos(withUrls);
+      }
+    })();
+  }, [editingItemId]);
+
   const fetchSections = async () => {
     if (!id) return;
     const { data } = await supabase
@@ -104,7 +157,7 @@ export default function CostingFieldEntry() {
       .eq('report_id', id)
       .order('sort_order');
     setSections(data || []);
-    if (data && data.length > 0 && !selectedSectionId) {
+    if (data && data.length > 0 && !selectedSectionId && !editingItemId) {
       setSelectedSectionId(data[0].id);
     }
   };
@@ -160,6 +213,13 @@ export default function CostingFieldEntry() {
     });
   };
 
+  const removeExistingPhoto = (photoId: string) => {
+    const p = existingPhotos.find(x => x.id === photoId);
+    if (!p) return;
+    setPhotosToDelete(prev => [...prev, { id: p.id, storage_path: p.storage_path }]);
+    setExistingPhotos(prev => prev.filter(x => x.id !== photoId));
+  };
+
   const handleAddSection = async () => {
     if (!newSectionTitle.trim() || !id) return;
     const { data, error } = await supabase
@@ -207,49 +267,101 @@ export default function CostingFieldEntry() {
 
     setSaving(true);
     try {
-      const { data: item, error: iErr } = await supabase
-        .from('cost_items')
-        .insert({
-          section_id: selectedSectionId,
-          description: description.trim(),
-          calculation_type: calcType,
-          quantity: calcType !== 'lumpsum' && quantity ? parseFloat(quantity) : null,
-          unit: unit || null,
-          sort_order: 999,
-          created_by: user?.id ?? null,
-        })
-        .select()
-        .single();
+      let itemId = editingItemId;
 
-      if (iErr || !item) throw iErr;
+      if (isEditMode && editingItemId) {
+        // UPDATE
+        const { error: uErr } = await supabase
+          .from('cost_items')
+          .update({
+            section_id: selectedSectionId,
+            description: description.trim(),
+            calculation_type: calcType,
+            quantity: calcType !== 'lumpsum' && quantity ? parseFloat(quantity) : null,
+            unit: unit || null,
+          })
+          .eq('id', editingItemId);
+        if (uErr) throw uErr;
 
-      for (const photo of photos) {
-        const path = await uploadPhoto(item.id, photo);
-        if (path) {
-          await supabase.from('cost_item_photos').insert({
-            item_id: item.id,
-            storage_path: path,
-            caption: '',
+        // Delete removed photos
+        if (photosToDelete.length > 0) {
+          await supabase.storage.from('cost-photos').remove(photosToDelete.map(p => p.storage_path));
+          await supabase.from('cost_item_photos').delete().in('id', photosToDelete.map(p => p.id));
+        }
+      } else {
+        // INSERT
+        const { data: item, error: iErr } = await supabase
+          .from('cost_items')
+          .insert({
+            section_id: selectedSectionId,
+            description: description.trim(),
+            calculation_type: calcType,
+            quantity: calcType !== 'lumpsum' && quantity ? parseFloat(quantity) : null,
+            unit: unit || null,
+            sort_order: 999,
             created_by: user?.id ?? null,
-          });
+          })
+          .select()
+          .single();
+        if (iErr || !item) throw iErr;
+        itemId = item.id;
+      }
+
+      // Upload new photos
+      if (itemId) {
+        for (const photo of photos) {
+          const path = await uploadPhoto(itemId, photo);
+          if (path) {
+            await supabase.from('cost_item_photos').insert({
+              item_id: itemId,
+              storage_path: path,
+              caption: '',
+              created_by: user?.id ?? null,
+            });
+          }
         }
       }
 
       photos.forEach(p => URL.revokeObjectURL(p.previewUrl));
 
-      setDescription('');
-      setQuantity('');
-      setUnit('');
-      setCalcType('unit');
-      setPhotos([]);
-      setSavedCount(c => c + 1);
-
-      toast.success(t('Item saved! Ready for next.', 'Αποθηκεύτηκε! Έτοιμο για επόμενο.'));
+      if (isEditMode) {
+        toast.success(t('Item updated', 'Η εργασία ενημερώθηκε'));
+        navigate(`/costing/reports/${id}`);
+      } else {
+        setDescription('');
+        setQuantity('');
+        setUnit('');
+        setCalcType('unit');
+        setPhotos([]);
+        setSavedCount(c => c + 1);
+        toast.success(t('Item saved! Ready for next.', 'Αποθηκεύτηκε! Έτοιμο για επόμενο.'));
+      }
     } catch (err) {
       console.error(err);
       toast.error(t('Error saving item', 'Σφάλμα αποθήκευσης εργασίας'));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDeleteItem = async () => {
+    if (!editingItemId) return;
+    setDeleting(true);
+    try {
+      // Delete photos from storage first
+      if (existingPhotos.length > 0) {
+        await supabase.storage.from('cost-photos').remove(existingPhotos.map(p => p.storage_path));
+      }
+      const { error } = await supabase.from('cost_items').delete().eq('id', editingItemId);
+      if (error) throw error;
+      toast.success(t('Item deleted', 'Η εργασία διαγράφηκε'));
+      navigate(`/costing/reports/${id}`);
+    } catch (err) {
+      console.error(err);
+      toast.error(t('Error deleting item', 'Σφάλμα διαγραφής'));
+    } finally {
+      setDeleting(false);
+      setConfirmDelete(false);
     }
   };
 
@@ -280,15 +392,26 @@ export default function CostingFieldEntry() {
           </Button>
           <div className="flex-1 min-w-0">
             <div className="text-white font-semibold truncate">
-              {reportCode} — {t('Field Entry', 'Καταγραφή Επί Τόπου')}
+              {reportCode} — {isEditMode ? t('Edit Item', 'Επεξεργασία Εργασίας') : t('Field Entry', 'Καταγραφή Επί Τόπου')}
             </div>
             <div className="text-white/70 text-xs truncate">{projectName}</div>
           </div>
-          {savedCount > 0 && (
+          {savedCount > 0 && !isEditMode && (
             <div className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-green-500/90 text-white text-sm font-medium">
               <Check className="h-4 w-4" />
               {savedCount} {t('saved', 'αποθ.')}
             </div>
+          )}
+          {isEditMode && (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setConfirmDelete(true)}
+              className="bg-white/10 border-white/20 text-white hover:bg-red-500/80"
+              title={t('Delete Item', 'Διαγραφή Εργασίας')}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           )}
         </div>
 
@@ -433,8 +556,19 @@ export default function CostingFieldEntry() {
         <div className="bg-card/80 backdrop-blur-sm rounded-xl border border-border p-4 space-y-3">
           <Label className="text-sm font-semibold">{t('Photos', 'Φωτογραφίες')}</Label>
 
-          {photos.length > 0 && (
+          {(existingPhotos.length > 0 || photos.length > 0) && (
             <div className="grid grid-cols-3 gap-2">
+              {existingPhotos.map((p) => (
+                <div key={p.id} className="relative aspect-square rounded-lg overflow-hidden">
+                  <img src={p.signedUrl} alt="" className="w-full h-full object-cover" />
+                  <button
+                    onClick={() => removeExistingPhoto(p.id)}
+                    className="absolute top-1 right-1 bg-black/60 rounded-full p-0.5"
+                  >
+                    <X className="h-3.5 w-3.5 text-white" />
+                  </button>
+                </div>
+              ))}
               {photos.map((p, idx) => (
                 <div key={idx} className="relative aspect-square rounded-lg overflow-hidden">
                   <img src={p.previewUrl} alt="" className="w-full h-full object-cover" />
@@ -462,7 +596,7 @@ export default function CostingFieldEntry() {
             <div className="flex items-center justify-center gap-2 h-14 border-2 border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/30 transition-colors">
               <Camera className="h-5 w-5 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">
-                {photos.length > 0
+                {existingPhotos.length + photos.length > 0
                   ? t('Add more photos', 'Προσθήκη φωτογραφιών')
                   : t('Take photo', 'Τράβηξε φωτογραφία')}
               </span>
@@ -484,7 +618,9 @@ export default function CostingFieldEntry() {
           ) : (
             <>
               <Save className="h-5 w-5 mr-2" />
-              {t('Save & Add Next', 'Αποθήκευση & Επόμενο')}
+              {isEditMode
+                ? t('Update', 'Ενημέρωση')
+                : t('Save & Add Next', 'Αποθήκευση & Επόμενο')}
             </>
           )}
         </Button>
@@ -492,11 +628,32 @@ export default function CostingFieldEntry() {
         <Button
           variant="outline"
           onClick={handleDone}
-          className="w-full h-12 border-white/20 text-white hover:bg-white/10 bg-transparent"
+          className="w-full h-12 bg-white/10 border-white/20 text-white hover:bg-white/20"
         >
-          {t('Done — Back to Report', 'Τέλος — Επιστροφή στην Αναφορά')}
+          {isEditMode ? t('Cancel', 'Άκυρο') : t('Done', 'Τέλος')}
         </Button>
       </div>
+
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('Delete this item?', 'Διαγραφή αυτής της εργασίας;')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('This action cannot be undone. All photos will be deleted too.', 'Η ενέργεια δεν αναιρείται. Θα διαγραφούν και όλες οι φωτογραφίες.')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>{t('Cancel', 'Άκυρο')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteItem}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground"
+            >
+              {deleting ? t('Deleting...', 'Διαγραφή...') : t('Delete', 'Διαγραφή')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

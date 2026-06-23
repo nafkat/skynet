@@ -5,8 +5,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import {
   ArrowLeft, Edit2, Save, X, ChevronDown, ChevronUp,
@@ -86,9 +84,6 @@ export default function CostingReportDetails() {
   const [editingPrice, setEditingPrice] = useState<Record<string, string>>({});
   const [savingPrice, setSavingPrice] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
-  const [inlineEditId, setInlineEditId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ description: '', calculation_type: 'unit', quantity: '', unit: '' });
-  const [savingItem, setSavingItem] = useState(false);
   const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
   const [deleteSectionId, setDeleteSectionId] = useState<string | null>(null);
   const [confirmDeleteReport, setConfirmDeleteReport] = useState(false);
@@ -212,52 +207,6 @@ export default function CostingReportDetails() {
     setUpdatingStatus(false);
   };
 
-  const openInlineEdit = (item: CostItem) => {
-    setInlineEditId(item.id);
-    setEditForm({
-      description: item.description,
-      calculation_type: item.calculation_type,
-      quantity: item.quantity?.toString() ?? '',
-      unit: item.unit ?? '',
-    });
-  };
-
-  const handleSaveItem = async () => {
-    if (!inlineEditId) return;
-    if (!editForm.description.trim()) {
-      toast.error(t('Description required', 'Απαιτείται περιγραφή'));
-      return;
-    }
-    setSavingItem(true);
-    const updates = {
-      description: editForm.description.trim(),
-      calculation_type: editForm.calculation_type,
-      quantity:
-        editForm.calculation_type !== 'lumpsum' && editForm.quantity
-          ? parseFloat(editForm.quantity)
-          : null,
-      unit: editForm.unit || null,
-    };
-    const { error } = await supabase
-      .from('cost_items')
-      .update(updates)
-      .eq('id', inlineEditId);
-    if (error) {
-      toast.error(t('Error saving item', 'Σφάλμα αποθήκευσης'));
-    } else {
-      toast.success(t('Item updated', 'Η εργασία ενημερώθηκε'));
-      setSections((secs) =>
-        secs.map((s) => ({
-          ...s,
-          cost_items: s.cost_items.map((i) =>
-            i.id === inlineEditId ? { ...i, ...updates } : i,
-          ),
-        })),
-      );
-      setInlineEditId(null);
-    }
-    setSavingItem(false);
-  };
 
   const handleDeleteItem = async () => {
     if (!deleteItemId) return;
@@ -495,184 +444,107 @@ export default function CostingReportDetails() {
                 <div className="border-t divide-y">
                   {sec.cost_items.map((item) => (
                     <div key={item.id} className="p-4">
-                      {inlineEditId === item.id ? (
-                        // ====== Inline edit mode ======
-                        <div className="space-y-3">
-                          <div className="space-y-1">
-                            <Label>{t('Description', 'Περιγραφή')} *</Label>
-                            <Textarea
-                              value={editForm.description}
-                              onChange={(e) =>
-                                setEditForm((f) => ({ ...f, description: e.target.value }))
-                              }
-                              rows={2}
-                              autoFocus
-                            />
-                          </div>
-                          <div className="grid sm:grid-cols-3 gap-3">
-                            <div className="space-y-1">
-                              <Label>{t('Calc. Type', 'Τύπος Υπολ.')}</Label>
-                              <Select
-                                value={editForm.calculation_type}
-                                onValueChange={(v) =>
-                                  setEditForm((f) => ({ ...f, calculation_type: v }))
-                                }
-                              >
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {CALC_TYPES.map((c) => (
-                                    <SelectItem key={c.value} value={c.value}>
-                                      {language === 'el' ? c.labelEl : c.labelEn}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            {editForm.calculation_type !== 'lumpsum' && (
-                              <>
-                                <div className="space-y-1">
-                                  <Label>{t('Quantity', 'Ποσότητα')}</Label>
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium">{item.description}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {item.calculation_type !== 'lumpsum'
+                              ? `${item.quantity ?? '—'} ${item.unit ?? ''} · ${item.calculation_type}`
+                              : t('Lump Sum', "Κατ' Αποκοπή")}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {canViewCosts && (
+                            <>
+                              {canEditCosts && editingPrice[item.id] !== undefined ? (
+                                <>
                                   <Input
                                     type="number"
                                     min="0"
-                                    step="0.001"
-                                    value={editForm.quantity}
+                                    step="0.01"
+                                    value={editingPrice[item.id]}
                                     onChange={(e) =>
-                                      setEditForm((f) => ({ ...f, quantity: e.target.value }))
+                                      setEditingPrice((prev) => ({
+                                        ...prev,
+                                        [item.id]: e.target.value,
+                                      }))
                                     }
+                                    className="w-28 h-8 text-sm"
+                                    placeholder="0.00"
+                                    autoFocus
                                   />
-                                </div>
-                                <div className="space-y-1">
-                                  <Label>{t('Unit', 'Μονάδα')}</Label>
-                                  <Input
-                                    value={editForm.unit}
-                                    onChange={(e) =>
-                                      setEditForm((f) => ({ ...f, unit: e.target.value }))
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    disabled={savingPrice === item.id}
+                                    onClick={() => handleSavePrice(item.id)}
+                                  >
+                                    <Save className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() =>
+                                      setEditingPrice((prev) => {
+                                        const n = { ...prev };
+                                        delete n[item.id];
+                                        return n;
+                                      })
                                     }
-                                  />
-                                </div>
-                              </>
-                            )}
-                          </div>
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setInlineEditId(null)}
-                              disabled={savingItem}
-                            >
-                              {t('Cancel', 'Άκυρο')}
-                            </Button>
-                            <Button size="sm" onClick={handleSaveItem} disabled={savingItem}>
-                              <Save className="h-4 w-4 mr-1" />
-                              {t('Save', 'Αποθήκευση')}
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        // ====== Display mode ======
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium">{item.description}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              {item.calculation_type !== 'lumpsum'
-                                ? `${item.quantity ?? '—'} ${item.unit ?? ''} · ${item.calculation_type}`
-                                : t('Lump Sum', "Κατ' Αποκοπή")}
-                            </p>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            {canViewCosts && (
-                              <>
-                                {canEditCosts && editingPrice[item.id] !== undefined ? (
-                                  <>
-                                    <Input
-                                      type="number"
-                                      min="0"
-                                      step="0.01"
-                                      value={editingPrice[item.id]}
-                                      onChange={(e) =>
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </>
+                              ) : (
+                                <div className="flex items-center gap-1">
+                                  <span className="text-sm font-semibold w-20 text-right">
+                                    {fmt(calcTotal(item))}
+                                  </span>
+                                  {canEditCosts && (
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      title={t('Edit price', 'Επεξεργασία τιμής')}
+                                      onClick={() =>
                                         setEditingPrice((prev) => ({
                                           ...prev,
-                                          [item.id]: e.target.value,
+                                          [item.id]: item.unit_price?.toString() ?? '',
                                         }))
                                       }
-                                      className="w-28 h-8 text-sm"
-                                      placeholder="0.00"
-                                      autoFocus
-                                    />
-                                    <Button
-                                      size="icon"
-                                      variant="ghost"
-                                      disabled={savingPrice === item.id}
-                                      onClick={() => handleSavePrice(item.id)}
                                     >
-                                      <Save className="h-4 w-4" />
+                                      <Edit2 className="h-3.5 w-3.5" />
                                     </Button>
-                                    <Button
-                                      size="icon"
-                                      variant="ghost"
-                                      onClick={() =>
-                                        setEditingPrice((prev) => {
-                                          const n = { ...prev };
-                                          delete n[item.id];
-                                          return n;
-                                        })
-                                      }
-                                    >
-                                      <X className="h-4 w-4" />
-                                    </Button>
-                                  </>
-                                ) : (
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-sm font-semibold w-20 text-right">
-                                      {fmt(calcTotal(item))}
-                                    </span>
-                                    {canEditCosts && (
-                                      <Button
-                                        size="icon"
-                                        variant="ghost"
-                                        title={t('Edit price', 'Επεξεργασία τιμής')}
-                                        onClick={() =>
-                                          setEditingPrice((prev) => ({
-                                            ...prev,
-                                            [item.id]: item.unit_price?.toString() ?? '',
-                                          }))
-                                        }
-                                      >
-                                        <Edit2 className="h-3.5 w-3.5" />
-                                      </Button>
-                                    )}
-                                  </div>
-                                )}
-                              </>
-                            )}
+                                  )}
+                                </div>
+                              )}
+                            </>
+                          )}
 
-                            {canEditItem(item) && (
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                title={t('Edit item', 'Επεξεργασία εργασίας')}
-                                onClick={() => openInlineEdit(item)}
-                              >
-                                <Edit2 className="h-3.5 w-3.5 text-muted-foreground" />
-                              </Button>
-                            )}
-                            {canDeleteItem(item) && (
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                title={t('Delete item', 'Διαγραφή εργασίας')}
-                                onClick={() => setDeleteItemId(item.id)}
-                              >
-                                <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                              </Button>
-                            )}
-                          </div>
+                          {canEditItem(item) && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              title={t('Edit item', 'Επεξεργασία εργασίας')}
+                              onClick={() =>
+                                navigate(`/costing/reports/${id}/field?edit=${item.id}`)
+                              }
+                            >
+                              <Edit2 className="h-3.5 w-3.5 text-muted-foreground" />
+                            </Button>
+                          )}
+                          {canDeleteItem(item) && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              title={t('Delete item', 'Διαγραφή εργασίας')}
+                              onClick={() => setDeleteItemId(item.id)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                            </Button>
+                          )}
                         </div>
-                      )}
+                      </div>
                     </div>
                   ))}
                 </div>

@@ -1,44 +1,34 @@
-## 1) Inline edit για items (αντί για modal)
+## Πρόβλημα
 
-Πρόβλημα: όταν πατάς το μολυβάκι σε ένα item, ανοίγει pop-up dialog που "βγάζει" από το context της αναφοράς.
+Όταν πατάς το μολυβάκι (edit) σε ένα item, ανοίγει ένα μικρό inline form μόνο με Description / Calc / Quantity / Unit. Δεν είναι η ίδια καρτέλα που χρησιμοποίησες για να καταχωρήσεις το item αρχικά (Field Entry) — άρα λείπουν φωτογραφίες, voice input, μεγάλα touch fields, κλπ. Επίσης δεν μπορείς να σβήσεις το item από εκεί.
 
-Αλλαγή στο `src/pages/costing/CostingReportDetails.tsx`:
-- Αφαιρώ τελείως το `Dialog` "Edit Item".
-- Προσθέτω τοπικό state `inlineEditId` αντί για `editItem`. Όταν είναι ίσο με `item.id`, η ίδια η κάρτα του item μεταμορφώνεται σε φόρμα (Description / Calc Type / Quantity / Unit + Save/Cancel) στην **ίδια θέση** μέσα στο section, χωρίς overlay.
-- Save/Cancel αποθηκεύει inline, ενημερώνει το state μόνο για το συγκεκριμένο item (χωρίς full refetch ώστε να μην "κλείσει" το section).
+## Λύση
 
-## 2) Άδεια sections (τίτλοι χωρίς items) στο PRJ-0009
+Το pencil (edit) και το delete των items θα στέλνουν στην **ίδια Field Entry καρτέλα** που χρησιμοποιείται για την αρχική καταχώρηση, αλλά σε **edit mode** για το συγκεκριμένο item. Έτσι έχεις ενιαία εμπειρία — ίδιο UI για create και edit, με όλες τις δυνατότητες (περιγραφή, voice, μέτρηση, φωτογραφίες, διαγραφή).
 
-Πρόβλημα: στο CR-0001 του PRJ-0009 βλέπεις 3 τίτλους (`kapaki`, `gfgf`, `φφφφφ`) χωρίς items γιατί διέγραψες όλα τα items αλλά τα sections παρέμειναν.
+## Τι θα αλλάξει
 
-Αλλαγή 2α — UI (`CostingReportDetails.tsx`):
-- Στο render των sections φιλτράρω τα sections με `cost_items.length === 0` ώστε να μην εμφανίζονται κενοί τίτλοι. Αν δεν υπάρχει κανένα section με items, δείχνω placeholder "No items yet — go to Field Entry to add some".
+### 1. `CostingFieldEntry.tsx` — υποστήριξη edit mode
+- Διαβάζει query param `?edit=<itemId>` από το URL.
+- Αν υπάρχει `edit`:
+  - Φορτώνει το item (description, calc_type, quantity, unit, section_id) και τις φωτογραφίες του (`cost_item_photos` + signed URLs από `cost-photos` bucket) και τα γεμίζει στη φόρμα.
+  - Στον τίτλο γράφει "Edit Item" αντί "Field Entry".
+  - Το κουμπί "Save & Add Next" γίνεται "Update" — κάνει `UPDATE` αντί `INSERT`, και ανεβάζει μόνο τις νέες φωτογραφίες (κρατά τις παλιές, διαγράφει αυτές που έβγαλε ο χρήστης από storage + table).
+  - Εμφανίζεται κουμπί **Delete Item** (κόκκινο, με confirm) που σβήνει το item και επιστρέφει στο report.
+  - Μετά το Update, επιστρέφει στο `/costing/reports/:id` (όχι "Add Next").
 
-Αλλαγή 2β — αυτόματο cleanup όταν διαγράφεται το τελευταίο item ενός section:
-- Στο `handleDeleteItem` μετά την επιτυχή διαγραφή, ελέγχω αν το section του διαγραμμένου item έχει 0 items και αν ναι κάνω `delete` και το section. Έτσι δεν αφήνουμε ορφανούς τίτλους.
-- Επίσης κουμπί 🗑 δίπλα στον τίτλο του section (μόνο για όσους έχουν `costing.items.delete` ή elevated), που διαγράφει το section και τα items του.
+### 2. `CostingReportDetails.tsx` — ανακατεύθυνση edit
+- Αφαιρούνται: το inline edit state (`inlineEditId`, `editForm`, `savingItem`, όλη η inline φόρμα και το `handleSaveItem`).
+- Το pencil button κάθε item κάνει `navigate('/costing/reports/:id/field?edit=<itemId>')`.
+- Το delete button παραμένει inline (γρήγορο) — οπότε ο χρήστης δεν είναι αναγκασμένος να μπει σε άλλη οθόνη για διαγραφή. (Εναλλακτικά μεταφέρεται κι αυτό μέσα στο Field Entry — πες μου τι προτιμάς.)
 
-Καμία αλλαγή στη βάση/RLS — μόνο frontend logic + ένα cascade delete μέσω του υπάρχοντος client.
+### 3. Δεν αλλάζει
+- Καμία αλλαγή σε DB / RLS / permissions / buckets.
+- Δεν αλλάζει το create flow ή ο τρόπος εμφάνισης των items στο details.
 
-## 3) Διαφορά «Field Entry» vs «New Version»
+## Τεχνικές λεπτομέρειες
 
-Αυτό είναι μόνο εξήγηση — δεν χρειάζεται αλλαγή κώδικα, αλλά προτείνω και ένα μικρό UX fix.
-
-- **Field Entry (μπλε κουμπί)** → ανοίγει το mobile-optimized interface (`/costing/reports/:id/field`) για να προσθέσεις γρήγορα items + φωτογραφίες στην **ίδια έκδοση** της αναφοράς, ενώ είσαι στο πεδίο. Δεν δημιουργεί νέα αναφορά.
-- **New Version (outline κουμπί)** → υποτίθεται ότι δημιουργεί καινούρια έκδοση (π.χ. CR-0001-v2) της ίδιας αναφοράς για να αλλάξεις/προσθέσεις χωρίς να χαλάσεις την προηγούμενη έκδοση που μπορεί ήδη να έχει σταλεί στον πελάτη.
-
-**Bug που εντόπισα:** σήμερα το «New Version» απλώς κάνει `navigate('/costing/new')` δηλαδή πάει στη φόρμα νέας αναφοράς χωρίς να προ-συμπληρώνει project ή να αυξάνει το version_number — οπότε δεν δημιουργεί πραγματική νέα έκδοση, δημιουργεί ξεχωριστή αναφορά v1.
-
-Προτεινόμενο μικρό fix (προαιρετικό, πες μου αν το θες τώρα ή σε επόμενη φάση):
-- Το «New Version» να ανοίγει modal που ρωτάει «Version notes», και να καλεί νέα RPC/insert που: παίρνει το ίδιο `code`, βάζει `version_number = max+1` για αυτό το code, αντιγράφει sections + items (χωρίς τιμές) από την προηγούμενη έκδοση. Έτσι έχει νόημα το versioning.
-- Εναλλακτικά, αν δεν θες versioning τώρα, να αφαιρέσουμε εντελώς το κουμπί για να μην μπερδεύει.
-
-## Αρχεία που θα αλλάξουν στη Φάση 3
-- `src/pages/costing/CostingReportDetails.tsx` — inline edit, hide empty sections, cascade delete section όταν αδειάζει, (προαιρετικά) trash icon σε sections, (προαιρετικά) σωστό New Version flow.
-
-## Τι ΔΕΝ αγγίζω
-- Βάση / RLS / migrations
-- `CostingFieldEntry.tsx`, `CostingReportCreate.tsx`
-- permissions/roles
-
-Πες μου: να προχωρήσω και με το New Version proper versioning (#3 fix) ή το αφήνουμε για άλλη φάση και τώρα κάνουμε μόνο #1 και #2;
+- Νέα state στο `CostingFieldEntry`: `editingItemId`, `existingPhotos: {id, storage_path, signedUrl}[]`, `photosToDelete: string[]`.
+- Στο handlePhotoCapture: ίδιο. Σε νέο `removeExistingPhoto(id)`: αφαιρεί από `existingPhotos` και προσθέτει στο `photosToDelete`.
+- Στο update: `update cost_items` → upload νέες φωτο → `insert cost_item_photos` για νέες → `delete from cost_item_photos where id in photosToDelete` + `supabase.storage.remove([paths])`.
+- Header κουμπί ή footer κουμπί "Delete" → AlertDialog → `delete cost_items` → navigate back.
