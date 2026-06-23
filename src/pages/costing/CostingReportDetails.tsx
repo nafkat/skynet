@@ -86,9 +86,6 @@ export default function CostingReportDetails() {
   const [editingPrice, setEditingPrice] = useState<Record<string, string>>({});
   const [savingPrice, setSavingPrice] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
-  const [inlineEditId, setInlineEditId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ description: '', calculation_type: 'unit', quantity: '', unit: '' });
-  const [savingItem, setSavingItem] = useState(false);
   const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
   const [deleteSectionId, setDeleteSectionId] = useState<string | null>(null);
   const [confirmDeleteReport, setConfirmDeleteReport] = useState(false);
