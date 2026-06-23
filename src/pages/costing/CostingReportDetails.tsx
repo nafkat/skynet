@@ -372,18 +372,20 @@ export default function CostingReportDetails() {
                               <span className="text-sm font-semibold w-20 text-right">
                                 {fmt(calcTotal(item))}
                               </span>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                onClick={() =>
-                                  setEditingPrice((prev) => ({
-                                    ...prev,
-                                    [item.id]: item.unit_price?.toString() ?? '',
-                                  }))
-                                }
-                              >
-                                <Edit2 className="h-3.5 w-3.5" />
-                              </Button>
+                              {canEditCosts && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() =>
+                                    setEditingPrice((prev) => ({
+                                      ...prev,
+                                      [item.id]: item.unit_price?.toString() ?? '',
+                                    }))
+                                  }
+                                >
+                                  <Edit2 className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
                             </div>
                           )}
                         </div>
@@ -405,10 +407,12 @@ export default function CostingReportDetails() {
           <Smartphone className="h-4 w-4 mr-2" />
           {t('Field Entry', 'Καταγραφή Επί Τόπου')}
         </Button>
-        <Button variant="outline" onClick={() => navigate('/costing/new')}>
-          <Plus className="h-4 w-4 mr-2" />
-          {t('New Version', 'Νέα Έκδοση')}
-        </Button>
+        {canCreateReports && (
+          <Button variant="outline" onClick={() => navigate('/costing/new')}>
+            <Plus className="h-4 w-4 mr-2" />
+            {t('New Version', 'Νέα Έκδοση')}
+          </Button>
+        )}
       </div>
     </div>
   );
