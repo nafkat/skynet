@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { FileText, Plus, Clock, CheckCircle, Send, Receipt, RefreshCw } from 'lucide-react';
@@ -24,7 +25,9 @@ interface RecentReport {
 
 export default function CostingDashboard() {
   const { language } = useLanguage();
+  const { hasElevatedRole, hasPermission } = useAuth();
   const navigate = useNavigate();
+  const canCreateReport = hasElevatedRole || hasPermission('costing.reports.create');
   const [stats, setStats] = useState<Stats>({ total: 0, draft: 0, sent: 0, agreed: 0, invoiced: 0 });
   const [recent, setRecent] = useState<RecentReport[]>([]);
   const [loading, setLoading] = useState(true);
@@ -102,10 +105,12 @@ export default function CostingDashboard() {
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             {t('Refresh', 'Ανανέωση')}
           </Button>
-          <Button onClick={() => navigate('/costing/new')}>
-            <Plus className="h-4 w-4 mr-2" />
-            {t('New Report', 'Νέα Αναφορά')}
-          </Button>
+          {canCreateReport && (
+            <Button onClick={() => navigate('/costing/new')}>
+              <Plus className="h-4 w-4 mr-2" />
+              {t('New Report', 'Νέα Αναφορά')}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -141,10 +146,12 @@ export default function CostingDashboard() {
             <p className="text-white/70 mb-4">
               {t('No reports yet', 'Δεν υπάρχουν αναφορές ακόμα')}
             </p>
-            <Button onClick={() => navigate('/costing/new')}>
-              <Plus className="h-4 w-4 mr-2" />
-              {t('Create first report', 'Δημιουργία πρώτης αναφοράς')}
-            </Button>
+            {canCreateReport && (
+              <Button onClick={() => navigate('/costing/new')}>
+                <Plus className="h-4 w-4 mr-2" />
+                {t('Create first report', 'Δημιουργία πρώτης αναφοράς')}
+              </Button>
+            )}
           </div>
         ) : (
           <div className="space-y-2">

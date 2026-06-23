@@ -24,7 +24,8 @@ export default function CostingLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const handleClose = useCallback(() => setIsSidebarOpen(false), []);
 
-  const hasAccess = hasElevatedRole || hasPermission('costing.create');
+  const hasAccess = hasElevatedRole || hasPermission('module.costing');
+  const canCreateReport = hasElevatedRole || hasPermission('costing.reports.create');
 
   useEffect(() => {
     if (!loading && !hasAccess) {
@@ -123,15 +124,17 @@ export default function CostingLayout() {
             </span>
           </Link>
 
-          <Link
-            to="/costing/new"
-            className={cn('nav-item', isActiveRoute('/costing/new') && 'active')}
-          >
-            <Plus className="h-5 w-5" />
-            <span className="font-medium">
-              {language === 'el' ? 'Νέα Αναφορά' : 'New Report'}
-            </span>
-          </Link>
+          {canCreateReport && (
+            <Link
+              to="/costing/new"
+              className={cn('nav-item', isActiveRoute('/costing/new') && 'active')}
+            >
+              <Plus className="h-5 w-5" />
+              <span className="font-medium">
+                {language === 'el' ? 'Νέα Αναφορά' : 'New Report'}
+              </span>
+            </Link>
+          )}
         </nav>
 
         <div className="p-4 border-t border-sidebar-border space-y-2">
