@@ -67,7 +67,7 @@ const newSection = (): CostSection => ({
 
 export default function CostingReportCreate() {
   const navigate = useNavigate();
-  const { user, hasElevatedRole } = useAuth();
+  const { user, hasPermission } = useAuth();
   const { language } = useLanguage();
   const t = (en: string, el: string) => (language === 'el' ? el : en);
 
@@ -78,7 +78,7 @@ export default function CostingReportCreate() {
   const [sections, setSections] = useState<CostSection[]>([newSection()]);
   const [saving, setSaving] = useState(false);
 
-  const canSetPrices = hasElevatedRole;
+  const canSetPrices = hasPermission('costing.costs.edit') || hasPermission('costing.costs.view');
 
   useEffect(() => {
     supabase

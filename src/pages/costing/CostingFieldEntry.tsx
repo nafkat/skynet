@@ -45,10 +45,11 @@ declare global {
 export default function CostingFieldEntry() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, hasElevatedRole, hasPermission } = useAuth();
   const { language } = useLanguage();
   const t = (en: string, el: string) => (language === 'el' ? el : en);
   const wallpaperUrl = getDailyWallpaper();
+  const canManageSections = hasElevatedRole || hasPermission('costing.reports.create') || hasPermission('costing.reports.edit');
 
   const [reportCode, setReportCode] = useState('');
   const [projectName, setProjectName] = useState('');
@@ -310,7 +311,7 @@ export default function CostingFieldEntry() {
             </Select>
           )}
 
-          {showNewSection ? (
+          {canManageSections && (showNewSection ? (
             <div className="flex gap-2">
               <Input
                 value={newSectionTitle}
@@ -340,7 +341,7 @@ export default function CostingFieldEntry() {
               <Plus className="h-4 w-4 mr-2" />
               {t('New Section', 'Νέο Τμήμα')}
             </Button>
-          )}
+          ))}
         </div>
 
         {/* Description + Voice */}
