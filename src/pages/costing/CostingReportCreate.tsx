@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 import {
-  Plus, Trash2, ChevronDown, ChevronUp, Save, ArrowLeft,
+  Plus, Trash2, ChevronDown, ChevronUp, Save, ArrowLeft, Camera, X,
 } from 'lucide-react';
 
 interface Project {
@@ -23,6 +23,11 @@ interface Project {
   assigned_shipyard_company: string;
 }
 
+interface PhotoPreview {
+  file: File;
+  previewUrl: string;
+}
+
 interface CostItem {
   tempId: string;
   description: string;
@@ -31,6 +36,7 @@ interface CostItem {
   quantity: string;
   unit: string;
   unit_price: string;
+  photos: PhotoPreview[];
 }
 
 interface CostSection {
@@ -56,6 +62,7 @@ const newItem = (): CostItem => ({
   quantity: '',
   unit: '',
   unit_price: '',
+  photos: [],
 });
 
 const newSection = (): CostSection => ({
