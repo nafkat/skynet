@@ -182,7 +182,8 @@ export default function Companies() {
       email: company.email,
       website: company.website || '',
       is_active: company.is_active,
-      notes: company.notes || ''
+      notes: company.notes || '',
+      logo_url: company.logo_url || null,
     });
     setErrors({});
     setShowDialog(true);
