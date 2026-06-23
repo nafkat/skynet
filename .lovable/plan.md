@@ -1,81 +1,71 @@
-# Permissions Architecture: Templates ως Single Source of Truth
+# Διόρθωση ρόλων Costing
 
-## Στόχος
-Ένα ενιαίο σύστημα δικαιωμάτων για ΟΛΟΥΣ τους users, όπου το **Permission Template** που ανατίθεται καθορίζει αυτόματα και:
-- το `user_roles.role` (που χρησιμοποιεί το RLS στη βάση)
-- τα `user_permissions` (που χρησιμοποιεί το frontend για `hasPermission`, `isHR`, `hasElevatedRole`)
-- το Access tab (γίνεται read-only προβολή)
+## Αλλαγές
 
-Έτσι λύνεται και η περίπτωση Maria Serveta (template=HR αλλά role=timekeeper → ασυμφωνία) και κάθε μελλοντικός user.
+### 1. Καταργείται το template "Costing – Admin"
+Ο global **Admin** ρόλος είναι ήδη god-mode (έχει πρόσβαση παντού μέσω `has_role(admin)` στα RLS και bypass στο `has_permission`). Άρα το ξεχωριστό Costing-Admin template είναι περιττό.
 
----
+**Migration:**
+- Διαγραφή των rows του template `77777777-…` από `permission_template_permissions`
+- Διαγραφή του ίδιου template από `permission_templates`
+- Αν κάποιος user το έχει assigned, αυτόματα θα ξανυπολογιστεί ο ρόλος του (υπάρχει trigger `sync_user_role_from_templates`)
 
-## 1. Database Changes (migration)
-
-### 1a. Επέκταση `permission_templates`
-Νέα στήλη `base_role app_role NOT NULL DEFAULT 'timekeeper'` που δηλώνει σε ποιο RLS role αντιστοιχεί κάθε template:
-- "Timekeeping – HR" → `hr`
-- "Timekeeping – Employee" → `timekeeper`
-- "Administrator / Full Access" → `admin`
-
-Backfill των υπαρχόντων templates με σωστή τιμή.
-
-### 1b. Trigger σε `user_permission_templates`
-Σε κάθε `INSERT`/`UPDATE`/`DELETE`:
-1. Καλεί `recompute_user_permissions(user_id)` (υπάρχει ήδη).
-2. Συγχρονίζει το `user_roles.role` = το πιο "δυνατό" `base_role` από τα assigned templates του user (admin > hr > timekeeper).
-3. Καλεί επίσης `initialize_user_permissions(user_id, role, granted_by)` για να συγχρονιστούν τα `user_module_access` / `user_module_actions` (Access tab visualization).
-
-### 1c. One-time backfill
-Για κάθε user που έχει assigned templates: τρέχουμε το ίδιο sync μία φορά, ώστε όλοι οι υπάρχοντες users (Maria + οι υπόλοιποι) να έρθουν σε συμφωνία.
+**Τελικά templates Costing:**
+- **Costing – Manager** — πλήρης διαχείριση reports/items/κοστών, delete reports, change status
+- **Costing – Field User** — δες παρακάτω (#2)
 
 ---
 
-## 2. Frontend Changes
+### 2. Field User: όχι μόνο mobile — και από desktop
+Καμία αλλαγή στη βάση χρειάζεται (τα permissions είναι ήδη device-agnostic). Η αλλαγή είναι μόνο στο UI gating:
 
-### 2a. `AdminUsers` — Access tab
-Γίνεται **read-only**: εμφανίζει τα effective permissions / modules που προκύπτουν από τα assigned templates, με badge "Διαχειρίζεται από το Template". Χωρίς toggles. Κουμπί "Άνοιγμα Templates" για όποιον θέλει να αλλάξει.
-
-### 2b. `AdminUsers` — Templates tab
-Παραμένει το βασικό σημείο διαχείρισης. Όταν αλλάζεις template, ο trigger φροντίζει role + permissions + access toggles αυτόματα.
-
-### 2c. AuthContext
-**Καμία αλλαγή λογικής** — ήδη διαβάζει `user_roles.role` + `user_permissions`. Απλώς τώρα θα είναι πάντα συγχρονισμένα.
-
-### 2d. PermissionsContext (Access tab data)
-Παραμένει για να εμφανίζει την read-only προβολή — δεν χρησιμοποιείται για authorization στην εφαρμογή.
-
----
-
-## 3. Τι ΔΕΝ αλλάζει
-- RLS policies (συνεχίζουν με `has_role` / `has_elevated_role` / `is_timekeeper_only` πάνω στο `user_roles`)
-- TimeEntry / Employees / Projects pages
-- Invite flow (απλά μετά το invite ο admin αναθέτει template και όλα συγχρονίζονται)
-- Login / Logout
+**Τι αλλάζει στις σελίδες του Costing module:**
+- Ο Field User θα έχει πλήρες desktop UI (όχι redirect στο mobile field entry)
+- Στο **CostingReportsList**: βλέπει μόνο τα own reports — όπως ορίζει το RLS — και δεν εμφανίζονται κουμπιά Delete/Status change
+- Στο **CostingReportDetails**: μπορεί να ανοίξει & εργαστεί από desktop, αλλά:
+  - Δεν βλέπει στήλες/πεδία **Unit Price**, **Total Cost** (κρύβονται με `has_permission('costing.costs.view')`)
+  - Add Item form: το πεδίο τιμής είναι κρυμμένο
+  - Edit/Delete κουμπιά εμφανίζονται μόνο για items όπου `item.created_by === user.id`
+  - Δεν εμφανίζεται κουμπί **Delete Report** / **Change Status**
+- Το **CostingFieldEntry** (mobile-optimized) παραμένει ως εναλλακτικό για χρήση από κινητό — όχι ως υποχρεωτικό
 
 ---
 
-## 4. Έλεγχος μετά την εφαρμογή
-1. Maria Serveta: template=HR → role γίνεται `hr` → βλέπει σωστά employees στο TimeEntry.
-2. Νέος Employee: ανάθεση "Timekeeping – Employee" → role=`timekeeper`, βλέπει μόνο assigned employees.
-3. Admin user: ανάθεση Admin template → role=`admin`, πλήρης πρόσβαση.
-4. Αφαίρεση template → role πέφτει στο default `timekeeper` με μηδέν permissions.
+### 3. created_by writes
+Στα forms που εισάγουν `cost_items` και `cost_item_photos` (από `CostingReportDetails.tsx` και `CostingFieldEntry.tsx`) θα συμπληρώνεται αυτόματα `created_by = user.id`. Χωρίς αυτό, η ownership-based RLS του Field User δεν λειτουργεί.
 
 ---
 
-## Τεχνικές λεπτομέρειες (για reference)
+## Τεχνικές λεπτομέρειες
 
+### Migration (1 αρχείο)
 ```sql
-ALTER TABLE permission_templates 
-  ADD COLUMN base_role app_role NOT NULL DEFAULT 'timekeeper';
-
--- Trigger function: sync_user_role_from_templates()
--- Επιλέγει max priority role από τα assigned templates και κάνει UPSERT στο user_roles.
--- Priority: admin=3, hr=2, timekeeper=1.
-
-CREATE TRIGGER trg_sync_role_on_template_assign
-  AFTER INSERT OR UPDATE OR DELETE ON user_permission_templates
-  FOR EACH ROW EXECUTE FUNCTION sync_user_role_from_templates();
+DELETE FROM permission_template_permissions WHERE template_id = '77777777-…';
+-- Καθαρισμός τυχόν user assignments
+DELETE FROM user_permission_templates WHERE template_id = '77777777-…';
+DELETE FROM permission_templates WHERE id = '77777777-…';
 ```
+Ο υπάρχων trigger θα συγχρονίσει τα `user_roles` αυτόματα για όποιον είχε το template.
 
-Αν συμφωνείς, ξεκινώ με τη migration.
+### Frontend changes
+- `src/contexts/AuthContext.tsx` ή `PermissionsContext.tsx` — εκθέτει helpers `canViewCosts`, `canDeleteReport`, `canChangeStatus` βάσει `has_permission`
+- `src/pages/costing/CostingReportsList.tsx` — gating Delete button
+- `src/pages/costing/CostingReportDetails.tsx`:
+  - Conditional rendering των στηλών price/total
+  - Add `created_by: user.id` στο insert των items/photos
+  - Gating Delete Report + Status change buttons
+  - Edit/Delete per-item gating
+- `src/pages/costing/CostingFieldEntry.tsx` — add `created_by: user.id` στα inserts
+- `src/pages/Home.tsx` — δεν αλλάζει (η ορατότητα του Costing tile τρέχει ήδη μέσω `module.costing`)
+
+---
+
+## Τι ΔΕΝ αλλάζει
+- RLS policies (παραμένουν όπως ορίστηκαν)
+- Δομή πινάκων cost_*
+- Mobile Field Entry σελίδα — διατηρείται ως optional shortcut
+- Permission keys
+
+---
+
+Συμφωνείς να προχωρήσω;

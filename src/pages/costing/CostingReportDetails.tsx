@@ -61,7 +61,7 @@ const STATUS_CONFIG: Record<
 export default function CostingReportDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { hasElevatedRole } = useAuth();
+  const { hasPermission } = useAuth();
   const { language } = useLanguage();
   const t = (en: string, el: string) => (language === 'el' ? el : en);
 
@@ -72,7 +72,10 @@ export default function CostingReportDetails() {
   const [savingPrice, setSavingPrice] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
-  const canSetPrices = hasElevatedRole;
+  const canViewCosts = hasPermission('costing.costs.view');
+  const canEditCosts = hasPermission('costing.costs.edit');
+  const canChangeStatus = hasPermission('costing.reports.change_status');
+  const canCreateReports = hasPermission('costing.reports.create');
 
   const fetchReport = async () => {
     if (!id) return;
@@ -219,7 +222,7 @@ export default function CostingReportDetails() {
           )}
         </div>
 
-        {canSetPrices && (
+        {canChangeStatus && (
           <div className="w-48">
             <Select
               value={report.status}
@@ -266,7 +269,7 @@ export default function CostingReportDetails() {
           />
         </div>
 
-        {canSetPrices && (
+        {canViewCosts && (
           <div className="border-t pt-4 flex items-center justify-between">
             <span className="text-sm font-medium text-muted-foreground">
               {t('Grand Total', 'Γενικό Σύνολο')}
@@ -297,7 +300,7 @@ export default function CostingReportDetails() {
               >
                 <span className="font-medium">{sec.title}</span>
                 <div className="flex items-center gap-3">
-                  {canSetPrices && (
+                  {canViewCosts && (
                     <span className="text-sm font-semibold text-primary">
                       {fmt(sectionTotal(sec))}
                     </span>
@@ -323,9 +326,9 @@ export default function CostingReportDetails() {
                         </p>
                       </div>
 
-                      {canSetPrices && (
+                      {canViewCosts && (
                         <div className="flex items-center gap-2">
-                          {editingPrice[item.id] !== undefined ? (
+                          {canEditCosts && editingPrice[item.id] !== undefined ? (
                             <>
                               <Input
                                 type="number"
@@ -369,18 +372,20 @@ export default function CostingReportDetails() {
                               <span className="text-sm font-semibold w-20 text-right">
                                 {fmt(calcTotal(item))}
                               </span>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                onClick={() =>
-                                  setEditingPrice((prev) => ({
-                                    ...prev,
-                                    [item.id]: item.unit_price?.toString() ?? '',
-                                  }))
-                                }
-                              >
-                                <Edit2 className="h-3.5 w-3.5" />
-                              </Button>
+                              {canEditCosts && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() =>
+                                    setEditingPrice((prev) => ({
+                                      ...prev,
+                                      [item.id]: item.unit_price?.toString() ?? '',
+                                    }))
+                                  }
+                                >
+                                  <Edit2 className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
                             </div>
                           )}
                         </div>
@@ -402,10 +407,12 @@ export default function CostingReportDetails() {
           <Smartphone className="h-4 w-4 mr-2" />
           {t('Field Entry', 'Καταγραφή Επί Τόπου')}
         </Button>
-        <Button variant="outline" onClick={() => navigate('/costing/new')}>
-          <Plus className="h-4 w-4 mr-2" />
-          {t('New Version', 'Νέα Έκδοση')}
-        </Button>
+        {canCreateReports && (
+          <Button variant="outline" onClick={() => navigate('/costing/new')}>
+            <Plus className="h-4 w-4 mr-2" />
+            {t('New Version', 'Νέα Έκδοση')}
+          </Button>
+        )}
       </div>
     </div>
   );

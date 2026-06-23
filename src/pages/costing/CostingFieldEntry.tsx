@@ -215,6 +215,7 @@ export default function CostingFieldEntry() {
           quantity: calcType !== 'lumpsum' && quantity ? parseFloat(quantity) : null,
           unit: unit || null,
           sort_order: 999,
+          created_by: user?.id ?? null,
         })
         .select()
         .single();
@@ -228,6 +229,7 @@ export default function CostingFieldEntry() {
             item_id: item.id,
             storage_path: path,
             caption: '',
+            created_by: user?.id ?? null,
           });
         }
       }
