@@ -396,6 +396,7 @@ export type Database = {
         Row: {
           caption: string | null
           captured_at: string
+          created_by: string | null
           id: string
           item_id: string
           storage_path: string
@@ -403,6 +404,7 @@ export type Database = {
         Insert: {
           caption?: string | null
           captured_at?: string
+          created_by?: string | null
           id?: string
           item_id: string
           storage_path: string
@@ -410,6 +412,7 @@ export type Database = {
         Update: {
           caption?: string | null
           captured_at?: string
+          created_by?: string | null
           id?: string
           item_id?: string
           storage_path?: string
@@ -428,6 +431,7 @@ export type Database = {
         Row: {
           calculation_type: string
           created_at: string
+          created_by: string | null
           description: string
           id: string
           quantity: number | null
@@ -440,6 +444,7 @@ export type Database = {
         Insert: {
           calculation_type?: string
           created_at?: string
+          created_by?: string | null
           description: string
           id?: string
           quantity?: number | null
@@ -452,6 +457,7 @@ export type Database = {
         Update: {
           calculation_type?: string
           created_at?: string
+          created_by?: string | null
           description?: string
           id?: string
           quantity?: number | null
@@ -1852,6 +1858,13 @@ export type Database = {
     Functions: {
       can_access_employee: {
         Args: { _employee_id: string; _user_id: string }
+        Returns: boolean
+      }
+      can_add_cost_items: { Args: { _user_id: string }; Returns: boolean }
+      can_delete_cost_reports: { Args: { _user_id: string }; Returns: boolean }
+      can_manage_cost_reports: { Args: { _user_id: string }; Returns: boolean }
+      can_view_all_cost_reports: {
+        Args: { _user_id: string }
         Returns: boolean
       }
       compute_user_role_from_templates: {
