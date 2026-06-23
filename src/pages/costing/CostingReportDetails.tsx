@@ -5,15 +5,24 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import {
   ArrowLeft, Edit2, Save, X, ChevronDown, ChevronUp,
   FileText, Building2, User, Calendar, Clock,
-  CheckCircle, Send, Receipt, Plus, Smartphone,
+  CheckCircle, Send, Receipt, Plus, Smartphone, Trash2,
 } from 'lucide-react';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface CostItem {
   id: string;
@@ -23,6 +32,7 @@ interface CostItem {
   unit: string | null;
   unit_price: number | null;
   sort_order: number;
+  created_by: string | null;
 }
 
 interface CostSection {
@@ -58,10 +68,18 @@ const STATUS_CONFIG: Record<
   invoiced: { labelEn: 'Invoiced', labelEl: 'Τιμολογήθηκε', color: 'bg-orange-100 text-orange-800', icon: Receipt },
 };
 
+const CALC_TYPES = [
+  { value: 'unit', labelEn: 'Per Unit', labelEl: 'Ανά Τεμάχιο' },
+  { value: 'lumpsum', labelEn: 'Lump Sum', labelEl: "Κατ' Αποκοπή" },
+  { value: 'area', labelEn: 'Area (m²)', labelEl: 'Εμβαδόν (m²)' },
+  { value: 'linear', labelEn: 'Linear (m)', labelEl: 'Γραμμικά (m)' },
+  { value: 'weight', labelEn: 'Weight (kg)', labelEl: 'Βάρος (kg)' },
+];
+
 export default function CostingReportDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { hasPermission } = useAuth();
+  const { user, hasPermission, hasElevatedRole } = useAuth();
   const { language } = useLanguage();
   const t = (en: string, el: string) => (language === 'el' ? el : en);
 
@@ -71,11 +89,24 @@ export default function CostingReportDetails() {
   const [editingPrice, setEditingPrice] = useState<Record<string, string>>({});
   const [savingPrice, setSavingPrice] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [editItem, setEditItem] = useState<CostItem | null>(null);
+  const [editForm, setEditForm] = useState({ description: '', calculation_type: 'unit', quantity: '', unit: '' });
+  const [savingItem, setSavingItem] = useState(false);
+  const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
+  const [confirmDeleteReport, setConfirmDeleteReport] = useState(false);
 
-  const canViewCosts = hasPermission('costing.costs.view');
-  const canEditCosts = hasPermission('costing.costs.edit');
-  const canChangeStatus = hasPermission('costing.reports.change_status');
-  const canCreateReports = hasPermission('costing.reports.create');
+  const canViewCosts = hasElevatedRole || hasPermission('costing.costs.view');
+  const canEditCosts = hasElevatedRole || hasPermission('costing.costs.edit');
+  const canChangeStatus = hasElevatedRole || hasPermission('costing.reports.change_status');
+  const canCreateReports = hasElevatedRole || hasPermission('costing.reports.create');
+  const canDeleteReport = hasElevatedRole || hasPermission('costing.reports.delete');
+  const canEditAnyItem = hasElevatedRole || hasPermission('costing.items.edit');
+  const canDeleteAnyItem = hasElevatedRole || hasPermission('costing.items.delete');
+
+  const canEditItem = (item: CostItem) =>
+    canEditAnyItem || (!!user && item.created_by === user.id);
+  const canDeleteItem = (item: CostItem) =>
+    canDeleteAnyItem || (!!user && item.created_by === user.id);
 
   const fetchReport = async () => {
     if (!id) return;
@@ -92,7 +123,7 @@ export default function CostingReportDetails() {
       const { data: secs } = await supabase
         .from('cost_sections')
         .select(
-          'id, title, sort_order, cost_items(id, description, calculation_type, quantity, unit, unit_price, sort_order)',
+          'id, title, sort_order, cost_items(id, description, calculation_type, quantity, unit, unit_price, sort_order, created_by)',
         )
         .eq('report_id', id)
         .order('sort_order');
@@ -174,6 +205,68 @@ export default function CostingReportDetails() {
     setUpdatingStatus(false);
   };
 
+  const openEditItem = (item: CostItem) => {
+    setEditItem(item);
+    setEditForm({
+      description: item.description,
+      calculation_type: item.calculation_type,
+      quantity: item.quantity?.toString() ?? '',
+      unit: item.unit ?? '',
+    });
+  };
+
+  const handleSaveItem = async () => {
+    if (!editItem) return;
+    if (!editForm.description.trim()) {
+      toast.error(t('Description required', 'Απαιτείται περιγραφή'));
+      return;
+    }
+    setSavingItem(true);
+    const { error } = await supabase
+      .from('cost_items')
+      .update({
+        description: editForm.description.trim(),
+        calculation_type: editForm.calculation_type,
+        quantity:
+          editForm.calculation_type !== 'lumpsum' && editForm.quantity
+            ? parseFloat(editForm.quantity)
+            : null,
+        unit: editForm.unit || null,
+      })
+      .eq('id', editItem.id);
+    if (error) {
+      toast.error(t('Error saving item', 'Σφάλμα αποθήκευσης'));
+    } else {
+      toast.success(t('Item updated', 'Η εργασία ενημερώθηκε'));
+      setEditItem(null);
+      fetchReport();
+    }
+    setSavingItem(false);
+  };
+
+  const handleDeleteItem = async () => {
+    if (!deleteItemId) return;
+    const { error } = await supabase.from('cost_items').delete().eq('id', deleteItemId);
+    if (error) {
+      toast.error(t('Error deleting item', 'Σφάλμα διαγραφής'));
+    } else {
+      toast.success(t('Item deleted', 'Η εργασία διαγράφηκε'));
+      setDeleteItemId(null);
+      fetchReport();
+    }
+  };
+
+  const handleDeleteReport = async () => {
+    if (!id) return;
+    const { error } = await supabase.from('cost_reports').delete().eq('id', id);
+    if (error) {
+      toast.error(t('Error deleting report', 'Σφάλμα διαγραφής αναφοράς'));
+    } else {
+      toast.success(t('Report deleted', 'Η αναφορά διαγράφηκε'));
+      navigate('/costing/reports');
+    }
+  };
+
   const fmt = (n: number | null) => (n !== null ? `€${n.toFixed(2)}` : '—');
 
   if (loading) {
@@ -241,6 +334,17 @@ export default function CostingReportDetails() {
               </SelectContent>
             </Select>
           </div>
+        )}
+
+        {canDeleteReport && (
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setConfirmDeleteReport(true)}
+            title={t('Delete Report', 'Διαγραφή Αναφοράς')}
+          >
+            <Trash2 className="h-4 w-4 text-destructive" />
+          </Button>
         )}
       </div>
 
@@ -326,70 +430,94 @@ export default function CostingReportDetails() {
                         </p>
                       </div>
 
-                      {canViewCosts && (
-                        <div className="flex items-center gap-2">
-                          {canEditCosts && editingPrice[item.id] !== undefined ? (
-                            <>
-                              <Input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={editingPrice[item.id]}
-                                onChange={(e) =>
-                                  setEditingPrice((prev) => ({
-                                    ...prev,
-                                    [item.id]: e.target.value,
-                                  }))
-                                }
-                                className="w-28 h-8 text-sm"
-                                placeholder="0.00"
-                                autoFocus
-                              />
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                disabled={savingPrice === item.id}
-                                onClick={() => handleSavePrice(item.id)}
-                              >
-                                <Save className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                onClick={() =>
-                                  setEditingPrice((prev) => {
-                                    const n = { ...prev };
-                                    delete n[item.id];
-                                    return n;
-                                  })
-                                }
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </>
-                          ) : (
-                            <div className="flex items-center gap-1">
-                              <span className="text-sm font-semibold w-20 text-right">
-                                {fmt(calcTotal(item))}
-                              </span>
-                              {canEditCosts && (
+                      <div className="flex items-center gap-2">
+                        {canViewCosts && (
+                          <>
+                            {canEditCosts && editingPrice[item.id] !== undefined ? (
+                              <>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={editingPrice[item.id]}
+                                  onChange={(e) =>
+                                    setEditingPrice((prev) => ({
+                                      ...prev,
+                                      [item.id]: e.target.value,
+                                    }))
+                                  }
+                                  className="w-28 h-8 text-sm"
+                                  placeholder="0.00"
+                                  autoFocus
+                                />
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  disabled={savingPrice === item.id}
+                                  onClick={() => handleSavePrice(item.id)}
+                                >
+                                  <Save className="h-4 w-4" />
+                                </Button>
                                 <Button
                                   size="icon"
                                   variant="ghost"
                                   onClick={() =>
-                                    setEditingPrice((prev) => ({
-                                      ...prev,
-                                      [item.id]: item.unit_price?.toString() ?? '',
-                                    }))
+                                    setEditingPrice((prev) => {
+                                      const n = { ...prev };
+                                      delete n[item.id];
+                                      return n;
+                                    })
                                   }
                                 >
-                                  <Edit2 className="h-3.5 w-3.5" />
+                                  <X className="h-4 w-4" />
                                 </Button>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      )}
+                              </>
+                            ) : (
+                              <div className="flex items-center gap-1">
+                                <span className="text-sm font-semibold w-20 text-right">
+                                  {fmt(calcTotal(item))}
+                                </span>
+                                {canEditCosts && (
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    title={t('Edit price', 'Επεξεργασία τιμής')}
+                                    onClick={() =>
+                                      setEditingPrice((prev) => ({
+                                        ...prev,
+                                        [item.id]: item.unit_price?.toString() ?? '',
+                                      }))
+                                    }
+                                  >
+                                    <Edit2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
+                              </div>
+                            )}
+                          </>
+                        )}
+
+                        {canEditItem(item) && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            title={t('Edit item', 'Επεξεργασία εργασίας')}
+                            onClick={() => openEditItem(item)}
+                          >
+                            <Edit2 className="h-3.5 w-3.5 text-muted-foreground" />
+                          </Button>
+                        )}
+                        {canDeleteItem(item) && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            title={t('Delete item', 'Διαγραφή εργασίας')}
+                            onClick={() => setDeleteItemId(item.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -414,6 +542,111 @@ export default function CostingReportDetails() {
           </Button>
         )}
       </div>
+
+      {/* Edit item dialog */}
+      <Dialog open={!!editItem} onOpenChange={(o) => !o && setEditItem(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('Edit Item', 'Επεξεργασία Εργασίας')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label>{t('Description', 'Περιγραφή')} *</Label>
+              <Textarea
+                value={editForm.description}
+                onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
+                rows={3}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>{t('Calc. Type', 'Τύπος Υπολ.')}</Label>
+              <Select
+                value={editForm.calculation_type}
+                onValueChange={(v) => setEditForm((f) => ({ ...f, calculation_type: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CALC_TYPES.map((c) => (
+                    <SelectItem key={c.value} value={c.value}>
+                      {language === 'el' ? c.labelEl : c.labelEn}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {editForm.calculation_type !== 'lumpsum' && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>{t('Quantity', 'Ποσότητα')}</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.001"
+                    value={editForm.quantity}
+                    onChange={(e) => setEditForm((f) => ({ ...f, quantity: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>{t('Unit', 'Μονάδα')}</Label>
+                  <Input
+                    value={editForm.unit}
+                    onChange={(e) => setEditForm((f) => ({ ...f, unit: e.target.value }))}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditItem(null)}>
+              {t('Cancel', 'Άκυρο')}
+            </Button>
+            <Button onClick={handleSaveItem} disabled={savingItem}>
+              {t('Save', 'Αποθήκευση')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete item confirm */}
+      <AlertDialog open={!!deleteItemId} onOpenChange={(o) => !o && setDeleteItemId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('Delete this item?', 'Διαγραφή αυτής της εργασίας;')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('This action cannot be undone.', 'Η ενέργεια δεν αναιρείται.')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('Cancel', 'Άκυρο')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteItem} className="bg-destructive text-destructive-foreground">
+              {t('Delete', 'Διαγραφή')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete report confirm */}
+      <AlertDialog open={confirmDeleteReport} onOpenChange={setConfirmDeleteReport}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('Delete this report?', 'Διαγραφή αυτής της αναφοράς;')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t(
+                'All sections, items and photos will be permanently deleted.',
+                'Όλα τα τμήματα, εργασίες και φωτογραφίες θα διαγραφούν οριστικά.',
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('Cancel', 'Άκυρο')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteReport} className="bg-destructive text-destructive-foreground">
+              {t('Delete', 'Διαγραφή')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
