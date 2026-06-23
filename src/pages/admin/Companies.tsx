@@ -397,6 +397,49 @@ export default function Companies() {
                 rows={3}
               />
             </div>
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5">
+                <ImageIcon className="h-3.5 w-3.5" />
+                {t('Company Logo (for PDF header)', 'Logo Εταιρίας (για PDF)')}
+              </Label>
+              <div className="flex items-center gap-3">
+                {logoPreview ? (
+                  <div className="relative">
+                    <img src={logoPreview} alt="logo" className="h-16 w-32 object-contain border rounded bg-white p-1" />
+                    <button
+                      type="button"
+                      onClick={handleLogoRemove}
+                      className="absolute -top-2 -right-2 bg-destructive text-white rounded-full p-0.5 hover:bg-destructive/90"
+                    >
+                      <XIcon className="h-3 w-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="h-16 w-32 border-2 border-dashed rounded flex items-center justify-center text-muted-foreground text-xs">
+                    {t('No logo', 'Χωρίς logo')}
+                  </div>
+                )}
+                <label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => e.target.files?.[0] && handleLogoUpload(e.target.files[0])}
+                  />
+                  <Button type="button" variant="outline" size="sm" disabled={uploadingLogo} asChild>
+                    <span className="cursor-pointer">
+                      {uploadingLogo ? (
+                        <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                      ) : (
+                        <Upload className="h-3.5 w-3.5 mr-1.5" />
+                      )}
+                      {t('Upload Logo', 'Ανέβασμα')}
+                    </span>
+                  </Button>
+                </label>
+              </div>
+              <p className="text-[10px] text-muted-foreground">{t('PNG/JPG, max 5MB. Used as the header on cost report PDFs.', 'PNG/JPG, μέχρι 5MB. Χρησιμοποιείται ως header στα PDF αναφορών κόστους.')}</p>
+            </div>
             <div className="flex items-center gap-3">
               <Switch checked={formData.is_active} onCheckedChange={(v) => setFormData({ ...formData, is_active: v })} />
               <Label>{t('Active', 'Ενεργή')}</Label>
