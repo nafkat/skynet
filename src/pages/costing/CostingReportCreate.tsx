@@ -136,6 +136,42 @@ export default function CostingReportCreate() {
       ),
     );
 
+  const addPhotos = (sectionTempId: string, itemTempId: string, files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const newPhotos: PhotoPreview[] = Array.from(files).map((file) => ({
+      file,
+      previewUrl: URL.createObjectURL(file),
+    }));
+    setSections((s) =>
+      s.map((sec) =>
+        sec.tempId === sectionTempId
+          ? {
+              ...sec,
+              items: sec.items.map((i) =>
+                i.tempId === itemTempId ? { ...i, photos: [...i.photos, ...newPhotos] } : i,
+              ),
+            }
+          : sec,
+      ),
+    );
+  };
+
+  const removePhoto = (sectionTempId: string, itemTempId: string, idx: number) =>
+    setSections((s) =>
+      s.map((sec) =>
+        sec.tempId === sectionTempId
+          ? {
+              ...sec,
+              items: sec.items.map((i) => {
+                if (i.tempId !== itemTempId) return i;
+                URL.revokeObjectURL(i.photos[idx].previewUrl);
+                return { ...i, photos: i.photos.filter((_, k) => k !== idx) };
+              }),
+            }
+          : sec,
+      ),
+    );
+
   const calcTotal = (item: CostItem): number | null => {
     if (item.calculation_type === 'lumpsum') {
       const p = parseFloat(item.unit_price);
@@ -145,6 +181,23 @@ export default function CostingReportCreate() {
     const p = parseFloat(item.unit_price);
     if (isNaN(q) || isNaN(p)) return null;
     return q * p;
+  };
+
+  const uploadItemPhoto = async (
+    reportId: string,
+    itemId: string,
+    photo: PhotoPreview,
+  ): Promise<string | null> => {
+    const ext = photo.file.name.split('.').pop() || 'jpg';
+    const path = `${reportId}/${itemId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { error } = await supabase.storage
+      .from('cost-photos')
+      .upload(path, photo.file, { contentType: photo.file.type, upsert: false });
+    if (error) {
+      console.error('Photo upload error:', error);
+      return null;
+    }
+    return path;
   };
 
   const handleSave = async () => {
@@ -190,20 +243,38 @@ export default function CostingReportCreate() {
 
         for (let ii = 0; ii < sec.items.length; ii++) {
           const item = sec.items[ii];
-          const { error: iErr } = await supabase.from('cost_items').insert({
-            section_id: section.id,
-            description: item.description,
-            voice_note_text: item.voice_note_text || null,
-            calculation_type: item.calculation_type,
-            quantity:
-              item.calculation_type !== 'lumpsum' && item.quantity
-                ? parseFloat(item.quantity)
-                : null,
-            unit: item.unit || null,
-            unit_price: canSetPrices && item.unit_price ? parseFloat(item.unit_price) : null,
-            sort_order: ii,
-          });
-          if (iErr) throw iErr;
+          const { data: insertedItem, error: iErr } = await supabase
+            .from('cost_items')
+            .insert({
+              section_id: section.id,
+              description: item.description,
+              voice_note_text: item.voice_note_text || null,
+              calculation_type: item.calculation_type,
+              quantity:
+                item.calculation_type !== 'lumpsum' && item.quantity
+                  ? parseFloat(item.quantity)
+                  : null,
+              unit: item.unit || null,
+              unit_price: canSetPrices && item.unit_price ? parseFloat(item.unit_price) : null,
+              sort_order: ii,
+              created_by: user?.id ?? null,
+            })
+            .select()
+            .single();
+          if (iErr || !insertedItem) throw iErr;
+
+          for (const photo of item.photos) {
+            const path = await uploadItemPhoto(report.id, insertedItem.id, photo);
+            if (path) {
+              await supabase.from('cost_item_photos').insert({
+                item_id: insertedItem.id,
+                storage_path: path,
+                caption: '',
+                created_by: user?.id ?? null,
+              });
+            }
+            URL.revokeObjectURL(photo.previewUrl);
+          }
         }
       }
 
