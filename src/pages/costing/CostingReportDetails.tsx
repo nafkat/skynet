@@ -222,7 +222,7 @@ export default function CostingReportDetails() {
           )}
         </div>
 
-        {canSetPrices && (
+        {canChangeStatus && (
           <div className="w-48">
             <Select
               value={report.status}
@@ -269,7 +269,7 @@ export default function CostingReportDetails() {
           />
         </div>
 
-        {canSetPrices && (
+        {canViewCosts && (
           <div className="border-t pt-4 flex items-center justify-between">
             <span className="text-sm font-medium text-muted-foreground">
               {t('Grand Total', 'Γενικό Σύνολο')}
@@ -300,7 +300,7 @@ export default function CostingReportDetails() {
               >
                 <span className="font-medium">{sec.title}</span>
                 <div className="flex items-center gap-3">
-                  {canSetPrices && (
+                  {canViewCosts && (
                     <span className="text-sm font-semibold text-primary">
                       {fmt(sectionTotal(sec))}
                     </span>
@@ -326,9 +326,9 @@ export default function CostingReportDetails() {
                         </p>
                       </div>
 
-                      {canSetPrices && (
+                      {canViewCosts && (
                         <div className="flex items-center gap-2">
-                          {editingPrice[item.id] !== undefined ? (
+                          {canEditCosts && editingPrice[item.id] !== undefined ? (
                             <>
                               <Input
                                 type="number"
