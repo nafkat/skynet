@@ -178,6 +178,15 @@ export default function CostingReportPrint() {
             }
           }
         }
+
+        // Cover photo
+        const coverPath = (r as any)?.cover_photo_path as string | null;
+        if (coverPath) {
+          const { data: cs } = await supabase.storage
+            .from('cost-photos')
+            .createSignedUrl(coverPath, 60 * 60);
+          if (cs?.signedUrl) setCoverPhotoSigned(cs.signedUrl);
+        }
       } finally {
         setLoading(false);
       }
