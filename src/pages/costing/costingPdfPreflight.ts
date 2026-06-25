@@ -12,10 +12,10 @@ export interface PreflightResult {
   ok: boolean; // no errors
 }
 
-// A4 = 842pt tall, page padding top 88 + bottom 38 → ~716pt content height.
+// A4 = 842pt tall, page padding top 88 + bottom 52 → ~702pt content height.
 // Items use wrap={false}, so any single item taller than this gets visually clipped.
-const CONTENT_HEIGHT = 716;
-const SAFE_ITEM_HEIGHT = 680;
+const CONTENT_HEIGHT = 702;
+const SAFE_ITEM_HEIGHT = 650;
 
 function estimateItemHeight(it: PdfCostItem): number {
   // base padding + top row
@@ -27,10 +27,10 @@ function estimateItemHeight(it: PdfCostItem): number {
   if (it.title) h += 14;
   // meta row
   h += 14;
-  // photos grid: 3 per row, each ~95pt tall (90 image + 4 padding)
+  // photos grid: PDF renders max 2 photos per item, 2 per row, each ~108pt tall.
   if (it.photos.length > 0) {
-    const rows = Math.ceil(it.photos.length / 3);
-    h += rows * 96;
+    const rows = Math.ceil(Math.min(it.photos.length, 2) / 2);
+    h += rows * 110;
   }
   // bottom margin
   h += 10;
@@ -100,6 +100,23 @@ export function runPdfPreflight({ data, rawSectionCount }: PreflightInput): Pref
   }
 
   // 3) Items with missing pricing
+  const tooManyPhotos: string[] = [];
+  data.sections.forEach((s, sIdx) => {
+    s.items.forEach((it, iIdx) => {
+      if (it.photos.length > 2) tooManyPhotos.push(`${sIdx + 1}.${iIdx + 1}`);
+    });
+  });
+  if (tooManyPhotos.length > 0) {
+    issues.push({
+      severity: 'info',
+      message: {
+        en: `Item(s) ${tooManyPhotos.join(', ')} have more than 2 photos; only the first 2 will be shown in the PDF.`,
+        el: `Το/Τα item ${tooManyPhotos.join(', ')} έχει/έχουν πάνω από 2 φωτογραφίες· στο PDF θα εμφανιστούν μόνο οι πρώτες 2.`,
+      },
+    });
+  }
+
+  // 4) Items with missing pricing
   const missingPrice: string[] = [];
   data.sections.forEach((s, sIdx) => {
     s.items.forEach((it, iIdx) => {
@@ -119,7 +136,7 @@ export function runPdfPreflight({ data, rawSectionCount }: PreflightInput): Pref
     });
   }
 
-  // 4) Footer/pagination sanity — verify required identifiers exist (the footer
+  // 5) Footer/pagination sanity — verify required identifiers exist (the footer
   //    renders `code v{n}`; without them the page numbering still works but the
   //    footer label would be incomplete).
   if (!data.code || data.version_number == null) {
