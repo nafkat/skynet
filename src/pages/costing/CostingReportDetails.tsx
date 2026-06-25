@@ -501,7 +501,49 @@ export default function CostingReportDetails() {
                               ? `${item.quantity ?? '—'} ${item.unit ?? ''} · ${item.calculation_type}`
                               : t('Lump Sum', "Κατ' Αποκοπή")}
                           </p>
+
+                          {/* Inline thumbnails + View details */}
+                          <div className="flex items-center gap-2 mt-2 flex-wrap">
+                            {item.photos.slice(0, 3).map((p) =>
+                              p.signedUrl ? (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  onClick={() => setLightboxUrl(p.signedUrl!)}
+                                  className="h-14 w-14 rounded-md overflow-hidden border bg-muted hover:ring-2 hover:ring-primary transition"
+                                  title={t('Open photo', 'Άνοιγμα φωτογραφίας')}
+                                >
+                                  <img
+                                    src={p.signedUrl}
+                                    alt=""
+                                    className="h-full w-full object-cover"
+                                  />
+                                </button>
+                              ) : null,
+                            )}
+                            {item.photos.length > 3 && (
+                              <span className="text-xs text-muted-foreground">
+                                +{item.photos.length - 3}
+                              </span>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8"
+                              onClick={() => setDetailItemId(item.id)}
+                            >
+                              <Maximize2 className="h-3.5 w-3.5 mr-1.5" />
+                              {t('View details', 'Λεπτομέρειες')}
+                              {item.photos.length > 0 && (
+                                <span className="ml-1.5 inline-flex items-center gap-0.5 text-xs text-muted-foreground">
+                                  <ImageIcon className="h-3 w-3" />
+                                  {item.photos.length}
+                                </span>
+                              )}
+                            </Button>
+                          </div>
                         </div>
+
 
                         <div className="flex items-center gap-3 shrink-0">
                           {canViewCosts && (
