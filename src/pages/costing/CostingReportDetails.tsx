@@ -65,6 +65,7 @@ interface CostReport {
   created_by: string | null;
   version_notes: string | null;
   created_at: string;
+  cover_photo_path: string | null;
   projects: {
     project_code: string;
     project_name: string;
