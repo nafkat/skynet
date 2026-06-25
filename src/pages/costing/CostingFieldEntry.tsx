@@ -86,6 +86,8 @@ export default function CostingFieldEntry() {
 
   const [saving, setSaving] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
+  const [lastSavedDesc, setLastSavedDesc] = useState<string>('');
+  const [saveError, setSaveError] = useState<string>('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const cameraRef = useRef<HTMLInputElement>(null);
