@@ -92,10 +92,15 @@ export default function CostingLayout() {
         )}
       >
         <div className="p-6 border-b border-sidebar-border">
-          <h1 className="text-xl font-bold tracking-tight text-sidebar-foreground">SKYNET</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {language === 'el' ? 'Κοστολόγηση' : 'Costing'}
-          </p>
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <h1 className="text-xl font-bold tracking-tight text-sidebar-foreground">SKYNET</h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                {language === 'el' ? 'Κοστολόγηση' : 'Costing'}
+              </p>
+            </div>
+            <CostingNotificationsBell />
+          </div>
         </div>
 
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto scrollbar-thin">
