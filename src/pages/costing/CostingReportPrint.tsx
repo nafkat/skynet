@@ -3,14 +3,24 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Download, Loader2 } from 'lucide-react';
-import { PDFDownloadLink, PDFViewer } from '@react-pdf/renderer';
+import { ArrowLeft, Download, Loader2, AlertTriangle, Info, XCircle } from 'lucide-react';
+import { pdf, PDFViewer } from '@react-pdf/renderer';
 import {
   CostingReportPdfDoc,
   type PdfReportInput,
   type PdfSection,
   type PdfCompany,
 } from './CostingReportPdfDoc';
+import { runPdfPreflight, type PreflightIssue } from './costingPdfPreflight';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { toast } from 'sonner';
 
 export default function CostingReportPrint() {
   const { id } = useParams<{ id: string }>();
@@ -20,6 +30,10 @@ export default function CostingReportPrint() {
 
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<PdfReportInput | null>(null);
+  const [rawSectionCount, setRawSectionCount] = useState(0);
+  const [downloading, setDownloading] = useState(false);
+  const [preflightOpen, setPreflightOpen] = useState(false);
+  const [issues, setIssues] = useState<PreflightIssue[]>([]);
 
   useEffect(() => {
     (async () => {
