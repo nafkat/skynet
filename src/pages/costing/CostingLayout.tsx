@@ -20,7 +20,7 @@ import {
 export default function CostingLayout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut, hasElevatedRole, hasPermission, loading } = useAuth();
+  const { signOut, hasElevatedRole, hasPermission, isAdmin, loading } = useAuth();
   const { language, setLanguage } = useLanguage();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const handleClose = useCallback(() => setIsSidebarOpen(false), []);
