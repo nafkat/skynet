@@ -698,13 +698,23 @@ export default function CostingReportDetails() {
       </div>
 
       <div className="flex gap-3 pb-8 flex-wrap">
-        <Button
-          onClick={() => navigate(`/costing/reports/${id}/field`)}
-          className="bg-blue-600 hover:bg-blue-700 text-white"
-        >
-          <Smartphone className="h-4 w-4 mr-2" />
-          {t('Field Entry', 'Καταγραφή Επί Τόπου')}
-        </Button>
+        {(!reviewLocked || canBypassLock) && (
+          <Button
+            onClick={() => navigate(`/costing/reports/${id}/field`)}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            <Smartphone className="h-4 w-4 mr-2" />
+            {t('Field Entry', 'Καταγραφή Επί Τόπου')}
+          </Button>
+        )}
+        {reviewLocked && !canBypassLock && (
+          <p className="text-sm text-muted-foreground italic">
+            {t(
+              'Report is locked for review. Editing is disabled until changes are requested.',
+              'Η αναφορά είναι κλειδωμένη για έλεγχο. Η επεξεργασία είναι απενεργοποιημένη.',
+            )}
+          </p>
+        )}
       </div>
 
       {/* Delete item confirm */}
