@@ -738,7 +738,7 @@ export default function CostingReportDetails() {
                     <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
                       {t('Description', 'Περιγραφή')}
                     </div>
-                    <p className="text-sm whitespace-pre-wrap break-words">{item.description}</p>
+                    <p className="text-sm whitespace-pre-wrap [overflow-wrap:anywhere]">{item.description}</p>
                   </div>
 
                   {/* Meta grid */}
