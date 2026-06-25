@@ -183,6 +183,18 @@ export default function CostingReportDetails() {
       }
 
       setReport(r as unknown as CostReport);
+
+      // Sign cover photo URL if present
+      const cpPath = (r as any)?.cover_photo_path as string | null;
+      if (cpPath) {
+        const { data: cs } = await supabase.storage
+          .from('cost-photos')
+          .createSignedUrl(cpPath, 60 * 60);
+        setCoverPhotoUrl(cs?.signedUrl ?? null);
+      } else {
+        setCoverPhotoUrl(null);
+      }
+
       setSections(
         ((secs as any[]) || []).map((s) => ({
           ...s,
