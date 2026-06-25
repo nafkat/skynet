@@ -1,31 +1,41 @@
-## Στόχος
-Προσθήκη inline search στο Costing Dashboard. Όταν ο χρήστης πληκτρολογεί, η ενότητα "Recent Reports" αντικαθίσταται από λίστα αποτελεσμάτων που ταιριάζουν. Όταν το πεδίο αδειάζει, επιστρέφουν τα Recent.
+## Πρόβλημα
 
-## Πεδία αναζήτησης
-Single search input με debounce (~250ms), case-insensitive, που ψάχνει σε:
-- Κωδικό αναφοράς (`cost_reports.code`, π.χ. CR-0004)
-- Κωδικό & όνομα έργου (`projects.project_code`, `projects.project_name`)
-- Όνομα εταιρείας (`companies.name` μέσω project)
-- Status (draft/sent/agreed/invoiced — και στα Ελληνικά)
-- Ημερομηνία δημιουργίας (αν το query ταιριάζει σε DD/MM/YYYY ή YYYY-MM-DD)
+1. **Field Entry — items δεν εμφανίζονται.** Στο CR-0004 βλέπεις μόνο 1 item (KATASKEVI), που είναι αυτό που δημιουργήθηκε με τη φόρμα "New Report". Από τα network logs καμία νέα αποθήκευση από Field Entry δεν έφτασε στο `cost_items`. Η RLS επιτρέπει σε admin να κάνει insert, οπότε η πιο πιθανή αιτία είναι ότι ο toast σφάλματος εμφανίζεται για λίγο και χάνεται, ή σιωπηλά αποτυγχάνει σε ένα δευτερεύον βήμα (π.χ. upload photo) και το item δεν επιστρέφεται. Δεν υπάρχει banner ορατότητας/επιβεβαίωσης μέσα στη φόρμα.
+2. **Πεδίο τιμής δυσδιάκριτο.** Στο Cost Report Details, η τιμή φαίνεται απλά ως κείμενο "€600.00" δίπλα από ένα μικρό μολυβάκι. Δεν μοιάζει με "κυψέλη" όπου μπαίνει τιμή.
 
-## Συμπεριφορά UI
-- Πεδίο search στο header της κάρτας "Recent Reports" (με icon 🔍 και clear button).
-- Χωρίς query → εμφανίζονται τα 5 πιο πρόσφατα (όπως τώρα).
-- Με query → τίτλος αλλάζει σε "Search Results / Αποτελέσματα" και δείχνει έως 50 matches, ταξινομημένα κατά `created_at desc`.
-- Empty state: "No matching reports / Δεν βρέθηκαν αναφορές".
-- Τα stat cards πάνω παραμένουν αμετάβλητα.
+## Λύσεις
 
-## Τεχνική προσέγγιση
-- Στο `CostingDashboard.tsx`: φόρτωση όλων των reports μία φορά με join σε `projects` και `companies` (`projects(project_code, project_name, companies(name))`). Το dataset είναι μικρό (όσα reports έχει η εταιρεία) — το φιλτράρισμα γίνεται client-side για ταχύτητα και ευελιξία (συμπεριλαμβανομένης της αναζήτησης σε ημερομηνία DD/MM/YYYY).
-- Νέο state: `searchQuery: string`. `useMemo` υπολογίζει `filtered` από το πλήρες array.
-- Helper για date matching: αν το query ταιριάζει με regex ημερομηνίας, σύγκριση με formatted `created_at` σε `el-GR`.
-- Δίγλωσσα placeholders: "Search by code, project, company, date…" / "Αναζήτηση με κωδικό, έργο, εταιρεία, ημερομηνία…".
+### A. Field Entry — αξιόπιστη αποθήκευση & ορατότητα
 
-## Εκτός scope
-- Η συζήτηση για το κουμπί "New Version" παραμένει ανοιχτή — δεν αλλάζει τίποτα σε αυτό.
-- Καμία αλλαγή στη σελίδα `CostingReportsList`.
-- Καμία αλλαγή σε DB ή RLS.
+Αρχείο: `src/pages/costing/CostingFieldEntry.tsx`
 
-## Αρχεία που αλλάζουν
-- `src/pages/costing/CostingDashboard.tsx` (μόνο).
+1. **Σφάλματα ορατά μέσα στη φόρμα** (όχι μόνο toast): προσθήκη κόκκινου banner κάτω από το κουμπί Save με το πραγματικό μήνυμα της Supabase (`error.message`) όταν αποτυγχάνει το insert ή το upload φωτογραφίας. Δεν αναιρείται με auto-dismiss.
+2. **Σωστή ροή αποθήκευσης**:
+   - Έλεγχος `iErr` πρώτα· αν `!item` αλλά χωρίς error, να γίνεται ξεχωριστή ανάκτηση με `select().eq('id', …)` (workaround για περίπτωση RLS να επιτρέπει insert αλλά όχι το returning).
+   - Αν αποτύχει το photo upload, να μη χάνεται το item — toast προειδοποίησης για τη συγκεκριμένη φωτογραφία, αλλά το item μένει σωσμένο.
+3. **Επιβεβαίωση επιτυχίας**: μετά από κάθε save, εμφάνιση πράσινου mini-summary "Last saved: <description>" (μένει ορατό μέχρι το επόμενο save) ώστε ο χρήστης να βλέπει σαφώς ότι κάτι μπήκε.
+4. **Live counter ήδη υπάρχει** ("X saved") — να γίνει εμφανέστερο.
+
+### B. Cost Report Details — εμφανέστερη κυψέλη τιμής
+
+Αρχείο: `src/pages/costing/CostingReportDetails.tsx`
+
+Για χρήστες με δικαίωμα `canEditCosts` (Admin/Manager):
+
+1. Σε κάθε item, αντί για κείμενο + μολυβάκι, εμφάνιση **πάντα ορατού input** "Unit price" (στυλ κυψέλης πίνακα) με € prefix, που σώζει σε `onBlur` ή Enter. Έτσι ο χρήστης βλέπει αμέσως πού μπαίνει η τιμή.
+2. Διπλά labels στο header της λίστας: **Qty · Unit · Unit Price · Total** ώστε να μοιάζει με πίνακα κοστολόγησης.
+3. Για χρήστες χωρίς `canEditCosts`, το πεδίο παραμένει read-only κείμενο όπως σήμερα.
+
+Δεν χρειάζονται αλλαγές σε DB ή RLS — όλα είναι frontend.
+
+## Εκτός εμβέλειας τώρα
+
+- Δεν προσθέτουμε πεδίο τιμής στο Field Entry (το επιβεβαίωσες).
+- Δεν αλλάζουμε τη συμπεριφορά του "New Version" κουμπιού (σε άλλη κουβέντα).
+
+## Επαλήθευση
+
+Μετά την εφαρμογή:
+- Άνοιγμα CR-0004 → Field Entry → προσθήκη item με voice/text → επιβεβαίωση ότι εμφανίζεται στο Details με ορατή κυψέλη τιμής.
+- Επιβεβαίωση στη DB ότι νέα γραμμή υπάρχει στο `cost_items` με σωστό `created_by`.
+- Στο Details, εισαγωγή τιμής σε κενή κυψέλη → onBlur → εμφάνιση Total + ενημέρωση Grand Total.

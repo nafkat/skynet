@@ -86,6 +86,8 @@ export default function CostingFieldEntry() {
 
   const [saving, setSaving] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
+  const [lastSavedDesc, setLastSavedDesc] = useState<string>('');
+  const [saveError, setSaveError] = useState<string>('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -256,11 +258,14 @@ export default function CostingFieldEntry() {
   };
 
   const handleSave = async () => {
+    setSaveError('');
     if (!description.trim()) {
+      setSaveError(t('Please enter a description', 'Εισάγετε περιγραφή εργασίας'));
       toast.error(t('Please enter a description', 'Εισάγετε περιγραφή εργασίας'));
       return;
     }
     if (!selectedSectionId) {
+      setSaveError(t('Please select or create a section', 'Επιλέξτε ή δημιουργήστε τμήμα'));
       toast.error(t('Please select or create a section', 'Επιλέξτε ή δημιουργήστε τμήμα'));
       return;
     }
@@ -268,6 +273,7 @@ export default function CostingFieldEntry() {
     setSaving(true);
     try {
       let itemId = editingItemId;
+      const savedDescription = description.trim();
 
       if (isEditMode && editingItemId) {
         // UPDATE
@@ -275,15 +281,14 @@ export default function CostingFieldEntry() {
           .from('cost_items')
           .update({
             section_id: selectedSectionId,
-            description: description.trim(),
+            description: savedDescription,
             calculation_type: calcType,
             quantity: calcType !== 'lumpsum' && quantity ? parseFloat(quantity) : null,
             unit: unit || null,
           })
           .eq('id', editingItemId);
-        if (uErr) throw uErr;
+        if (uErr) throw new Error(uErr.message);
 
-        // Delete removed photos
         if (photosToDelete.length > 0) {
           await supabase.storage.from('cost-photos').remove(photosToDelete.map(p => p.storage_path));
           await supabase.from('cost_item_photos').delete().in('id', photosToDelete.map(p => p.id));
@@ -294,40 +299,73 @@ export default function CostingFieldEntry() {
           .from('cost_items')
           .insert({
             section_id: selectedSectionId,
-            description: description.trim(),
+            description: savedDescription,
             calculation_type: calcType,
             quantity: calcType !== 'lumpsum' && quantity ? parseFloat(quantity) : null,
             unit: unit || null,
             sort_order: 999,
             created_by: user?.id ?? null,
           })
-          .select()
-          .single();
-        if (iErr || !item) throw iErr;
-        itemId = item.id;
+          .select('id')
+          .maybeSingle();
+
+        if (iErr) throw new Error(iErr.message);
+
+        if (item?.id) {
+          itemId = item.id;
+        } else {
+          // Insert succeeded but returning blocked — fall back to fetching latest
+          const { data: fallback } = await supabase
+            .from('cost_items')
+            .select('id')
+            .eq('section_id', selectedSectionId)
+            .eq('description', savedDescription)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          itemId = fallback?.id ?? null;
+        }
+
+        if (!itemId) {
+          throw new Error(t('Item was not saved (no id returned)', 'Η εργασία δεν αποθηκεύτηκε (χωρίς id)'));
+        }
       }
 
-      // Upload new photos
+      // Upload photos — non-blocking for the item itself
+      let photoFailures = 0;
       if (itemId) {
         for (const photo of photos) {
           const path = await uploadPhoto(itemId, photo);
           if (path) {
-            await supabase.from('cost_item_photos').insert({
+            const { error: pErr } = await supabase.from('cost_item_photos').insert({
               item_id: itemId,
               storage_path: path,
               caption: '',
               created_by: user?.id ?? null,
             });
+            if (pErr) photoFailures++;
+          } else {
+            photoFailures++;
           }
         }
       }
 
       photos.forEach(p => URL.revokeObjectURL(p.previewUrl));
 
+      if (photoFailures > 0) {
+        toast.warning(
+          t(
+            `Item saved, but ${photoFailures} photo(s) failed to upload.`,
+            `Η εργασία αποθηκεύτηκε, αλλά ${photoFailures} φωτογραφία(-ες) απέτυχαν.`,
+          ),
+        );
+      }
+
       if (isEditMode) {
         toast.success(t('Item updated', 'Η εργασία ενημερώθηκε'));
         navigate(`/costing/reports/${id}`);
       } else {
+        setLastSavedDesc(savedDescription);
         setDescription('');
         setQuantity('');
         setUnit('');
@@ -336,13 +374,16 @@ export default function CostingFieldEntry() {
         setSavedCount(c => c + 1);
         toast.success(t('Item saved! Ready for next.', 'Αποθηκεύτηκε! Έτοιμο για επόμενο.'));
       }
-    } catch (err) {
-      console.error(err);
-      toast.error(t('Error saving item', 'Σφάλμα αποθήκευσης εργασίας'));
+    } catch (err: any) {
+      console.error('Field Entry save error:', err);
+      const msg = err?.message || t('Error saving item', 'Σφάλμα αποθήκευσης εργασίας');
+      setSaveError(msg);
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
   };
+
 
   const handleDeleteItem = async () => {
     if (!editingItemId) return;
@@ -604,6 +645,25 @@ export default function CostingFieldEntry() {
           </label>
         </div>
 
+        {/* Error banner */}
+        {saveError && (
+          <div className="rounded-lg border border-red-400/60 bg-red-500/15 text-red-100 p-3 text-sm">
+            <div className="font-semibold mb-0.5">{t('Save failed', 'Αποτυχία αποθήκευσης')}</div>
+            <div className="break-words">{saveError}</div>
+          </div>
+        )}
+
+        {/* Last saved confirmation */}
+        {!isEditMode && lastSavedDesc && !saveError && (
+          <div className="rounded-lg border border-green-400/60 bg-green-500/15 text-green-100 p-3 text-sm flex items-start gap-2">
+            <Check className="h-4 w-4 mt-0.5 shrink-0" />
+            <div className="min-w-0">
+              <div className="font-semibold">{t('Last saved', 'Τελευταία αποθήκευση')}</div>
+              <div className="truncate">{lastSavedDesc}</div>
+            </div>
+          </div>
+        )}
+
         {/* Save */}
         <Button
           onClick={handleSave}
@@ -624,6 +684,7 @@ export default function CostingFieldEntry() {
             </>
           )}
         </Button>
+
 
         <Button
           variant="outline"
