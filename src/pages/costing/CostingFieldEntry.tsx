@@ -158,7 +158,7 @@ export default function CostingFieldEntry() {
     (async () => {
       const { data: item } = await supabase
         .from('cost_items')
-        .select('title, description, calculation_type, quantity, unit, section_id')
+        .select('title, description, calculation_type, quantity, unit, section_id, voice_note_path')
         .eq('id', editingItemId)
         .single();
       if (item) {
@@ -168,6 +168,14 @@ export default function CostingFieldEntry() {
         setQuantity(item.quantity?.toString() ?? '');
         setUnit(item.unit ?? '');
         setSelectedSectionId(item.section_id);
+        const vnp = (item as any).voice_note_path as string | null;
+        if (vnp) {
+          setExistingVoiceNotePath(vnp);
+          const { data: signed } = await supabase.storage
+            .from('cost-photos')
+            .createSignedUrl(vnp, 3600);
+          if (signed?.signedUrl) setExistingVoiceNoteUrl(signed.signedUrl);
+        }
       }
 
       const { data: ph } = await supabase
