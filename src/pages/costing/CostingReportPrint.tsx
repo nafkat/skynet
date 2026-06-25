@@ -16,11 +16,17 @@ interface CostItem {
   photos: string[];
 }
 
+interface SectionAttachment {
+  file_name: string;
+  url: string;
+}
+
 interface CostSection {
   id: string;
   title: string;
   sort_order: number;
   cost_items: CostItem[];
+  attachments: SectionAttachment[];
 }
 
 interface Company {
@@ -120,11 +126,30 @@ export default function CostingReportPrint() {
                   };
                 }),
             );
+            // Section-level attachments with long-lived signed URLs (1 year)
+            const { data: atts } = await supabase
+              .from('cost_section_attachments')
+              .select('storage_path, file_name')
+              .eq('section_id', s.id)
+              .order('created_at', { ascending: true });
+            let attachments: SectionAttachment[] = [];
+            if (atts && atts.length > 0) {
+              const { data: signed } = await supabase.storage
+                .from('cost-attachments')
+                .createSignedUrls(atts.map((a: any) => a.storage_path), 60 * 60 * 24 * 365);
+              const map = new Map<string, string>();
+              (signed || []).forEach((s: any) => s.signedUrl && s.path && map.set(s.path, s.signedUrl));
+              attachments = atts.map((a: any) => ({
+                file_name: a.file_name,
+                url: map.get(a.storage_path) || '',
+              })).filter((a) => a.url);
+            }
             return {
               id: s.id,
               title: s.title,
               sort_order: s.sort_order,
               cost_items: items,
+              attachments,
             };
           }),
         );
