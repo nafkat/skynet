@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { FileText, Plus, Clock, CheckCircle, Send, Receipt, RefreshCw } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { FileText, Plus, Clock, CheckCircle, Send, Receipt, RefreshCw, Search, X } from 'lucide-react';
 
 interface Stats {
   total: number;
@@ -14,13 +15,17 @@ interface Stats {
   invoiced: number;
 }
 
-interface RecentReport {
+interface ReportRow {
   id: string;
   code: string;
   version_number: number;
   status: string;
   created_at: string;
-  projects: { project_code: string; project_name: string } | null;
+  projects: {
+    project_code: string;
+    project_name: string;
+    companies: { name: string } | null;
+  } | null;
 }
 
 export default function CostingDashboard() {
@@ -29,27 +34,35 @@ export default function CostingDashboard() {
   const navigate = useNavigate();
   const canCreateReport = hasElevatedRole || hasPermission('costing.reports.create');
   const [stats, setStats] = useState<Stats>({ total: 0, draft: 0, sent: 0, agreed: 0, invoiced: 0 });
-  const [recent, setRecent] = useState<RecentReport[]>([]);
+  const [reports, setReports] = useState<ReportRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const t = (en: string, el: string) => (language === 'el' ? el : en);
+
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedQuery(searchQuery.trim().toLowerCase()), 250);
+    return () => clearTimeout(id);
+  }, [searchQuery]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const { data: reports } = await supabase
+      const { data } = await supabase
         .from('cost_reports')
-        .select('id, code, version_number, status, created_at, projects(project_code, project_name)')
+        .select('id, code, version_number, status, created_at, projects(project_code, project_name, companies(name))')
         .order('created_at', { ascending: false });
 
-      if (reports) {
+      if (data) {
+        const rows = data as unknown as ReportRow[];
+        setReports(rows);
         setStats({
-          total: reports.length,
-          draft: reports.filter((r) => r.status === 'draft').length,
-          sent: reports.filter((r) => r.status === 'sent').length,
-          agreed: reports.filter((r) => r.status === 'agreed').length,
-          invoiced: reports.filter((r) => r.status === 'invoiced').length,
+          total: rows.length,
+          draft: rows.filter((r) => r.status === 'draft').length,
+          sent: rows.filter((r) => r.status === 'sent').length,
+          agreed: rows.filter((r) => r.status === 'agreed').length,
+          invoiced: rows.filter((r) => r.status === 'invoiced').length,
         });
-        setRecent(reports.slice(0, 5) as RecentReport[]);
       }
     } finally {
       setLoading(false);
@@ -59,6 +72,40 @@ export default function CostingDashboard() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  const statusLabels: Record<string, [string, string]> = {
+    draft: ['draft', 'πρόχειρο'],
+    sent: ['sent', 'απεστάλη'],
+    agreed: ['agreed', 'συμφωνήθηκε'],
+    invoiced: ['invoiced', 'τιμολογήθηκε'],
+  };
+
+  const filtered = useMemo(() => {
+    if (!debouncedQuery) return reports.slice(0, 5);
+    const q = debouncedQuery;
+    return reports
+      .filter((r) => {
+        const dateEl = new Date(r.created_at).toLocaleDateString('el-GR');
+        const dateIso = r.created_at.slice(0, 10);
+        const [en, el] = statusLabels[r.status] || [r.status, r.status];
+        const haystack = [
+          r.code,
+          `v${r.version_number}`,
+          r.projects?.project_code,
+          r.projects?.project_name,
+          r.projects?.companies?.name,
+          en,
+          el,
+          dateEl,
+          dateIso,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        return haystack.includes(q);
+      })
+      .slice(0, 50);
+  }, [reports, debouncedQuery]);
 
   const statCards = [
     { label: t('Total', 'Σύνολο'), value: stats.total, icon: FileText, color: 'text-blue-400' },
@@ -88,6 +135,8 @@ export default function CostingDashboard() {
       </span>
     );
   };
+
+  const isSearching = debouncedQuery.length > 0;
 
   return (
     <div className="space-y-6">
@@ -127,26 +176,59 @@ export default function CostingDashboard() {
       </div>
 
       <div className="bg-black/40 backdrop-blur-md border border-white/10 rounded-lg p-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
           <h2 className="text-xl font-semibold text-white">
-            {t('Recent Reports', 'Πρόσφατες Αναφορές')}
+            {isSearching
+              ? t('Search Results', 'Αποτελέσματα Αναζήτησης')
+              : t('Recent Reports', 'Πρόσφατες Αναφορές')}
+            {isSearching && (
+              <span className="ml-2 text-sm font-normal text-white/60">({filtered.length})</span>
+            )}
           </h2>
-          <Button variant="ghost" size="sm" onClick={() => navigate('/costing/reports')} className="text-white/80 hover:text-white">
-            {t('View All', 'Όλες')}
-          </Button>
+          <div className="flex items-center gap-2 flex-1 sm:flex-initial min-w-[260px] max-w-md">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50 pointer-events-none" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={t(
+                  'Search by code, project, company, date…',
+                  'Αναζήτηση: κωδικός, έργο, εταιρεία, ημερομηνία…'
+                )}
+                className="pl-9 pr-9 bg-white/10 border-white/20 text-white placeholder:text-white/50"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-white/10 text-white/60"
+                  aria-label="clear"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+            {!isSearching && (
+              <Button variant="ghost" size="sm" onClick={() => navigate('/costing/reports')} className="text-white/80 hover:text-white shrink-0">
+                {t('View All', 'Όλες')}
+              </Button>
+            )}
+          </div>
         </div>
 
         {loading ? (
           <div className="text-center py-8 text-white/60">
             <RefreshCw className="h-6 w-6 animate-spin mx-auto" />
           </div>
-        ) : recent.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <div className="text-center py-12">
             <FileText className="h-12 w-12 text-white/30 mx-auto mb-3" />
             <p className="text-white/70 mb-4">
-              {t('No reports yet', 'Δεν υπάρχουν αναφορές ακόμα')}
+              {isSearching
+                ? t('No matching reports', 'Δεν βρέθηκαν αναφορές')
+                : t('No reports yet', 'Δεν υπάρχουν αναφορές ακόμα')}
             </p>
-            {canCreateReport && (
+            {!isSearching && canCreateReport && (
               <Button onClick={() => navigate('/costing/new')}>
                 <Plus className="h-4 w-4 mr-2" />
                 {t('Create first report', 'Δημιουργία πρώτης αναφοράς')}
@@ -155,7 +237,7 @@ export default function CostingDashboard() {
           </div>
         ) : (
           <div className="space-y-2">
-            {recent.map((r) => (
+            {filtered.map((r) => (
               <div
                 key={r.id}
                 onClick={() => navigate(`/costing/reports/${r.id}`)}
@@ -169,6 +251,9 @@ export default function CostingDashboard() {
                   {r.projects && (
                     <p className="text-sm text-white/60 truncate">
                       {r.projects.project_code} — {r.projects.project_name}
+                      {r.projects.companies?.name && (
+                        <span className="text-white/40"> · {r.projects.companies.name}</span>
+                      )}
                     </p>
                   )}
                 </div>

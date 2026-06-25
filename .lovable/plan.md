@@ -1,23 +1,31 @@
 ## Στόχος
-Να μπορούν οι HR users να κάνουν hard delete εργαζόμενο, με την ίδια ασφαλιστική λογική που ισχύει για τον Admin: επιτρέπεται μόνο αν δεν υπάρχει κανένα time entry για τον εργαζόμενο. Αλλιώς, μόνο archive.
+Προσθήκη inline search στο Costing Dashboard. Όταν ο χρήστης πληκτρολογεί, η ενότητα "Recent Reports" αντικαθίσταται από λίστα αποτελεσμάτων που ταιριάζουν. Όταν το πεδίο αδειάζει, επιστρέφουν τα Recent.
 
-## Αλλαγές
+## Πεδία αναζήτησης
+Single search input με debounce (~250ms), case-insensitive, που ψάχνει σε:
+- Κωδικό αναφοράς (`cost_reports.code`, π.χ. CR-0004)
+- Κωδικό & όνομα έργου (`projects.project_code`, `projects.project_name`)
+- Όνομα εταιρείας (`companies.name` μέσω project)
+- Status (draft/sent/agreed/invoiced — και στα Ελληνικά)
+- Ημερομηνία δημιουργίας (αν το query ταιριάζει σε DD/MM/YYYY ή YYYY-MM-DD)
 
-### 1. Frontend — `src/pages/Employees.tsx`
-- Στο dropdown ενεργειών της λίστας εργαζομένων, το στοιχείο **Delete** εμφανίζεται σήμερα μόνο αν `isAdmin`. Θα αλλάξει σε `hasElevatedRole` (Admin **ή** HR).
-- Η υπάρχουσα συνάρτηση `checkCanDelete` (που μπλοκάρει το delete όταν υπάρχουν time entries) παραμένει ως έχει — άρα και για τον HR το κουμπί θα γίνεται disabled με το μήνυμα "cannot delete" όταν υπάρχει ιστορικό.
+## Συμπεριφορά UI
+- Πεδίο search στο header της κάρτας "Recent Reports" (με icon 🔍 και clear button).
+- Χωρίς query → εμφανίζονται τα 5 πιο πρόσφατα (όπως τώρα).
+- Με query → τίτλος αλλάζει σε "Search Results / Αποτελέσματα" και δείχνει έως 50 matches, ταξινομημένα κατά `created_at desc`.
+- Empty state: "No matching reports / Δεν βρέθηκαν αναφορές".
+- Τα stat cards πάνω παραμένουν αμετάβλητα.
 
-### 2. Database — RLS policy στον πίνακα `employees`
-- Σήμερα η DELETE policy επιτρέπει διαγραφή μόνο σε admins.
-- Θα προστεθεί/αντικατασταθεί ώστε να επιτρέπει DELETE και σε χρήστες με `has_elevated_role(auth.uid())` (Admin + HR).
-- Η προστασία από διαγραφή εργαζομένου που έχει time entries εξακολουθεί να καλύπτεται από το foreign key constraint του `time_entries.employee_id` (η Postgres θα μπλοκάρει τη διαγραφή), επιπλέον του frontend ελέγχου.
+## Τεχνική προσέγγιση
+- Στο `CostingDashboard.tsx`: φόρτωση όλων των reports μία φορά με join σε `projects` και `companies` (`projects(project_code, project_name, companies(name))`). Το dataset είναι μικρό (όσα reports έχει η εταιρεία) — το φιλτράρισμα γίνεται client-side για ταχύτητα και ευελιξία (συμπεριλαμβανομένης της αναζήτησης σε ημερομηνία DD/MM/YYYY).
+- Νέο state: `searchQuery: string`. `useMemo` υπολογίζει `filtered` από το πλήρες array.
+- Helper για date matching: αν το query ταιριάζει με regex ημερομηνίας, σύγκριση με formatted `created_at` σε `el-GR`.
+- Δίγλωσσα placeholders: "Search by code, project, company, date…" / "Αναζήτηση με κωδικό, έργο, εταιρεία, ημερομηνία…".
 
-## Τι ΔΕΝ αλλάζει
-- Η λογική του Archive (παραμένει διαθέσιμη σε Admin + HR).
-- Timekeepers δεν αποκτούν κανένα δικαίωμα διαγραφής.
-- Τα audit logs καταγράφουν κανονικά τη διαγραφή μέσω του υπάρχοντος `audit_employees` trigger.
+## Εκτός scope
+- Η συζήτηση για το κουμπί "New Version" παραμένει ανοιχτή — δεν αλλάζει τίποτα σε αυτό.
+- Καμία αλλαγή στη σελίδα `CostingReportsList`.
+- Καμία αλλαγή σε DB ή RLS.
 
-## Επαλήθευση
-1. Login ως HR → άνοιγμα Employees → στο μενού ενός εργαζομένου χωρίς time entries εμφανίζεται **Delete** και λειτουργεί.
-2. Σε εργαζόμενο **με** time entries → το Delete είναι disabled με το αντίστοιχο μήνυμα.
-3. Login ως Timekeeper → καμία επιλογή Delete.
+## Αρχεία που αλλάζουν
+- `src/pages/costing/CostingDashboard.tsx` (μόνο).
