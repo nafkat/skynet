@@ -704,8 +704,8 @@ export default function CostingReportDetails() {
             <AlertDialogTitle>{t('Delete this report?', 'Διαγραφή αυτής της αναφοράς;')}</AlertDialogTitle>
             <AlertDialogDescription>
               {t(
-                'All sections, items and photos will be permanently deleted.',
-                'Όλα τα τμήματα, εργασίες και φωτογραφίες θα διαγραφούν οριστικά.',
+                'The report will move to Trash and stay recoverable for 15 days before permanent deletion.',
+                'Η αναφορά θα μεταφερθεί στον Κάδο και θα είναι ανακτήσιμη για 15 ημέρες πριν διαγραφεί οριστικά.',
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
