@@ -79,6 +79,7 @@ export default function CostingReportPrint() {
   const [sections, setSections] = useState<CostSection[]>([]);
   const [company, setCompany] = useState<Company | null>(null);
   const [companyLogoSigned, setCompanyLogoSigned] = useState<string | null>(null);
+  const [coverPhotoSigned, setCoverPhotoSigned] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
