@@ -9,16 +9,16 @@ import {
   Font,
 } from '@react-pdf/renderer';
 
-// Register Greek-capable fonts (Noto Sans supports Greek + Latin)
+// Register the app font for Greek + Latin PDF output.
 Font.register({
-  family: 'NotoSans',
+  family: 'NotoSansPdf',
   fonts: [
     {
-      src: 'https://cdn.jsdelivr.net/npm/@fontsource/noto-sans@5.0.22/files/noto-sans-greek-400-normal.woff',
+      src: 'https://raw.githubusercontent.com/notofonts/noto-fonts/main/hinted/ttf/NotoSans/NotoSans-Regular.ttf',
       fontWeight: 'normal',
     },
     {
-      src: 'https://cdn.jsdelivr.net/npm/@fontsource/noto-sans@5.0.22/files/noto-sans-greek-700-normal.woff',
+      src: 'https://raw.githubusercontent.com/notofonts/noto-fonts/main/hinted/ttf/NotoSans/NotoSans-Bold.ttf',
       fontWeight: 'bold',
     },
   ],
@@ -97,7 +97,7 @@ const SLATE_50 = '#f8fafc';
 
 const styles = StyleSheet.create({
   page: {
-    fontFamily: 'NotoSans',
+    fontFamily: 'NotoSansPdf',
     fontSize: 9.5,
     color: '#0f172a',
     paddingTop: 88, // room for running header
@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
   // Cover
   coverWrap: { marginTop: 46, alignItems: 'center' },
   coverEyebrow: { fontSize: 9, letterSpacing: 0, color: SLATE_500, textTransform: 'uppercase' },
-  coverTitle: { width: '86%', fontSize: 21, lineHeight: 1.18, fontWeight: 'bold', color: SKY_900, marginTop: 10, textAlign: 'center' },
+  coverTitle: { width: '86%', fontSize: 20, lineHeight: 1.25, fontWeight: 'bold', color: SKY_900, marginTop: 10, textAlign: 'center' },
   coverCode: { fontSize: 11, color: SLATE_600, marginTop: 10 },
   coverGrid: { marginTop: 32, width: '85%', flexDirection: 'row', flexWrap: 'wrap' },
   coverCell: { width: '50%', paddingVertical: 6, paddingRight: 8, borderBottomWidth: 0.6, borderBottomColor: SLATE_200 },
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
   itemTopRow: { flexDirection: 'row', justifyContent: 'space-between' },
   itemLeft: { flex: 1, paddingRight: 8 },
   itemRight: { width: 110, alignItems: 'flex-end' },
-  itemTitle: { fontSize: 10.5, fontWeight: 'bold', color: SKY_900, textTransform: 'uppercase' },
+  itemTitle: { fontSize: 10.5, fontWeight: 'bold', color: SKY_900 },
   itemDescTitled: { fontSize: 9.5, marginTop: 2 },
   itemDescNoTitle: { fontSize: 10.5, fontWeight: 'bold' },
   itemMeta: { fontSize: 8.5, color: SLATE_600, marginTop: 3 },
