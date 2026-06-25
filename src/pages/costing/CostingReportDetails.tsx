@@ -553,6 +553,68 @@ export default function CostingReportDetails() {
           />
         </div>
 
+        {/* Cover photo (shown on PDF cover) */}
+        {(coverPhotoUrl || canEditCover) && (
+          <div className="border-t pt-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-muted-foreground">
+                {t('Cover Photo (PDF)', 'Φωτογραφία Εξωφύλλου (PDF)')}
+              </span>
+              {canEditCover && (
+                <div className="flex items-center gap-2">
+                  <label className="inline-flex items-center gap-1 cursor-pointer text-xs px-2 py-1 rounded border hover:bg-muted">
+                    <ImageIcon className="h-3.5 w-3.5" />
+                    {coverPhotoUrl
+                      ? t('Replace', 'Αντικατάσταση')
+                      : t('Upload', 'Ανέβασμα')}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      disabled={uploadingCover}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleUploadCoverPhoto(f);
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
+                  {coverPhotoUrl && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={uploadingCover}
+                      onClick={handleDeleteCoverPhoto}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+            {coverPhotoUrl ? (
+              <button
+                type="button"
+                onClick={() => setLightboxUrl(coverPhotoUrl)}
+                className="block w-full"
+              >
+                <img
+                  src={coverPhotoUrl}
+                  alt="cover"
+                  className="w-full max-h-64 object-cover rounded border"
+                />
+              </button>
+            ) : (
+              <p className="text-xs text-muted-foreground italic">
+                {t(
+                  'Optional — will appear on the PDF cover page.',
+                  'Προαιρετική — θα εμφανιστεί στο εξώφυλλο του PDF.',
+                )}
+              </p>
+            )}
+          </div>
+        )}
+
         {canViewCosts && (
           <div className="border-t pt-4 flex items-center justify-between">
             <span className="text-sm font-medium text-muted-foreground">
