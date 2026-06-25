@@ -749,6 +749,57 @@ export default function CostingFieldEntry() {
           )}
         </div>
 
+        {/* Voice Note (audio attachment) */}
+        <div className="bg-card/80 backdrop-blur-sm rounded-xl border border-border p-4 space-y-3">
+          <Label className="text-sm font-semibold">{t('Voice Note (audio)', 'Ηχητικό Σημείωμα')}</Label>
+
+          {existingVoiceNoteUrl && (
+            <div className="flex items-center gap-2">
+              <audio src={existingVoiceNoteUrl} controls className="flex-1 h-10" />
+              <Button type="button" variant="ghost" size="icon" onClick={removeExistingVoiceNote}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+
+          {voiceNoteUrl && (
+            <div className="flex items-center gap-2">
+              <audio src={voiceNoteUrl} controls className="flex-1 h-10" />
+              <Button type="button" variant="ghost" size="icon" onClick={clearNewVoiceNote}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+
+          {voiceSupported ? (
+            <Button
+              type="button"
+              onClick={toggleVoiceNote}
+              className={`w-full h-12 text-base font-medium ${
+                isRecordingNote
+                  ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse'
+                  : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+              }`}
+            >
+              {isRecordingNote ? (
+                <><MicOff className="h-5 w-5 mr-2" />{t('Stop Recording', 'Διακοπή Εγγραφής')}</>
+              ) : (
+                <><Mic className="h-5 w-5 mr-2" />
+                  {existingVoiceNoteUrl || voiceNoteUrl
+                    ? t('Re-record Voice Note', 'Νέα Ηχογράφηση')
+                    : t('Record Voice Note', 'Ηχογράφηση Σημειώματος')}
+                </>
+              )}
+            </Button>
+          ) : (
+            <p className="text-xs text-muted-foreground text-center">
+              {t('Audio recording not supported on this browser', 'Η ηχογράφηση δεν υποστηρίζεται')}
+            </p>
+          )}
+        </div>
+
+
+
         {/* Calculation */}
         <div className="bg-card/80 backdrop-blur-sm rounded-xl border border-border p-4 space-y-3">
           <Label className="text-sm font-semibold">{t('Measurement', 'Μέτρηση')}</Label>
