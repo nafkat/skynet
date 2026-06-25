@@ -259,23 +259,23 @@ export default function CostingReportPrint() {
       <style>{`
         @page {
           size: A4;
-          margin: 36mm 16mm 22mm 16mm;
+          margin: 44mm 16mm 16mm 16mm;
         }
         @media print {
           .no-print { display: none !important; }
           html, body { background: white !important; }
           .print-page-bg { background: white !important; }
           .running-header {
-            position: fixed; top: -30mm; left: 0; right: 0;
+            position: fixed; top: -38mm; left: 0; right: 0;
             border-bottom: 1.5pt solid #0c4a6e;
           }
           .running-footer {
-            position: fixed; bottom: -18mm; left: 0; right: 0;
+            position: fixed; bottom: -10mm; left: 0; right: 0;
             border-top: 1pt solid #d4d4d8;
             font-size: 8pt;
             color: #555;
             text-align: center;
-            padding-top: 4pt;
+            padding-top: 3pt;
           }
           .page-break { page-break-after: always; }
           .avoid-break { page-break-inside: avoid; }
@@ -477,14 +477,6 @@ export default function CostingReportPrint() {
               )}
 
 
-              <div className="avoid-break flex justify-end mt-2 mb-4 pr-2">
-                <div className="text-[10pt]">
-                  <span className="text-slate-600 mr-2">
-                    {t('Section Total', 'Σύνολο Τμήματος')}:
-                  </span>
-                  <span className="font-bold text-sky-900">{fmt(sectionTotal(sec))}</span>
-                </div>
-              </div>
             </div>
           ))}
 
@@ -495,6 +487,30 @@ export default function CostingReportPrint() {
             </div>
             <div className="text-[18pt] font-bold text-sky-900">{fmt(grandTotal)}</div>
           </div>
+
+          {/* BREAKDOWN BY SECTION */}
+          {sections.length > 0 && (
+            <div className="avoid-break mt-6 border border-slate-200 rounded-md p-4 bg-slate-50">
+              <div className="text-[11pt] font-bold uppercase tracking-wider text-slate-700 mb-3">
+                {t('Breakdown by Section', 'Ανάλυση ανά Τμήμα')}
+              </div>
+              <table className="w-full text-[10.5pt]">
+                <tbody>
+                  {sections.map((sec, idx) => (
+                    <tr key={sec.id} className="border-b border-slate-200 last:border-b-0">
+                      <td className="py-1.5 pr-2 text-slate-700">
+                        {idx + 1}. {sec.title}
+                      </td>
+                      <td className="py-1.5 pl-2 text-right font-semibold text-sky-900 whitespace-nowrap">
+                        {fmt(sectionTotal(sec))}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
 
         </div>
       </div>
