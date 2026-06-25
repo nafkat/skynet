@@ -88,6 +88,17 @@ export default function CostingFieldEntry() {
   const audioChunksRef = useRef<Blob[]>([]);
   const mediaStreamRef = useRef<MediaStream | null>(null);
 
+  // Voice note (separate audio attachment, independent from transcription)
+  const [voiceNoteBlob, setVoiceNoteBlob] = useState<Blob | null>(null);
+  const [voiceNoteUrl, setVoiceNoteUrl] = useState<string>('');
+  const [isRecordingNote, setIsRecordingNote] = useState(false);
+  const [existingVoiceNotePath, setExistingVoiceNotePath] = useState<string | null>(null);
+  const [existingVoiceNoteUrl, setExistingVoiceNoteUrl] = useState<string>('');
+  const [voiceNoteToDelete, setVoiceNoteToDelete] = useState<string | null>(null);
+  const noteRecorderRef = useRef<MediaRecorder | null>(null);
+  const noteChunksRef = useRef<Blob[]>([]);
+  const noteStreamRef = useRef<MediaStream | null>(null);
+
   const [saving, setSaving] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
   const [savedItems, setSavedItems] = useState<{ id: string; description: string }[]>([]);
