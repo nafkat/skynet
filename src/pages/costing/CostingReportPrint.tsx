@@ -259,23 +259,23 @@ export default function CostingReportPrint() {
       <style>{`
         @page {
           size: A4;
-          margin: 36mm 16mm 22mm 16mm;
+          margin: 44mm 16mm 16mm 16mm;
         }
         @media print {
           .no-print { display: none !important; }
           html, body { background: white !important; }
           .print-page-bg { background: white !important; }
           .running-header {
-            position: fixed; top: -30mm; left: 0; right: 0;
+            position: fixed; top: -38mm; left: 0; right: 0;
             border-bottom: 1.5pt solid #0c4a6e;
           }
           .running-footer {
-            position: fixed; bottom: -18mm; left: 0; right: 0;
+            position: fixed; bottom: -10mm; left: 0; right: 0;
             border-top: 1pt solid #d4d4d8;
             font-size: 8pt;
             color: #555;
             text-align: center;
-            padding-top: 4pt;
+            padding-top: 3pt;
           }
           .page-break { page-break-after: always; }
           .avoid-break { page-break-inside: avoid; }
