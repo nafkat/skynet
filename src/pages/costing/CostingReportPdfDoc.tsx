@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
   coverNotes: {
     marginTop: 18, width: '85%', paddingLeft: 10,
     borderLeftWidth: 3, borderLeftColor: SKY_700,
-    fontStyle: 'italic', color: SLATE_700, fontSize: 10,
+    color: SLATE_700, fontSize: 10,
   },
   coverPhoto: { marginTop: 28, maxWidth: 360, maxHeight: 220, objectFit: 'contain', borderWidth: 0.5, borderColor: SLATE_200 },
   // Sections
