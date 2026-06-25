@@ -86,11 +86,29 @@ export default function CostingFieldEntry() {
 
   const [saving, setSaving] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
+  const [savedItems, setSavedItems] = useState<{ id: string; description: string }[]>([]);
   const [lastSavedDesc, setLastSavedDesc] = useState<string>('');
   const [saveError, setSaveError] = useState<string>('');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmLeave, setConfirmLeave] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const cameraRef = useRef<HTMLInputElement>(null);
+
+  const hasUnsaved =
+    !isEditMode &&
+    (description.trim().length > 0 || quantity.trim().length > 0 || photos.length > 0);
+
+  // Warn on browser/tab close while unsaved
+  useEffect(() => {
+    if (!hasUnsaved) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [hasUnsaved]);
+
 
   useEffect(() => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
