@@ -24,7 +24,8 @@ interface ReportRow {
   projects: {
     project_code: string;
     project_name: string;
-    companies: { name: string } | null;
+    customer_company_name: string | null;
+    assigned_shipyard_company: string | null;
   } | null;
 }
 
