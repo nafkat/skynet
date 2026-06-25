@@ -1335,7 +1335,7 @@ const [searchQuery, setSearchQuery] = useState('');
                             : t('employees.restore')
                           }
                         </DropdownMenuItem>
-                        {isAdmin && (
+                        {hasElevatedRole && (
                           <DropdownMenuItem
                             onClick={() => handleDeleteClick(employee)}
                             className="text-destructive focus:text-destructive"
