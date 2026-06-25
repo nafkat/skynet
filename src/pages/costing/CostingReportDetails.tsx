@@ -369,6 +369,16 @@ export default function CostingReportDetails() {
               <StatusIcon className="h-3.5 w-3.5" />
               {language === 'el' ? statusCfg.labelEl : statusCfg.labelEn}
             </span>
+            {(() => {
+              const rcfg = REVIEW_STATUS_CONFIG[report.review_status] || REVIEW_STATUS_CONFIG.draft;
+              return (
+                <span
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${rcfg.color}`}
+                >
+                  {language === 'el' ? rcfg.labelEl : rcfg.labelEn}
+                </span>
+              );
+            })()}
           </div>
           {report.version_notes && (
             <p className="text-sm text-muted-foreground mt-1 italic">
