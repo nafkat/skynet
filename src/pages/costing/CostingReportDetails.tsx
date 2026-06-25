@@ -138,12 +138,13 @@ export default function CostingReportDetails() {
         .eq('report_id', id)
         .order('sort_order');
 
-      // Collect every storage path and sign in one batch
+      // Collect every storage path (photos + voice notes) and sign in one batch
       const allPaths: string[] = [];
       ((secs as any[]) || []).forEach((s) =>
-        (s.cost_items || []).forEach((it: any) =>
-          (it.cost_item_photos || []).forEach((p: any) => allPaths.push(p.storage_path)),
-        ),
+        (s.cost_items || []).forEach((it: any) => {
+          (it.cost_item_photos || []).forEach((p: any) => allPaths.push(p.storage_path));
+          if (it.voice_note_path) allPaths.push(it.voice_note_path);
+        }),
       );
       const urlByPath = new Map<string, string>();
       if (allPaths.length > 0) {
