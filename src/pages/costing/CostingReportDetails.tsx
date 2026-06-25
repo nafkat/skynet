@@ -453,9 +453,9 @@ export default function CostingReportDetails() {
                 <div className="border-t divide-y">
                   {sec.cost_items.map((item) => (
                     <div key={item.id} className="p-4">
-                      <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start justify-between gap-4 flex-wrap">
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium">{item.description}</p>
+                          <p className="font-medium break-words">{item.description}</p>
                           <p className="text-xs text-muted-foreground mt-0.5">
                             {item.calculation_type !== 'lumpsum'
                               ? `${item.quantity ?? '—'} ${item.unit ?? ''} · ${item.calculation_type}`
@@ -463,71 +463,64 @@ export default function CostingReportDetails() {
                           </p>
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3 shrink-0">
                           {canViewCosts && (
-                            <>
-                              {canEditCosts && editingPrice[item.id] !== undefined ? (
-                                <>
-                                  <Input
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    value={editingPrice[item.id]}
-                                    onChange={(e) =>
-                                      setEditingPrice((prev) => ({
-                                        ...prev,
-                                        [item.id]: e.target.value,
-                                      }))
-                                    }
-                                    className="w-28 h-8 text-sm"
-                                    placeholder="0.00"
-                                    autoFocus
-                                  />
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    disabled={savingPrice === item.id}
-                                    onClick={() => handleSavePrice(item.id)}
-                                  >
-                                    <Save className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    onClick={() =>
-                                      setEditingPrice((prev) => {
-                                        const n = { ...prev };
-                                        delete n[item.id];
-                                        return n;
-                                      })
-                                    }
-                                  >
-                                    <X className="h-4 w-4" />
-                                  </Button>
-                                </>
-                              ) : (
-                                <div className="flex items-center gap-1">
-                                  <span className="text-sm font-semibold w-20 text-right">
-                                    {fmt(calcTotal(item))}
-                                  </span>
-                                  {canEditCosts && (
-                                    <Button
-                                      size="icon"
-                                      variant="ghost"
-                                      title={t('Edit price', 'Επεξεργασία τιμής')}
-                                      onClick={() =>
+                            <div className="flex items-center gap-3">
+                              {/* Unit price cell — always visible for editors */}
+                              <div className="flex flex-col items-start">
+                                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                                  {t('Unit Price', 'Τιμή Μονάδας')}
+                                </span>
+                                {canEditCosts ? (
+                                  <div className="relative">
+                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">€</span>
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      value={
+                                        editingPrice[item.id] !== undefined
+                                          ? editingPrice[item.id]
+                                          : item.unit_price?.toString() ?? ''
+                                      }
+                                      onChange={(e) =>
                                         setEditingPrice((prev) => ({
                                           ...prev,
-                                          [item.id]: item.unit_price?.toString() ?? '',
+                                          [item.id]: e.target.value,
                                         }))
                                       }
-                                    >
-                                      <Edit2 className="h-3.5 w-3.5" />
-                                    </Button>
-                                  )}
-                                </div>
-                              )}
-                            </>
+                                      onBlur={() => {
+                                        if (editingPrice[item.id] !== undefined) {
+                                          handleSavePrice(item.id);
+                                        }
+                                      }}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          (e.target as HTMLInputElement).blur();
+                                        }
+                                      }}
+                                      disabled={savingPrice === item.id}
+                                      className="w-28 h-9 pl-6 text-sm bg-background border-primary/30 focus:border-primary"
+                                      placeholder="0.00"
+                                    />
+                                  </div>
+                                ) : (
+                                  <span className="text-sm font-medium w-28 text-right">
+                                    {item.unit_price !== null ? `€${item.unit_price.toFixed(2)}` : '—'}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Total cell */}
+                              <div className="flex flex-col items-end">
+                                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                                  {t('Total', 'Σύνολο')}
+                                </span>
+                                <span className="text-sm font-semibold w-24 text-right text-primary h-9 flex items-center justify-end">
+                                  {fmt(calcTotal(item))}
+                                </span>
+                              </div>
+                            </div>
                           )}
 
                           {canEditItem(item) && (
