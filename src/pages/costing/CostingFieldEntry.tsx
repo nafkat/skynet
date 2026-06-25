@@ -549,9 +549,12 @@ export default function CostingFieldEntry() {
     if (!editingItemId) return;
     setDeleting(true);
     try {
-      // Delete photos from storage first
+      // Delete photos & voice note from storage first
       if (existingPhotos.length > 0) {
         await supabase.storage.from('cost-photos').remove(existingPhotos.map(p => p.storage_path));
+      }
+      if (existingVoiceNotePath) {
+        await supabase.storage.from('cost-photos').remove([existingVoiceNotePath]);
       }
       const { error } = await supabase.from('cost_items').delete().eq('id', editingItemId);
       if (error) throw error;
