@@ -64,6 +64,7 @@ import CostingReportCreate from "./pages/costing/CostingReportCreate";
 import CostingReportDetails from "./pages/costing/CostingReportDetails";
 import CostingFieldEntry from "./pages/costing/CostingFieldEntry";
 import CostingReportPrint from "./pages/costing/CostingReportPrint";
+import CostingTrash from "./pages/costing/CostingTrash";
 
 const queryClient = new QueryClient();
 
