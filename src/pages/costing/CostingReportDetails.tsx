@@ -289,6 +289,67 @@ export default function CostingReportDetails() {
     setUpdatingStatus(false);
   };
 
+  const handleUploadCoverPhoto = async (file: File) => {
+    if (!id || !report) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error(t('File too large (max 10MB)', 'Πολύ μεγάλο αρχείο (μέγ. 10MB)'));
+      return;
+    }
+    setUploadingCover(true);
+    try {
+      const ext = file.name.split('.').pop() || 'jpg';
+      const path = `covers/${id}/${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from('cost-photos')
+        .upload(path, file, { upsert: false, contentType: file.type });
+      if (upErr) throw upErr;
+
+      // Remove any previous cover photo from storage
+      if (report.cover_photo_path) {
+        await supabase.storage.from('cost-photos').remove([report.cover_photo_path]);
+      }
+
+      const { error: updErr } = await supabase
+        .from('cost_reports')
+        .update({ cover_photo_path: path, updated_at: new Date().toISOString() })
+        .eq('id', id);
+      if (updErr) throw updErr;
+
+      const { data: cs } = await supabase.storage
+        .from('cost-photos')
+        .createSignedUrl(path, 60 * 60);
+      setCoverPhotoUrl(cs?.signedUrl ?? null);
+      setReport((r) => (r ? { ...r, cover_photo_path: path } : r));
+      toast.success(t('Cover photo updated', 'Η φωτογραφία εξωφύλλου ενημερώθηκε'));
+    } catch (e: any) {
+      toast.error(e?.message || t('Upload failed', 'Αποτυχία ανεβάσματος'));
+    } finally {
+      setUploadingCover(false);
+    }
+  };
+
+  const handleDeleteCoverPhoto = async () => {
+    if (!id || !report?.cover_photo_path) return;
+    setUploadingCover(true);
+    try {
+      await supabase.storage.from('cost-photos').remove([report.cover_photo_path]);
+      const { error } = await supabase
+        .from('cost_reports')
+        .update({ cover_photo_path: null, updated_at: new Date().toISOString() })
+        .eq('id', id);
+      if (error) throw error;
+      setCoverPhotoUrl(null);
+      setReport((r) => (r ? { ...r, cover_photo_path: null } : r));
+      toast.success(t('Cover photo removed', 'Η φωτογραφία εξωφύλλου αφαιρέθηκε'));
+    } catch (e: any) {
+      toast.error(e?.message || t('Delete failed', 'Αποτυχία διαγραφής'));
+    } finally {
+      setUploadingCover(false);
+    }
+  };
+
+
+
 
   const handleDeleteItem = async () => {
     if (!deleteItemId) return;
