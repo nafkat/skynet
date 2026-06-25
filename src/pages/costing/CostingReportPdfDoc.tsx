@@ -11,14 +11,14 @@ import {
 
 // Register the app font for Greek + Latin PDF output.
 Font.register({
-  family: 'InterPdf',
+  family: 'RobotoPdf',
   fonts: [
     {
-      src: 'https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.17/files/inter-greek-400-normal.woff',
+      src: 'https://cdn.jsdelivr.net/npm/@fontsource/roboto@5.0.8/files/roboto-greek-400-normal.woff',
       fontWeight: 'normal',
     },
     {
-      src: 'https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.17/files/inter-greek-700-normal.woff',
+      src: 'https://cdn.jsdelivr.net/npm/@fontsource/roboto@5.0.8/files/roboto-greek-700-normal.woff',
       fontWeight: 'bold',
     },
   ],
@@ -97,7 +97,7 @@ const SLATE_50 = '#f8fafc';
 
 const styles = StyleSheet.create({
   page: {
-    fontFamily: 'InterPdf',
+    fontFamily: 'RobotoPdf',
     fontSize: 9.5,
     color: '#0f172a',
     paddingTop: 88, // room for running header
