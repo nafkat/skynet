@@ -42,6 +42,8 @@ interface CostItem {
   sort_order: number;
   created_by: string | null;
   created_at?: string;
+  voice_note_path?: string | null;
+  voice_note_url?: string;
   photos: ItemPhoto[];
 }
 
@@ -133,17 +135,18 @@ export default function CostingReportDetails() {
       const { data: secs } = await supabase
         .from('cost_sections')
         .select(
-          'id, title, sort_order, cost_items(id, title, description, calculation_type, quantity, unit, unit_price, sort_order, created_by, created_at, cost_item_photos(id, storage_path, caption))',
+          'id, title, sort_order, cost_items(id, title, description, calculation_type, quantity, unit, unit_price, sort_order, created_by, created_at, voice_note_path, cost_item_photos(id, storage_path, caption))',
         )
         .eq('report_id', id)
         .order('sort_order');
 
-      // Collect every storage path and sign in one batch
+      // Collect every storage path (photos + voice notes) and sign in one batch
       const allPaths: string[] = [];
       ((secs as any[]) || []).forEach((s) =>
-        (s.cost_items || []).forEach((it: any) =>
-          (it.cost_item_photos || []).forEach((p: any) => allPaths.push(p.storage_path)),
-        ),
+        (s.cost_items || []).forEach((it: any) => {
+          (it.cost_item_photos || []).forEach((p: any) => allPaths.push(p.storage_path));
+          if (it.voice_note_path) allPaths.push(it.voice_note_path);
+        }),
       );
       const urlByPath = new Map<string, string>();
       if (allPaths.length > 0) {
@@ -164,6 +167,7 @@ export default function CostingReportDetails() {
             .sort((a: any, b: any) => a.sort_order - b.sort_order)
             .map((it: any) => ({
               ...it,
+              voice_note_url: it.voice_note_path ? urlByPath.get(it.voice_note_path) : undefined,
               photos: (it.cost_item_photos || []).map((p: any) => ({
                 id: p.id,
                 storage_path: p.storage_path,
@@ -551,6 +555,15 @@ export default function CostingReportDetails() {
                               )}
                             </Button>
                           </div>
+
+                          {item.voice_note_url && (
+                            <div className="mt-2 flex items-center gap-2">
+                              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                                🎙️ {t('Voice Note', 'Ηχητικό')}
+                              </span>
+                              <audio src={item.voice_note_url} controls className="h-8 max-w-full" />
+                            </div>
+                          )}
                         </div>
 
 

@@ -1,0 +1,1 @@
+ALTER TABLE public.cost_items ADD COLUMN IF NOT EXISTS voice_note_path TEXT;

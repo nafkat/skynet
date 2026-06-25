@@ -443,6 +443,7 @@ export type Database = {
           title: string | null
           unit: string | null
           unit_price: number | null
+          voice_note_path: string | null
           voice_note_text: string | null
         }
         Insert: {
@@ -457,6 +458,7 @@ export type Database = {
           title?: string | null
           unit?: string | null
           unit_price?: number | null
+          voice_note_path?: string | null
           voice_note_text?: string | null
         }
         Update: {
@@ -471,6 +473,7 @@ export type Database = {
           title?: string | null
           unit?: string | null
           unit_price?: number | null
+          voice_note_path?: string | null
           voice_note_text?: string | null
         }
         Relationships: [

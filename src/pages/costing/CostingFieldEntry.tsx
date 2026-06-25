@@ -88,6 +88,17 @@ export default function CostingFieldEntry() {
   const audioChunksRef = useRef<Blob[]>([]);
   const mediaStreamRef = useRef<MediaStream | null>(null);
 
+  // Voice note (separate audio attachment, independent from transcription)
+  const [voiceNoteBlob, setVoiceNoteBlob] = useState<Blob | null>(null);
+  const [voiceNoteUrl, setVoiceNoteUrl] = useState<string>('');
+  const [isRecordingNote, setIsRecordingNote] = useState(false);
+  const [existingVoiceNotePath, setExistingVoiceNotePath] = useState<string | null>(null);
+  const [existingVoiceNoteUrl, setExistingVoiceNoteUrl] = useState<string>('');
+  const [voiceNoteToDelete, setVoiceNoteToDelete] = useState<string | null>(null);
+  const noteRecorderRef = useRef<MediaRecorder | null>(null);
+  const noteChunksRef = useRef<Blob[]>([]);
+  const noteStreamRef = useRef<MediaStream | null>(null);
+
   const [saving, setSaving] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
   const [savedItems, setSavedItems] = useState<{ id: string; description: string }[]>([]);
@@ -100,7 +111,7 @@ export default function CostingFieldEntry() {
 
   const hasUnsaved =
     !isEditMode &&
-    (title.trim().length > 0 || description.trim().length > 0 || quantity.trim().length > 0 || photos.length > 0);
+    (title.trim().length > 0 || description.trim().length > 0 || quantity.trim().length > 0 || photos.length > 0 || !!voiceNoteBlob);
 
   // Warn on browser/tab close while unsaved
   useEffect(() => {
@@ -147,7 +158,7 @@ export default function CostingFieldEntry() {
     (async () => {
       const { data: item } = await supabase
         .from('cost_items')
-        .select('title, description, calculation_type, quantity, unit, section_id')
+        .select('title, description, calculation_type, quantity, unit, section_id, voice_note_path')
         .eq('id', editingItemId)
         .single();
       if (item) {
@@ -157,6 +168,14 @@ export default function CostingFieldEntry() {
         setQuantity(item.quantity?.toString() ?? '');
         setUnit(item.unit ?? '');
         setSelectedSectionId(item.section_id);
+        const vnp = (item as any).voice_note_path as string | null;
+        if (vnp) {
+          setExistingVoiceNotePath(vnp);
+          const { data: signed } = await supabase.storage
+            .from('cost-photos')
+            .createSignedUrl(vnp, 3600);
+          if (signed?.signedUrl) setExistingVoiceNoteUrl(signed.signedUrl);
+        }
       }
 
       const { data: ph } = await supabase
@@ -249,6 +268,61 @@ export default function CostingFieldEntry() {
     if (isListening) stopListening();
     else startListening();
   };
+
+  // ---- Voice Note (separate audio attachment) ----
+  const startVoiceNote = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      noteStreamRef.current = stream;
+      noteChunksRef.current = [];
+      const mimeCandidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
+      const mimeType = mimeCandidates.find((m) => (window as any).MediaRecorder?.isTypeSupported?.(m)) || '';
+      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      noteRecorderRef.current = recorder;
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) noteChunksRef.current.push(e.data); };
+      recorder.onstop = () => {
+        stream.getTracks().forEach((tr) => tr.stop());
+        noteStreamRef.current = null;
+        const blob = new Blob(noteChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+        if (blob.size < 512) {
+          toast.error(t('Recording too short', 'Πολύ σύντομη ηχογράφηση'));
+          return;
+        }
+        if (voiceNoteUrl) URL.revokeObjectURL(voiceNoteUrl);
+        setVoiceNoteBlob(blob);
+        setVoiceNoteUrl(URL.createObjectURL(blob));
+        toast.success(t('Voice note recorded', 'Ηχητικό σημείωμα ηχογραφήθηκε'));
+      };
+      recorder.start();
+      setIsRecordingNote(true);
+    } catch {
+      toast.error(t('Microphone access denied', 'Δεν επιτράπηκε η πρόσβαση στο μικρόφωνο'));
+    }
+  }, [language, voiceNoteUrl]);
+
+  const stopVoiceNote = useCallback(() => {
+    try { noteRecorderRef.current?.stop(); } catch {}
+    setIsRecordingNote(false);
+  }, []);
+
+  const toggleVoiceNote = () => {
+    if (isRecordingNote) stopVoiceNote();
+    else startVoiceNote();
+  };
+
+  const clearNewVoiceNote = () => {
+    if (voiceNoteUrl) URL.revokeObjectURL(voiceNoteUrl);
+    setVoiceNoteBlob(null);
+    setVoiceNoteUrl('');
+  };
+
+  const removeExistingVoiceNote = () => {
+    if (existingVoiceNotePath) setVoiceNoteToDelete(existingVoiceNotePath);
+    setExistingVoiceNotePath(null);
+    setExistingVoiceNoteUrl('');
+  };
+
+
 
 
   const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -408,6 +482,29 @@ export default function CostingFieldEntry() {
 
       photos.forEach(p => URL.revokeObjectURL(p.previewUrl));
 
+      // ---- Voice note handling ----
+      // Delete removed existing voice note
+      if (voiceNoteToDelete) {
+        await supabase.storage.from('cost-photos').remove([voiceNoteToDelete]);
+        if (itemId) {
+          await supabase.from('cost_items').update({ voice_note_path: null }).eq('id', itemId);
+        }
+        setVoiceNoteToDelete(null);
+      }
+      // Upload new voice note
+      if (itemId && voiceNoteBlob) {
+        const ext = voiceNoteBlob.type.includes('mp4') ? 'm4a' : 'webm';
+        const path = `${id}/${itemId}/voice-${Date.now()}.${ext}`;
+        const { error: vErr } = await supabase.storage
+          .from('cost-photos')
+          .upload(path, voiceNoteBlob, { contentType: voiceNoteBlob.type, upsert: false });
+        if (!vErr) {
+          await supabase.from('cost_items').update({ voice_note_path: path }).eq('id', itemId);
+        } else {
+          toast.warning(t('Voice note upload failed', 'Αποτυχία ανεβάσματος ηχητικού'));
+        }
+      }
+
       if (photoFailures > 0) {
         toast.warning(
           t(
@@ -431,6 +528,9 @@ export default function CostingFieldEntry() {
         setUnit('');
         setCalcType('unit');
         setPhotos([]);
+        if (voiceNoteUrl) URL.revokeObjectURL(voiceNoteUrl);
+        setVoiceNoteBlob(null);
+        setVoiceNoteUrl('');
         setSavedCount(c => c + 1);
         toast.success(t('Item saved! Ready for next.', 'Αποθηκεύτηκε! Έτοιμο για επόμενο.'));
       }
@@ -449,9 +549,12 @@ export default function CostingFieldEntry() {
     if (!editingItemId) return;
     setDeleting(true);
     try {
-      // Delete photos from storage first
+      // Delete photos & voice note from storage first
       if (existingPhotos.length > 0) {
         await supabase.storage.from('cost-photos').remove(existingPhotos.map(p => p.storage_path));
+      }
+      if (existingVoiceNotePath) {
+        await supabase.storage.from('cost-photos').remove([existingVoiceNotePath]);
       }
       const { error } = await supabase.from('cost_items').delete().eq('id', editingItemId);
       if (error) throw error;
@@ -645,6 +748,57 @@ export default function CostingFieldEntry() {
             </p>
           )}
         </div>
+
+        {/* Voice Note (audio attachment) */}
+        <div className="bg-card/80 backdrop-blur-sm rounded-xl border border-border p-4 space-y-3">
+          <Label className="text-sm font-semibold">{t('Voice Note (audio)', 'Ηχητικό Σημείωμα')}</Label>
+
+          {existingVoiceNoteUrl && (
+            <div className="flex items-center gap-2">
+              <audio src={existingVoiceNoteUrl} controls className="flex-1 h-10" />
+              <Button type="button" variant="ghost" size="icon" onClick={removeExistingVoiceNote}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+
+          {voiceNoteUrl && (
+            <div className="flex items-center gap-2">
+              <audio src={voiceNoteUrl} controls className="flex-1 h-10" />
+              <Button type="button" variant="ghost" size="icon" onClick={clearNewVoiceNote}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+
+          {voiceSupported ? (
+            <Button
+              type="button"
+              onClick={toggleVoiceNote}
+              className={`w-full h-12 text-base font-medium ${
+                isRecordingNote
+                  ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse'
+                  : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+              }`}
+            >
+              {isRecordingNote ? (
+                <><MicOff className="h-5 w-5 mr-2" />{t('Stop Recording', 'Διακοπή Εγγραφής')}</>
+              ) : (
+                <><Mic className="h-5 w-5 mr-2" />
+                  {existingVoiceNoteUrl || voiceNoteUrl
+                    ? t('Re-record Voice Note', 'Νέα Ηχογράφηση')
+                    : t('Record Voice Note', 'Ηχογράφηση Σημειώματος')}
+                </>
+              )}
+            </Button>
+          ) : (
+            <p className="text-xs text-muted-foreground text-center">
+              {t('Audio recording not supported on this browser', 'Η ηχογράφηση δεν υποστηρίζεται')}
+            </p>
+          )}
+        </div>
+
+
 
         {/* Calculation */}
         <div className="bg-card/80 backdrop-blur-sm rounded-xl border border-border p-4 space-y-3">
