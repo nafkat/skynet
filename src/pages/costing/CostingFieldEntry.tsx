@@ -72,6 +72,7 @@ export default function CostingFieldEntry() {
   const [newSectionTitle, setNewSectionTitle] = useState('');
   const [showNewSection, setShowNewSection] = useState(false);
 
+  const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [calcType, setCalcType] = useState('unit');
   const [quantity, setQuantity] = useState('');
@@ -96,7 +97,7 @@ export default function CostingFieldEntry() {
 
   const hasUnsaved =
     !isEditMode &&
-    (description.trim().length > 0 || quantity.trim().length > 0 || photos.length > 0);
+    (title.trim().length > 0 || description.trim().length > 0 || quantity.trim().length > 0 || photos.length > 0);
 
   // Warn on browser/tab close while unsaved
   useEffect(() => {
@@ -139,10 +140,11 @@ export default function CostingFieldEntry() {
     (async () => {
       const { data: item } = await supabase
         .from('cost_items')
-        .select('description, calculation_type, quantity, unit, section_id')
+        .select('title, description, calculation_type, quantity, unit, section_id')
         .eq('id', editingItemId)
         .single();
       if (item) {
+        setTitle((item as any).title ?? '');
         setDescription(item.description ?? '');
         setCalcType(item.calculation_type ?? 'unit');
         setQuantity(item.quantity?.toString() ?? '');
@@ -293,12 +295,14 @@ export default function CostingFieldEntry() {
       let itemId = editingItemId;
       const savedDescription = description.trim();
 
+      const savedTitle = title.trim();
       if (isEditMode && editingItemId) {
         // UPDATE
         const { error: uErr } = await supabase
           .from('cost_items')
           .update({
             section_id: selectedSectionId,
+            title: savedTitle || null,
             description: savedDescription,
             calculation_type: calcType,
             quantity: calcType !== 'lumpsum' && quantity ? parseFloat(quantity) : null,
@@ -317,6 +321,7 @@ export default function CostingFieldEntry() {
           .from('cost_items')
           .insert({
             section_id: selectedSectionId,
+            title: savedTitle || null,
             description: savedDescription,
             calculation_type: calcType,
             quantity: calcType !== 'lumpsum' && quantity ? parseFloat(quantity) : null,
@@ -383,10 +388,11 @@ export default function CostingFieldEntry() {
         toast.success(t('Item updated', 'Η εργασία ενημερώθηκε'));
         navigate(`/costing/reports/${id}`);
       } else {
-        setLastSavedDesc(savedDescription);
+        setLastSavedDesc(savedTitle || savedDescription);
         if (itemId) {
-          setSavedItems((prev) => [...prev, { id: itemId!, description: savedDescription }]);
+          setSavedItems((prev) => [...prev, { id: itemId!, description: savedTitle || savedDescription }]);
         }
+        setTitle('');
         setDescription('');
         setQuantity('');
         setUnit('');
@@ -553,8 +559,17 @@ export default function CostingFieldEntry() {
           ))}
         </div>
 
-        {/* Description + Voice */}
+        {/* Title + Description + Voice */}
         <div className="bg-card/80 backdrop-blur-sm rounded-xl border border-border p-4 space-y-3">
+          <Label className="text-sm font-semibold">
+            {t('Title', 'Τίτλος')}
+          </Label>
+          <Input
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            placeholder={t('Short title (e.g. KATASKEVI)', 'Σύντομος τίτλος (π.χ. ΚΑΤΑΣΚΕΥΗ)')}
+            className="h-11 text-base"
+          />
           <Label className="text-sm font-semibold">
             {t('Work Description', 'Περιγραφή Εργασίας')} *
           </Label>

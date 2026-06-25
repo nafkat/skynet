@@ -30,6 +30,7 @@ interface PhotoPreview {
 
 interface CostItem {
   tempId: string;
+  title: string;
   description: string;
   voice_note_text: string;
   calculation_type: 'unit' | 'lumpsum' | 'area' | 'linear' | 'weight';
@@ -56,6 +57,7 @@ const CALC_TYPES = [
 
 const newItem = (): CostItem => ({
   tempId: crypto.randomUUID(),
+  title: '',
   description: '',
   voice_note_text: '',
   calculation_type: 'unit',
@@ -247,6 +249,7 @@ export default function CostingReportCreate() {
             .from('cost_items')
             .insert({
               section_id: section.id,
+              title: item.title.trim() || null,
               description: item.description,
               voice_note_text: item.voice_note_text || null,
               calculation_type: item.calculation_type,
@@ -412,6 +415,18 @@ export default function CostingReportCreate() {
                           <Trash2 className="h-3.5 w-3.5 text-destructive" />
                         </Button>
                       )}
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-xs">{t('Title', 'Τίτλος')}</Label>
+                      <Input
+                        value={item.title}
+                        onChange={(e) =>
+                          updateItem(sec.tempId, item.tempId, { title: e.target.value })
+                        }
+                        placeholder={t('Short title (optional)', 'Σύντομος τίτλος (προαιρετικό)')}
+                        className="h-9"
+                      />
                     </div>
 
                     <div className="space-y-1">

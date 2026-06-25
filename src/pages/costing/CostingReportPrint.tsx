@@ -7,6 +7,7 @@ import { ArrowLeft, Printer, Loader2 } from 'lucide-react';
 
 interface CostItem {
   id: string;
+  title: string | null;
   description: string;
   calculation_type: string;
   quantity: number | null;
@@ -93,7 +94,7 @@ export default function CostingReportPrint() {
         const { data: secs } = await supabase
           .from('cost_sections')
           .select(
-            'id, title, sort_order, cost_items(id, description, calculation_type, quantity, unit, unit_price, sort_order, cost_item_photos(storage_path))',
+            'id, title, sort_order, cost_items(id, title, description, calculation_type, quantity, unit, unit_price, sort_order, cost_item_photos(storage_path))',
           )
           .eq('report_id', id)
           .order('sort_order');
@@ -116,6 +117,7 @@ export default function CostingReportPrint() {
                   }
                   return {
                     id: i.id,
+                    title: i.title ?? null,
                     description: i.description,
                     calculation_type: i.calculation_type,
                     quantity: i.quantity,
@@ -372,8 +374,14 @@ export default function CostingReportPrint() {
                   <div key={item.id} className="avoid-break mb-4 border border-slate-200 rounded-md p-3">
                     <div className="flex justify-between items-start gap-3">
                       <div className="flex-1">
-                        <div className="font-semibold text-[11pt] whitespace-pre-wrap [overflow-wrap:anywhere]">
-                          <span className="mr-1">{sIdx + 1}.{iIdx + 1}</span>
+                        {item.title && (
+                          <div className="text-[11pt] font-bold uppercase tracking-wide text-sky-900 [overflow-wrap:anywhere]">
+                            <span className="mr-1">{sIdx + 1}.{iIdx + 1}</span>
+                            {item.title}
+                          </div>
+                        )}
+                        <div className={`${item.title ? 'text-[10pt] mt-0.5' : 'font-semibold text-[11pt]'} whitespace-pre-wrap [overflow-wrap:anywhere]`}>
+                          {!item.title && <span className="mr-1">{sIdx + 1}.{iIdx + 1}</span>}
                           {item.description}
                         </div>
                         <div className="text-[9pt] text-slate-600 mt-1">
