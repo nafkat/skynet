@@ -133,7 +133,7 @@ export default function CostingReportDetails() {
       const { data: secs } = await supabase
         .from('cost_sections')
         .select(
-          'id, title, sort_order, cost_items(id, title, description, calculation_type, quantity, unit, unit_price, sort_order, created_by, created_at, cost_item_photos(id, storage_path, caption))',
+          'id, title, sort_order, cost_items(id, title, description, calculation_type, quantity, unit, unit_price, sort_order, created_by, created_at, voice_note_path, cost_item_photos(id, storage_path, caption))',
         )
         .eq('report_id', id)
         .order('sort_order');
