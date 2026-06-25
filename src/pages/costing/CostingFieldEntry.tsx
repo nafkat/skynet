@@ -384,6 +384,9 @@ export default function CostingFieldEntry() {
         navigate(`/costing/reports/${id}`);
       } else {
         setLastSavedDesc(savedDescription);
+        if (itemId) {
+          setSavedItems((prev) => [...prev, { id: itemId!, description: savedDescription }]);
+        }
         setDescription('');
         setQuantity('');
         setUnit('');
