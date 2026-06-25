@@ -111,7 +111,7 @@ export default function CostingReportDetails() {
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   const canViewCosts = hasElevatedRole || hasPermission('costing.costs.view');
-  const canEditCosts = hasElevatedRole || hasPermission('costing.costs.edit');
+  const canEditCostsBase = hasElevatedRole || hasPermission('costing.costs.edit');
   const canChangeStatus = hasElevatedRole || hasPermission('costing.reports.change_status');
   const canApprove = hasElevatedRole || hasPermission('costing.reports.approve');
 
@@ -124,6 +124,7 @@ export default function CostingReportDetails() {
     report?.review_status === 'submitted_for_review' ||
     report?.review_status === 'approved';
   const canBypassLock = canApprove;
+  const canEditCosts = canEditCostsBase && (!reviewLocked || canBypassLock);
 
   const canEditItem = (item: CostItem) =>
     (!reviewLocked || canBypassLock) &&
