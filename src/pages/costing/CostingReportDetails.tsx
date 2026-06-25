@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import {
   ArrowLeft, Edit2, Save, X, ChevronDown, ChevronUp,
   FileText, Building2, User, Calendar, Clock,
-  CheckCircle, Send, Receipt, Plus, Smartphone, Trash2, FileDown,
+  CheckCircle, Send, Receipt, Smartphone, Trash2, FileDown,
   ImageIcon, Maximize2,
 } from 'lucide-react';
 import {
@@ -106,7 +106,7 @@ export default function CostingReportDetails() {
   const canViewCosts = hasElevatedRole || hasPermission('costing.costs.view');
   const canEditCosts = hasElevatedRole || hasPermission('costing.costs.edit');
   const canChangeStatus = hasElevatedRole || hasPermission('costing.reports.change_status');
-  const canCreateReports = hasElevatedRole || hasPermission('costing.reports.create');
+  
   const canDeleteReport = hasElevatedRole || hasPermission('costing.reports.delete');
   const canEditAnyItem = hasElevatedRole || hasPermission('costing.items.edit');
   const canDeleteAnyItem = hasElevatedRole || hasPermission('costing.items.delete');
@@ -646,12 +646,6 @@ export default function CostingReportDetails() {
           <Smartphone className="h-4 w-4 mr-2" />
           {t('Field Entry', 'Καταγραφή Επί Τόπου')}
         </Button>
-        {canCreateReports && (
-          <Button variant="outline" onClick={() => navigate('/costing/new')}>
-            <Plus className="h-4 w-4 mr-2" />
-            {t('New Version', 'Νέα Έκδοση')}
-          </Button>
-        )}
       </div>
 
       {/* Delete item confirm */}
