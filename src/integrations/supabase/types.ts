@@ -486,6 +486,79 @@ export type Database = {
           },
         ]
       }
+      cost_report_notifications: {
+        Row: {
+          created_at: string
+          id: string
+          message: string | null
+          read_at: string | null
+          report_id: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message?: string | null
+          read_at?: string | null
+          report_id: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string | null
+          read_at?: string | null
+          report_id?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cost_report_notifications_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "cost_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cost_report_review_comments: {
+        Row: {
+          action: string | null
+          author_id: string
+          comment: string
+          created_at: string
+          id: string
+          report_id: string
+        }
+        Insert: {
+          action?: string | null
+          author_id: string
+          comment: string
+          created_at?: string
+          id?: string
+          report_id: string
+        }
+        Update: {
+          action?: string | null
+          author_id?: string
+          comment?: string
+          created_at?: string
+          id?: string
+          report_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cost_report_review_comments_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "cost_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cost_reports: {
         Row: {
           code: string
@@ -496,7 +569,12 @@ export type Database = {
           id: string
           parent_report_id: string | null
           project_id: string
+          review_status: string
+          reviewed_at: string | null
+          reviewed_by: string | null
           status: string
+          submitted_at: string | null
+          submitted_by: string | null
           updated_at: string
           version_notes: string | null
           version_number: number
@@ -510,7 +588,12 @@ export type Database = {
           id?: string
           parent_report_id?: string | null
           project_id: string
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           status?: string
+          submitted_at?: string | null
+          submitted_by?: string | null
           updated_at?: string
           version_notes?: string | null
           version_number?: number
@@ -524,7 +607,12 @@ export type Database = {
           id?: string
           parent_report_id?: string | null
           project_id?: string
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           status?: string
+          submitted_at?: string | null
+          submitted_by?: string | null
           updated_at?: string
           version_notes?: string | null
           version_number?: number
@@ -1917,6 +2005,7 @@ export type Database = {
         Returns: boolean
       }
       can_add_cost_items: { Args: { _user_id: string }; Returns: boolean }
+      can_approve_cost_reports: { Args: { _user_id: string }; Returns: boolean }
       can_delete_cost_reports: { Args: { _user_id: string }; Returns: boolean }
       can_manage_cost_reports: { Args: { _user_id: string }; Returns: boolean }
       can_view_all_cost_reports: {
