@@ -23,6 +23,13 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
 
+interface ItemPhoto {
+  id: string;
+  storage_path: string;
+  caption: string | null;
+  signedUrl?: string;
+}
+
 interface CostItem {
   id: string;
   description: string;
@@ -32,6 +39,8 @@ interface CostItem {
   unit_price: number | null;
   sort_order: number;
   created_by: string | null;
+  created_at?: string;
+  photos: ItemPhoto[];
 }
 
 interface CostSection {
