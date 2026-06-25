@@ -297,11 +297,15 @@ export default function CostingReportDetails() {
 
   const handleDeleteReport = async () => {
     if (!id) return;
-    const { error } = await supabase.from('cost_reports').delete().eq('id', id);
+    const { data: userData } = await supabase.auth.getUser();
+    const { error } = await supabase
+      .from('cost_reports')
+      .update({ deleted_at: new Date().toISOString(), deleted_by: userData.user?.id ?? null })
+      .eq('id', id);
     if (error) {
       toast.error(t('Error deleting report', 'Σφάλμα διαγραφής αναφοράς'));
     } else {
-      toast.success(t('Report deleted', 'Η αναφορά διαγράφηκε'));
+      toast.success(t('Report moved to Trash (kept 15 days)', 'Μεταφέρθηκε στον Κάδο (διατήρηση 15 ημερών)'));
       navigate('/costing/reports');
     }
   };
@@ -700,8 +704,8 @@ export default function CostingReportDetails() {
             <AlertDialogTitle>{t('Delete this report?', 'Διαγραφή αυτής της αναφοράς;')}</AlertDialogTitle>
             <AlertDialogDescription>
               {t(
-                'All sections, items and photos will be permanently deleted.',
-                'Όλα τα τμήματα, εργασίες και φωτογραφίες θα διαγραφούν οριστικά.',
+                'The report will move to Trash and stay recoverable for 15 days before permanent deletion.',
+                'Η αναφορά θα μεταφερθεί στον Κάδο και θα είναι ανακτήσιμη για 15 ημέρες πριν διαγραφεί οριστικά.',
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>

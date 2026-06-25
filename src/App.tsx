@@ -64,6 +64,7 @@ import CostingReportCreate from "./pages/costing/CostingReportCreate";
 import CostingReportDetails from "./pages/costing/CostingReportDetails";
 import CostingFieldEntry from "./pages/costing/CostingFieldEntry";
 import CostingReportPrint from "./pages/costing/CostingReportPrint";
+import CostingTrash from "./pages/costing/CostingTrash";
 
 const queryClient = new QueryClient();
 
@@ -228,6 +229,7 @@ function AppRoutes() {
         <Route path="new" element={<CostingReportCreate />} />
         <Route path="reports/:id" element={<CostingReportDetails />} />
         <Route path="reports/:id/field" element={<CostingFieldEntry />} />
+        <Route path="trash" element={<CostingTrash />} />
       </Route>
 
       {/* Costing Print View — standalone, no sidebar */}

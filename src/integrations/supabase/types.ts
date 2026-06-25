@@ -488,6 +488,8 @@ export type Database = {
           code: string
           created_at: string
           created_by: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           id: string
           parent_report_id: string | null
           project_id: string
@@ -500,6 +502,8 @@ export type Database = {
           code?: string
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           id?: string
           parent_report_id?: string | null
           project_id: string
@@ -512,6 +516,8 @@ export type Database = {
           code?: string
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           id?: string
           parent_report_id?: string | null
           project_id?: string
@@ -1981,6 +1987,7 @@ export type Database = {
       is_timekeeper_only: { Args: { _user_id: string }; Returns: boolean }
       is_today_athens: { Args: { _date: string }; Returns: boolean }
       is_user_active: { Args: { _user_id: string }; Returns: boolean }
+      purge_old_deleted_cost_reports: { Args: never; Returns: number }
       recompute_user_permissions: {
         Args: { _user_id: string }
         Returns: undefined

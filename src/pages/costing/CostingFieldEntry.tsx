@@ -83,7 +83,10 @@ export default function CostingFieldEntry() {
 
   const [isListening, setIsListening] = useState(false);
   const [voiceSupported, setVoiceSupported] = useState(false);
-  const recognitionRef = useRef<any>(null);
+  const [transcribing, setTranscribing] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
 
   const [saving, setSaving] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
@@ -112,16 +115,20 @@ export default function CostingFieldEntry() {
 
 
   useEffect(() => {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    setVoiceSupported(!!SR);
+    setVoiceSupported(
+      typeof navigator !== 'undefined' &&
+      !!navigator.mediaDevices?.getUserMedia &&
+      typeof window.MediaRecorder !== 'undefined'
+    );
   }, []);
 
   useEffect(() => {
     if (!id) return;
     supabase
       .from('cost_reports')
-      .select('code, projects(project_code, project_name)')
+      .select('code, deleted_at, projects(project_code, project_name)')
       .eq('id', id)
+      .is('deleted_at', null)
       .single()
       .then(({ data }) => {
         if (data) {
@@ -184,32 +191,57 @@ export default function CostingFieldEntry() {
     }
   };
 
-  const startListening = useCallback(() => {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return;
-    const recognition = new SR();
-    recognition.lang = language === 'el' ? 'el-GR' : 'en-US';
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognitionRef.current = recognition;
+  const startListening = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+      audioChunksRef.current = [];
 
-    recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript;
-      setDescription(prev => (prev ? `${prev} ${transcript}` : transcript));
-      setIsListening(false);
-    };
-    recognition.onerror = () => {
-      setIsListening(false);
-      toast.error(t('Voice recognition error', 'Σφάλμα αναγνώρισης φωνής'));
-    };
-    recognition.onend = () => setIsListening(false);
+      const mimeCandidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
+      const mimeType = mimeCandidates.find((m) => (window as any).MediaRecorder?.isTypeSupported?.(m)) || '';
+      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
 
-    recognition.start();
-    setIsListening(true);
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((tr) => tr.stop());
+        mediaStreamRef.current = null;
+        const blob = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+        if (blob.size < 1024) {
+          toast.error(t('Recording too short', 'Πολύ σύντομη ηχογράφηση'));
+          return;
+        }
+        setTranscribing(true);
+        try {
+          const ext = blob.type.includes('mp4') ? 'mp4' : 'webm';
+          const file = new File([blob], `recording.${ext}`, { type: blob.type });
+          const form = new FormData();
+          form.append('file', file);
+          const { data, error } = await supabase.functions.invoke('transcribe-audio', { body: form });
+          if (error) throw error;
+          const transcript = (data as any)?.text?.trim();
+          if (transcript) {
+            setDescription((prev) => (prev ? `${prev} ${transcript}` : transcript));
+            toast.success(t('Transcribed', 'Μεταγράφηκε'));
+          } else {
+            toast.error(t('No speech detected', 'Δεν εντοπίστηκε ομιλία'));
+          }
+        } catch (err: any) {
+          toast.error(t('Transcription failed', 'Αποτυχία μεταγραφής') + (err?.message ? `: ${err.message}` : ''));
+        } finally {
+          setTranscribing(false);
+        }
+      };
+
+      recorder.start();
+      setIsListening(true);
+    } catch {
+      toast.error(t('Microphone access denied', 'Δεν επιτράπηκε η πρόσβαση στο μικρόφωνο'));
+    }
   }, [language]);
 
   const stopListening = useCallback(() => {
-    recognitionRef.current?.stop();
+    try { mediaRecorderRef.current?.stop(); } catch {}
     setIsListening(false);
   }, []);
 
@@ -217,6 +249,7 @@ export default function CostingFieldEntry() {
     if (isListening) stopListening();
     else startListening();
   };
+
 
   const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -585,21 +618,24 @@ export default function CostingFieldEntry() {
             <Button
               type="button"
               onClick={toggleListening}
+              disabled={transcribing}
               className={`w-full h-14 text-base font-medium transition-all ${
                 isListening
                   ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse'
                   : 'bg-blue-600 hover:bg-blue-700 text-white'
               }`}
             >
-              {isListening ? (
+              {transcribing ? (
+                <>{t('Transcribing...', 'Μεταγραφή...')}</>
+              ) : isListening ? (
                 <>
                   <MicOff className="h-5 w-5 mr-2" />
-                  {t('Stop Recording', 'Διακοπή Εγγραφής')}
+                  {t('Stop & Transcribe', 'Διακοπή & Μεταγραφή')}
                 </>
               ) : (
                 <>
                   <Mic className="h-5 w-5 mr-2" />
-                  {t('Tap to Speak', 'Πατήστε για Ομιλία')}
+                  {t('Tap to Speak (EL/EN)', 'Πατήστε για Ομιλία (EL/EN)')}
                 </>
               )}
             </Button>

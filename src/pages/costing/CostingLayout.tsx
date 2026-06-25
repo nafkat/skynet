@@ -14,12 +14,13 @@ import {
   Menu,
   X,
   LayoutDashboard,
+  Trash2,
 } from 'lucide-react';
 
 export default function CostingLayout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut, hasElevatedRole, hasPermission, loading } = useAuth();
+  const { signOut, hasElevatedRole, hasPermission, isAdmin, loading } = useAuth();
   const { language, setLanguage } = useLanguage();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const handleClose = useCallback(() => setIsSidebarOpen(false), []);
@@ -132,6 +133,18 @@ export default function CostingLayout() {
               <Plus className="h-5 w-5" />
               <span className="font-medium">
                 {language === 'el' ? 'Νέα Αναφορά' : 'New Report'}
+              </span>
+            </Link>
+          )}
+
+          {isAdmin && (
+            <Link
+              to="/costing/trash"
+              className={cn('nav-item', isActiveRoute('/costing/trash') && 'active')}
+            >
+              <Trash2 className="h-5 w-5" />
+              <span className="font-medium">
+                {language === 'el' ? 'Κάδος' : 'Trash'}
               </span>
             </Link>
           )}

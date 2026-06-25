@@ -43,6 +43,7 @@ export default function CostingReportsList() {
       .select(
         'id, code, version_number, status, created_at, version_notes, projects(project_code, project_name, customer_company_name, assigned_shipyard_company)'
       )
+      .is('deleted_at', null)
       .order('created_at', { ascending: false });
     setReports((data as Report[]) || []);
     setLoading(false);
