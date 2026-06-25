@@ -42,6 +42,8 @@ interface CostItem {
   sort_order: number;
   created_by: string | null;
   created_at?: string;
+  voice_note_path?: string | null;
+  voice_note_url?: string;
   photos: ItemPhoto[];
 }
 
