@@ -361,12 +361,22 @@ export default function CostingReportPrint() {
                 </div>
               )}
 
-              <div className="mt-[30mm] inline-block border border-sky-200 bg-sky-50 px-8 py-4 rounded-md">
-                <div className="text-[9pt] uppercase tracking-wider text-slate-500">
-                  {t('Grand Total', 'Γενικό Σύνολο')}
+              {coverPhotoSigned && (
+                <div className="mt-[20mm] flex justify-center">
+                  <img
+                    src={coverPhotoSigned}
+                    alt=""
+                    crossOrigin="anonymous"
+                    style={{
+                      maxWidth: '150mm',
+                      maxHeight: '95mm',
+                      objectFit: 'contain',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '3px',
+                    }}
+                  />
                 </div>
-                <div className="text-[24pt] font-bold text-sky-900">{fmt(grandTotal)}</div>
-              </div>
+              )}
             </div>
           </div>
 
