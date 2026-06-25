@@ -427,7 +427,17 @@ export default function CostingFieldEntry() {
     }
   };
 
-  const handleDone = () => navigate(`/costing/reports/${id}`);
+  const handleDone = () => {
+    if (hasUnsaved) {
+      setConfirmLeave(true);
+      return;
+    }
+    navigate(`/costing/reports/${id}`);
+  };
+  const confirmLeaveNow = () => {
+    setConfirmLeave(false);
+    navigate(`/costing/reports/${id}`);
+  };
 
   return (
     <div
