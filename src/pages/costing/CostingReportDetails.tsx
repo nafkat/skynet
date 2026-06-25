@@ -110,6 +110,8 @@ export default function CostingReportDetails() {
   const [confirmDeleteReport, setConfirmDeleteReport] = useState(false);
   const [detailItemId, setDetailItemId] = useState<string | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [coverPhotoUrl, setCoverPhotoUrl] = useState<string | null>(null);
+  const [uploadingCover, setUploadingCover] = useState(false);
 
   const canViewCosts = hasElevatedRole || hasPermission('costing.costs.view');
   const canEditCostsBase = hasElevatedRole || hasPermission('costing.costs.edit');
