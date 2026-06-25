@@ -266,7 +266,7 @@ export default function CostingReportPrint() {
           html, body { background: white !important; }
           .print-page-bg { background: white !important; }
           .running-header {
-            position: fixed; top: -22mm; left: 0; right: 0;
+            position: fixed; top: -30mm; left: 0; right: 0;
             border-bottom: 1.5pt solid #0c4a6e;
           }
           .running-footer {
