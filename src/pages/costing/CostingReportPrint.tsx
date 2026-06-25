@@ -347,8 +347,9 @@ export default function CostingReportPrint() {
                   <div key={item.id} className="avoid-break mb-4 border border-slate-200 rounded-md p-3">
                     <div className="flex justify-between items-start gap-3">
                       <div className="flex-1">
-                        <div className="font-semibold text-[11pt]">
-                          {sIdx + 1}.{iIdx + 1} {item.description}
+                        <div className="font-semibold text-[11pt] whitespace-pre-wrap [overflow-wrap:anywhere]">
+                          <span className="mr-1">{sIdx + 1}.{iIdx + 1}</span>
+                          {item.description}
                         </div>
                         <div className="text-[9pt] text-slate-600 mt-1">
                           {item.calculation_type === 'lumpsum'

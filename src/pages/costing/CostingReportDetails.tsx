@@ -495,7 +495,7 @@ export default function CostingReportDetails() {
                     <div key={item.id} className="p-4">
                       <div className="flex items-start justify-between gap-4 flex-wrap">
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium break-words">{item.description}</p>
+                          <p className="font-medium whitespace-pre-wrap [overflow-wrap:anywhere]">{item.description}</p>
                           <p className="text-xs text-muted-foreground mt-0.5">
                             {item.calculation_type !== 'lumpsum'
                               ? `${item.quantity ?? '—'} ${item.unit ?? ''} · ${item.calculation_type}`
@@ -738,7 +738,7 @@ export default function CostingReportDetails() {
                     <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
                       {t('Description', 'Περιγραφή')}
                     </div>
-                    <p className="text-sm whitespace-pre-wrap break-words">{item.description}</p>
+                    <p className="text-sm whitespace-pre-wrap [overflow-wrap:anywhere]">{item.description}</p>
                   </div>
 
                   {/* Meta grid */}
