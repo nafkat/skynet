@@ -20,6 +20,7 @@ interface ReportRow {
   code: string;
   version_number: number;
   status: string;
+  review_status: string;
   created_at: string;
   projects: {
     project_code: string;
@@ -51,7 +52,7 @@ export default function CostingDashboard() {
     try {
       const { data } = await supabase
         .from('cost_reports')
-        .select('id, code, version_number, status, created_at, projects(project_code, project_name, customer_company_name, assigned_shipyard_company)')
+        .select('id, code, version_number, status, review_status, created_at, projects(project_code, project_name, customer_company_name, assigned_shipyard_company)')
         .is('deleted_at', null)
         .order('created_at', { ascending: false });
 
