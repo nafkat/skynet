@@ -24,7 +24,8 @@ interface ReportRow {
   projects: {
     project_code: string;
     project_name: string;
-    companies: { name: string } | null;
+    customer_company_name: string | null;
+    assigned_shipyard_company: string | null;
   } | null;
 }
 
@@ -50,7 +51,7 @@ export default function CostingDashboard() {
     try {
       const { data } = await supabase
         .from('cost_reports')
-        .select('id, code, version_number, status, created_at, projects(project_code, project_name, companies(name))')
+        .select('id, code, version_number, status, created_at, projects(project_code, project_name, customer_company_name, assigned_shipyard_company)')
         .order('created_at', { ascending: false });
 
       if (data) {
@@ -93,7 +94,8 @@ export default function CostingDashboard() {
           `v${r.version_number}`,
           r.projects?.project_code,
           r.projects?.project_name,
-          r.projects?.companies?.name,
+          r.projects?.customer_company_name,
+          r.projects?.assigned_shipyard_company,
           en,
           el,
           dateEl,
@@ -251,8 +253,8 @@ export default function CostingDashboard() {
                   {r.projects && (
                     <p className="text-sm text-white/60 truncate">
                       {r.projects.project_code} — {r.projects.project_name}
-                      {r.projects.companies?.name && (
-                        <span className="text-white/40"> · {r.projects.companies.name}</span>
+                      {r.projects.customer_company_name && (
+                        <span className="text-white/40"> · {r.projects.customer_company_name}</span>
                       )}
                     </p>
                   )}
