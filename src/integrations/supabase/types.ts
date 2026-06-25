@@ -440,6 +440,7 @@ export type Database = {
           quantity: number | null
           section_id: string
           sort_order: number
+          title: string | null
           unit: string | null
           unit_price: number | null
           voice_note_text: string | null
@@ -453,6 +454,7 @@ export type Database = {
           quantity?: number | null
           section_id: string
           sort_order?: number
+          title?: string | null
           unit?: string | null
           unit_price?: number | null
           voice_note_text?: string | null
@@ -466,6 +468,7 @@ export type Database = {
           quantity?: number | null
           section_id?: string
           sort_order?: number
+          title?: string | null
           unit?: string | null
           unit_price?: number | null
           voice_note_text?: string | null
