@@ -229,6 +229,7 @@ function AppRoutes() {
         <Route path="new" element={<CostingReportCreate />} />
         <Route path="reports/:id" element={<CostingReportDetails />} />
         <Route path="reports/:id/field" element={<CostingFieldEntry />} />
+        <Route path="trash" element={<CostingTrash />} />
       </Route>
 
       {/* Costing Print View — standalone, no sidebar */}
