@@ -23,6 +23,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
 import SectionAttachments from '@/components/costing/SectionAttachments';
+import ReviewWorkflow, { ReviewStatus, REVIEW_STATUS_CONFIG } from '@/components/costing/ReviewWorkflow';
 
 interface ItemPhoto {
   id: string;
@@ -60,6 +61,8 @@ interface CostReport {
   code: string;
   version_number: number;
   status: string;
+  review_status: ReviewStatus;
+  created_by: string | null;
   version_notes: string | null;
   created_at: string;
   projects: {
