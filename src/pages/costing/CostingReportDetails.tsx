@@ -33,6 +33,7 @@ interface ItemPhoto {
 
 interface CostItem {
   id: string;
+  title: string | null;
   description: string;
   calculation_type: string;
   quantity: number | null;
@@ -132,7 +133,7 @@ export default function CostingReportDetails() {
       const { data: secs } = await supabase
         .from('cost_sections')
         .select(
-          'id, title, sort_order, cost_items(id, description, calculation_type, quantity, unit, unit_price, sort_order, created_by, created_at, cost_item_photos(id, storage_path, caption))',
+          'id, title, sort_order, cost_items(id, title, description, calculation_type, quantity, unit, unit_price, sort_order, created_by, created_at, cost_item_photos(id, storage_path, caption))',
         )
         .eq('report_id', id)
         .order('sort_order');
@@ -496,6 +497,9 @@ export default function CostingReportDetails() {
                     <div key={item.id} className="p-4">
                       <div className="flex items-start justify-between gap-4 flex-wrap">
                         <div className="flex-1 min-w-0">
+                          {item.title && (
+                            <p className="text-sm font-bold uppercase tracking-wide text-sky-900 [overflow-wrap:anywhere]">{item.title}</p>
+                          )}
                           <p className="font-medium whitespace-pre-wrap [overflow-wrap:anywhere]">{item.description}</p>
                           <p className="text-xs text-muted-foreground mt-0.5">
                             {item.calculation_type !== 'lumpsum'
@@ -729,7 +733,15 @@ export default function CostingReportDetails() {
                 </DialogHeader>
 
                 <div className="space-y-5">
-                  {/* Description */}
+                  {/* Title + Description */}
+                  {item.title && (
+                    <div>
+                      <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
+                        {t('Title', 'Τίτλος')}
+                      </div>
+                      <p className="text-base font-bold uppercase tracking-wide text-sky-900 [overflow-wrap:anywhere]">{item.title}</p>
+                    </div>
+                  )}
                   <div>
                     <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
                       {t('Description', 'Περιγραφή')}
