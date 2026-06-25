@@ -136,6 +136,18 @@ export default function CostingLayout() {
               </span>
             </Link>
           )}
+
+          {isAdmin && (
+            <Link
+              to="/costing/trash"
+              className={cn('nav-item', isActiveRoute('/costing/trash') && 'active')}
+            >
+              <Trash2 className="h-5 w-5" />
+              <span className="font-medium">
+                {language === 'el' ? 'Κάδος' : 'Trash'}
+              </span>
+            </Link>
+          )}
         </nav>
 
         <div className="p-4 border-t border-sidebar-border space-y-2">
