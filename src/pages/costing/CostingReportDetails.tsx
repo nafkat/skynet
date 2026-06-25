@@ -10,6 +10,7 @@ import {
   ArrowLeft, Edit2, Save, X, ChevronDown, ChevronUp,
   FileText, Building2, User, Calendar, Clock,
   CheckCircle, Send, Receipt, Plus, Smartphone, Trash2, FileDown,
+  ImageIcon, Maximize2,
 } from 'lucide-react';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -18,6 +19,16 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from '@/components/ui/dialog';
+
+interface ItemPhoto {
+  id: string;
+  storage_path: string;
+  caption: string | null;
+  signedUrl?: string;
+}
 
 interface CostItem {
   id: string;
@@ -28,6 +39,8 @@ interface CostItem {
   unit_price: number | null;
   sort_order: number;
   created_by: string | null;
+  created_at?: string;
+  photos: ItemPhoto[];
 }
 
 interface CostSection {
@@ -87,6 +100,8 @@ export default function CostingReportDetails() {
   const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
   const [deleteSectionId, setDeleteSectionId] = useState<string | null>(null);
   const [confirmDeleteReport, setConfirmDeleteReport] = useState(false);
+  const [detailItemId, setDetailItemId] = useState<string | null>(null);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   const canViewCosts = hasElevatedRole || hasPermission('costing.costs.view');
   const canEditCosts = hasElevatedRole || hasPermission('costing.costs.edit');
@@ -116,19 +131,44 @@ export default function CostingReportDetails() {
       const { data: secs } = await supabase
         .from('cost_sections')
         .select(
-          'id, title, sort_order, cost_items(id, description, calculation_type, quantity, unit, unit_price, sort_order, created_by)',
+          'id, title, sort_order, cost_items(id, description, calculation_type, quantity, unit, unit_price, sort_order, created_by, created_at, cost_item_photos(id, storage_path, caption))',
         )
         .eq('report_id', id)
         .order('sort_order');
+
+      // Collect every storage path and sign in one batch
+      const allPaths: string[] = [];
+      ((secs as any[]) || []).forEach((s) =>
+        (s.cost_items || []).forEach((it: any) =>
+          (it.cost_item_photos || []).forEach((p: any) => allPaths.push(p.storage_path)),
+        ),
+      );
+      const urlByPath = new Map<string, string>();
+      if (allPaths.length > 0) {
+        const { data: signed } = await supabase.storage
+          .from('cost-photos')
+          .createSignedUrls(allPaths, 60 * 60);
+        (signed || []).forEach((s: any) => {
+          if (s.signedUrl && s.path) urlByPath.set(s.path, s.signedUrl);
+        });
+      }
 
       setReport(r as unknown as CostReport);
       setSections(
         ((secs as any[]) || []).map((s) => ({
           ...s,
           isOpen: true,
-          cost_items: [...(s.cost_items || [])].sort(
-            (a: CostItem, b: CostItem) => a.sort_order - b.sort_order,
-          ),
+          cost_items: [...(s.cost_items || [])]
+            .sort((a: any, b: any) => a.sort_order - b.sort_order)
+            .map((it: any) => ({
+              ...it,
+              photos: (it.cost_item_photos || []).map((p: any) => ({
+                id: p.id,
+                storage_path: p.storage_path,
+                caption: p.caption,
+                signedUrl: urlByPath.get(p.storage_path),
+              })),
+            })),
         })) as CostSection[],
       );
     } finally {
@@ -461,7 +501,49 @@ export default function CostingReportDetails() {
                               ? `${item.quantity ?? '—'} ${item.unit ?? ''} · ${item.calculation_type}`
                               : t('Lump Sum', "Κατ' Αποκοπή")}
                           </p>
+
+                          {/* Inline thumbnails + View details */}
+                          <div className="flex items-center gap-2 mt-2 flex-wrap">
+                            {item.photos.slice(0, 3).map((p) =>
+                              p.signedUrl ? (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  onClick={() => setLightboxUrl(p.signedUrl!)}
+                                  className="h-14 w-14 rounded-md overflow-hidden border bg-muted hover:ring-2 hover:ring-primary transition"
+                                  title={t('Open photo', 'Άνοιγμα φωτογραφίας')}
+                                >
+                                  <img
+                                    src={p.signedUrl}
+                                    alt=""
+                                    className="h-full w-full object-cover"
+                                  />
+                                </button>
+                              ) : null,
+                            )}
+                            {item.photos.length > 3 && (
+                              <span className="text-xs text-muted-foreground">
+                                +{item.photos.length - 3}
+                              </span>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8"
+                              onClick={() => setDetailItemId(item.id)}
+                            >
+                              <Maximize2 className="h-3.5 w-3.5 mr-1.5" />
+                              {t('View details', 'Λεπτομέρειες')}
+                              {item.photos.length > 0 && (
+                                <span className="ml-1.5 inline-flex items-center gap-0.5 text-xs text-muted-foreground">
+                                  <ImageIcon className="h-3 w-3" />
+                                  {item.photos.length}
+                                </span>
+                              )}
+                            </Button>
+                          </div>
                         </div>
+
 
                         <div className="flex items-center gap-3 shrink-0">
                           {canViewCosts && (
@@ -631,7 +713,180 @@ export default function CostingReportDetails() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Item details dialog */}
+      <Dialog open={!!detailItemId} onOpenChange={(o) => !o && setDetailItemId(null)}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          {(() => {
+            const item = sections.flatMap((s) => s.cost_items).find((i) => i.id === detailItemId);
+            if (!item) return null;
+            const calc = CALC_TYPES.find((c) => c.value === item.calculation_type);
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="text-base">
+                    {t('Item details', 'Λεπτομέρειες εργασίας')}
+                  </DialogTitle>
+                  <DialogDescription className="sr-only">
+                    {t('Full description, photos and pricing', 'Πλήρης περιγραφή, φωτογραφίες και τιμή')}
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-5">
+                  {/* Description */}
+                  <div>
+                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
+                      {t('Description', 'Περιγραφή')}
+                    </div>
+                    <p className="text-sm whitespace-pre-wrap break-words">{item.description}</p>
+                  </div>
+
+                  {/* Meta grid */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                    <div>
+                      <div className="text-[11px] uppercase text-muted-foreground">
+                        {t('Quantity', 'Ποσότητα')}
+                      </div>
+                      <div className="font-medium">
+                        {item.calculation_type === 'lumpsum'
+                          ? '—'
+                          : `${item.quantity ?? '—'} ${item.unit ?? ''}`}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[11px] uppercase text-muted-foreground">
+                        {t('Calculation', 'Υπολογισμός')}
+                      </div>
+                      <div className="font-medium">
+                        {calc ? (language === 'el' ? calc.labelEl : calc.labelEn) : item.calculation_type}
+                      </div>
+                    </div>
+                    {item.created_at && (
+                      <div>
+                        <div className="text-[11px] uppercase text-muted-foreground">
+                          {t('Created', 'Δημιουργήθηκε')}
+                        </div>
+                        <div className="font-medium">
+                          {new Date(item.created_at).toLocaleString('el-GR')}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Photos */}
+                  <div>
+                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2">
+                      {t('Photos', 'Φωτογραφίες')} ({item.photos.length})
+                    </div>
+                    {item.photos.length === 0 ? (
+                      <div className="text-sm text-muted-foreground italic">
+                        {t('No photos attached', 'Δεν υπάρχουν φωτογραφίες')}
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {item.photos.map((p) =>
+                          p.signedUrl ? (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => setLightboxUrl(p.signedUrl!)}
+                              className="group relative rounded-md overflow-hidden border bg-muted aspect-square hover:ring-2 hover:ring-primary transition"
+                            >
+                              <img
+                                src={p.signedUrl}
+                                alt={p.caption || ''}
+                                className="h-full w-full object-cover"
+                              />
+                              <span className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                <Maximize2 className="h-5 w-5 text-white" />
+                              </span>
+                            </button>
+                          ) : null,
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Price + total */}
+                  {canViewCosts && (
+                    <div className="border-t pt-4 flex items-end justify-between flex-wrap gap-3">
+                      <div>
+                        <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
+                          {t('Unit Price', 'Τιμή Μονάδας')}
+                        </div>
+                        {canEditCosts ? (
+                          <div className="relative">
+                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">€</span>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={
+                                editingPrice[item.id] !== undefined
+                                  ? editingPrice[item.id]
+                                  : item.unit_price?.toString() ?? ''
+                              }
+                              onChange={(e) =>
+                                setEditingPrice((prev) => ({ ...prev, [item.id]: e.target.value }))
+                              }
+                              onBlur={() => {
+                                if (editingPrice[item.id] !== undefined) handleSavePrice(item.id);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                              }}
+                              disabled={savingPrice === item.id}
+                              className="w-40 h-10 pl-6 text-base bg-background border-primary/30 focus:border-primary"
+                              placeholder="0.00"
+                            />
+                          </div>
+                        ) : (
+                          <div className="text-lg font-medium">
+                            {item.unit_price !== null ? `€${item.unit_price.toFixed(2)}` : '—'}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
+                          {t('Total', 'Σύνολο')}
+                        </div>
+                        <div className="text-2xl font-bold text-primary">{fmt(calcTotal(item))}</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Lightbox */}
+      <Dialog open={!!lightboxUrl} onOpenChange={(o) => !o && setLightboxUrl(null)}>
+        <DialogContent className="max-w-[95vw] max-h-[95vh] p-2 bg-black/95 border-0">
+          <DialogHeader className="sr-only">
+            <DialogTitle>{t('Photo preview', 'Προεπισκόπηση φωτογραφίας')}</DialogTitle>
+          </DialogHeader>
+          {lightboxUrl && (
+            <div className="w-full h-full flex items-center justify-center overflow-auto">
+              <img
+                src={lightboxUrl}
+                alt=""
+                className="max-w-full max-h-[88vh] object-contain cursor-zoom-in"
+                onClick={(e) => {
+                  const img = e.currentTarget;
+                  img.classList.toggle('!max-h-none');
+                  img.classList.toggle('!max-w-none');
+                  img.classList.toggle('cursor-zoom-in');
+                  img.classList.toggle('cursor-zoom-out');
+                }}
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
+
   );
 }
 
