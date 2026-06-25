@@ -646,12 +646,6 @@ export default function CostingReportDetails() {
           <Smartphone className="h-4 w-4 mr-2" />
           {t('Field Entry', 'Καταγραφή Επί Τόπου')}
         </Button>
-        {canCreateReports && (
-          <Button variant="outline" onClick={() => navigate('/costing/new')}>
-            <Plus className="h-4 w-4 mr-2" />
-            {t('New Version', 'Νέα Έκδοση')}
-          </Button>
-        )}
       </div>
 
       {/* Delete item confirm */}
