@@ -487,6 +487,20 @@ export default function CostingFieldEntry() {
           )}
         </div>
 
+        {/* Saved-this-session banner */}
+        {!isEditMode && savedItems.length > 0 && (
+          <div className="bg-green-500/15 backdrop-blur-sm border border-green-400/50 rounded-xl p-3 space-y-1">
+            <div className="text-green-50 text-xs font-semibold uppercase tracking-wider">
+              {t('Saved in this session', 'Αποθηκευμένα σε αυτή τη συνεδρία')} ({savedItems.length})
+            </div>
+            <ol className="text-green-50 text-sm space-y-0.5 list-decimal list-inside max-h-40 overflow-auto">
+              {savedItems.map((it) => (
+                <li key={it.id} className="truncate" title={it.description}>{it.description}</li>
+              ))}
+            </ol>
+          </div>
+        )}
+
         {/* Section selector */}
         <div className="bg-card/80 backdrop-blur-sm rounded-xl border border-border p-4 space-y-3">
           <Label className="text-sm font-semibold">
