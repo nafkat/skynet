@@ -382,9 +382,15 @@ export default function CostingReportDetails() {
             <Select
               value={report.status}
               onValueChange={handleStatusChange}
-              disabled={updatingStatus}
+              disabled={updatingStatus || report.review_status !== 'approved'}
             >
-              <SelectTrigger>
+              <SelectTrigger
+                title={
+                  report.review_status !== 'approved'
+                    ? t('Approve report first', 'Πρέπει πρώτα να εγκριθεί')
+                    : ''
+                }
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
