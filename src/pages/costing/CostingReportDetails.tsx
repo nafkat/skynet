@@ -113,15 +113,24 @@ export default function CostingReportDetails() {
   const canViewCosts = hasElevatedRole || hasPermission('costing.costs.view');
   const canEditCosts = hasElevatedRole || hasPermission('costing.costs.edit');
   const canChangeStatus = hasElevatedRole || hasPermission('costing.reports.change_status');
-  
+  const canApprove = hasElevatedRole || hasPermission('costing.reports.approve');
+
   const canDeleteReport = hasElevatedRole || hasPermission('costing.reports.delete');
   const canEditAnyItem = hasElevatedRole || hasPermission('costing.items.edit');
   const canDeleteAnyItem = hasElevatedRole || hasPermission('costing.items.delete');
 
+  // Review lock: when submitted_for_review or approved, only approvers may modify items
+  const reviewLocked =
+    report?.review_status === 'submitted_for_review' ||
+    report?.review_status === 'approved';
+  const canBypassLock = canApprove;
+
   const canEditItem = (item: CostItem) =>
-    canEditAnyItem || (!!user && item.created_by === user.id);
+    (!reviewLocked || canBypassLock) &&
+    (canEditAnyItem || (!!user && item.created_by === user.id));
   const canDeleteItem = (item: CostItem) =>
-    canDeleteAnyItem || (!!user && item.created_by === user.id);
+    (!reviewLocked || canBypassLock) &&
+    (canDeleteAnyItem || (!!user && item.created_by === user.id));
 
   const fetchReport = async () => {
     if (!id) return;
