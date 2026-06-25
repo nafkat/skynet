@@ -115,8 +115,11 @@ export default function CostingFieldEntry() {
 
 
   useEffect(() => {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    setVoiceSupported(!!SR);
+    setVoiceSupported(
+      typeof navigator !== 'undefined' &&
+      !!navigator.mediaDevices?.getUserMedia &&
+      typeof window.MediaRecorder !== 'undefined'
+    );
   }, []);
 
   useEffect(() => {
