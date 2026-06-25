@@ -261,6 +261,61 @@ export default function CostingFieldEntry() {
     else startListening();
   };
 
+  // ---- Voice Note (separate audio attachment) ----
+  const startVoiceNote = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      noteStreamRef.current = stream;
+      noteChunksRef.current = [];
+      const mimeCandidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
+      const mimeType = mimeCandidates.find((m) => (window as any).MediaRecorder?.isTypeSupported?.(m)) || '';
+      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      noteRecorderRef.current = recorder;
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) noteChunksRef.current.push(e.data); };
+      recorder.onstop = () => {
+        stream.getTracks().forEach((tr) => tr.stop());
+        noteStreamRef.current = null;
+        const blob = new Blob(noteChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+        if (blob.size < 512) {
+          toast.error(t('Recording too short', 'Πολύ σύντομη ηχογράφηση'));
+          return;
+        }
+        if (voiceNoteUrl) URL.revokeObjectURL(voiceNoteUrl);
+        setVoiceNoteBlob(blob);
+        setVoiceNoteUrl(URL.createObjectURL(blob));
+        toast.success(t('Voice note recorded', 'Ηχητικό σημείωμα ηχογραφήθηκε'));
+      };
+      recorder.start();
+      setIsRecordingNote(true);
+    } catch {
+      toast.error(t('Microphone access denied', 'Δεν επιτράπηκε η πρόσβαση στο μικρόφωνο'));
+    }
+  }, [language, voiceNoteUrl]);
+
+  const stopVoiceNote = useCallback(() => {
+    try { noteRecorderRef.current?.stop(); } catch {}
+    setIsRecordingNote(false);
+  }, []);
+
+  const toggleVoiceNote = () => {
+    if (isRecordingNote) stopVoiceNote();
+    else startVoiceNote();
+  };
+
+  const clearNewVoiceNote = () => {
+    if (voiceNoteUrl) URL.revokeObjectURL(voiceNoteUrl);
+    setVoiceNoteBlob(null);
+    setVoiceNoteUrl('');
+  };
+
+  const removeExistingVoiceNote = () => {
+    if (existingVoiceNotePath) setVoiceNoteToDelete(existingVoiceNotePath);
+    setExistingVoiceNotePath(null);
+    setExistingVoiceNoteUrl('');
+  };
+
+
+
 
   const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
