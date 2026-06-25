@@ -120,8 +120,9 @@ export default function CostingFieldEntry() {
     if (!id) return;
     supabase
       .from('cost_reports')
-      .select('code, projects(project_code, project_name)')
+      .select('code, deleted_at, projects(project_code, project_name)')
       .eq('id', id)
+      .is('deleted_at', null)
       .single()
       .then(({ data }) => {
         if (data) {
