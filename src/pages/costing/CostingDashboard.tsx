@@ -20,6 +20,7 @@ interface ReportRow {
   code: string;
   version_number: number;
   status: string;
+  review_status: string;
   created_at: string;
   projects: {
     project_code: string;
@@ -51,7 +52,7 @@ export default function CostingDashboard() {
     try {
       const { data } = await supabase
         .from('cost_reports')
-        .select('id, code, version_number, status, created_at, projects(project_code, project_name, customer_company_name, assigned_shipyard_company)')
+        .select('id, code, version_number, status, review_status, created_at, projects(project_code, project_name, customer_company_name, assigned_shipyard_company)')
         .is('deleted_at', null)
         .order('created_at', { ascending: false });
 
@@ -135,6 +136,21 @@ export default function CostingDashboard() {
     return (
       <span className={`px-2 py-0.5 rounded text-xs font-medium ${map[status] || 'bg-gray-100 text-gray-800'}`}>
         {language === 'el' ? el : en}
+      </span>
+    );
+  };
+
+  const reviewBadge = (rs: string) => {
+    const map: Record<string, { c: string; en: string; el: string }> = {
+      draft: { c: 'bg-gray-200 text-gray-800', en: 'Draft', el: 'Πρόχειρο' },
+      submitted_for_review: { c: 'bg-blue-100 text-blue-800', en: 'Pending Review', el: 'Προς Έλεγχο' },
+      changes_requested: { c: 'bg-amber-100 text-amber-900', en: 'Changes', el: 'Αλλαγές' },
+      approved: { c: 'bg-green-100 text-green-800', en: 'Approved', el: 'Εγκρίθηκε' },
+    };
+    const m = map[rs] || map.draft;
+    return (
+      <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${m.c}`}>
+        {language === 'el' ? m.el : m.en}
       </span>
     );
   };
@@ -260,7 +276,8 @@ export default function CostingDashboard() {
                     </p>
                   )}
                 </div>
-                <div className="flex items-center gap-3 shrink-0">
+                <div className="flex items-center gap-2 shrink-0">
+                  {reviewBadge(r.review_status)}
                   {statusBadge(r.status)}
                   <span className="text-xs text-white/50 hidden sm:inline">
                     {new Date(r.created_at).toLocaleDateString('el-GR')}

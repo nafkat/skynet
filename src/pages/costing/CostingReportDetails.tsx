@@ -23,6 +23,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
 import SectionAttachments from '@/components/costing/SectionAttachments';
+import ReviewWorkflow, { ReviewStatus, REVIEW_STATUS_CONFIG } from '@/components/costing/ReviewWorkflow';
 
 interface ItemPhoto {
   id: string;
@@ -60,6 +61,8 @@ interface CostReport {
   code: string;
   version_number: number;
   status: string;
+  review_status: ReviewStatus;
+  created_by: string | null;
   version_notes: string | null;
   created_at: string;
   projects: {
@@ -108,17 +111,27 @@ export default function CostingReportDetails() {
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   const canViewCosts = hasElevatedRole || hasPermission('costing.costs.view');
-  const canEditCosts = hasElevatedRole || hasPermission('costing.costs.edit');
+  const canEditCostsBase = hasElevatedRole || hasPermission('costing.costs.edit');
   const canChangeStatus = hasElevatedRole || hasPermission('costing.reports.change_status');
-  
+  const canApprove = hasElevatedRole || hasPermission('costing.reports.approve');
+
   const canDeleteReport = hasElevatedRole || hasPermission('costing.reports.delete');
   const canEditAnyItem = hasElevatedRole || hasPermission('costing.items.edit');
   const canDeleteAnyItem = hasElevatedRole || hasPermission('costing.items.delete');
 
+  // Review lock: when submitted_for_review or approved, only approvers may modify items
+  const reviewLocked =
+    report?.review_status === 'submitted_for_review' ||
+    report?.review_status === 'approved';
+  const canBypassLock = canApprove;
+  const canEditCosts = canEditCostsBase && (!reviewLocked || canBypassLock);
+
   const canEditItem = (item: CostItem) =>
-    canEditAnyItem || (!!user && item.created_by === user.id);
+    (!reviewLocked || canBypassLock) &&
+    (canEditAnyItem || (!!user && item.created_by === user.id));
   const canDeleteItem = (item: CostItem) =>
-    canDeleteAnyItem || (!!user && item.created_by === user.id);
+    (!reviewLocked || canBypassLock) &&
+    (canDeleteAnyItem || (!!user && item.created_by === user.id));
 
   const fetchReport = async () => {
     if (!id) return;
@@ -127,7 +140,7 @@ export default function CostingReportDetails() {
       const { data: r } = await supabase
         .from('cost_reports')
         .select(
-          'id, code, version_number, status, version_notes, created_at, projects(project_code, project_name, customer_company_name, assigned_shipyard_company)',
+          'id, code, version_number, status, review_status, created_by, version_notes, created_at, projects(project_code, project_name, customer_company_name, assigned_shipyard_company)',
         )
         .eq('id', id)
         .single();
@@ -357,6 +370,16 @@ export default function CostingReportDetails() {
               <StatusIcon className="h-3.5 w-3.5" />
               {language === 'el' ? statusCfg.labelEl : statusCfg.labelEn}
             </span>
+            {(() => {
+              const rcfg = REVIEW_STATUS_CONFIG[report.review_status] || REVIEW_STATUS_CONFIG.draft;
+              return (
+                <span
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${rcfg.color}`}
+                >
+                  {language === 'el' ? rcfg.labelEl : rcfg.labelEn}
+                </span>
+              );
+            })()}
           </div>
           {report.version_notes && (
             <p className="text-sm text-muted-foreground mt-1 italic">
@@ -370,9 +393,15 @@ export default function CostingReportDetails() {
             <Select
               value={report.status}
               onValueChange={handleStatusChange}
-              disabled={updatingStatus}
+              disabled={updatingStatus || report.review_status !== 'approved'}
             >
-              <SelectTrigger>
+              <SelectTrigger
+                title={
+                  report.review_status !== 'approved'
+                    ? t('Approve report first', 'Πρέπει πρώτα να εγκριθεί')
+                    : ''
+                }
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -406,6 +435,14 @@ export default function CostingReportDetails() {
           </Button>
         )}
       </div>
+
+      <ReviewWorkflow
+        reportId={report.id}
+        reportCode={`${report.code}-v${report.version_number}`}
+        reviewStatus={report.review_status}
+        createdBy={report.created_by}
+        onChanged={(newStatus) => setReport((r) => (r ? { ...r, review_status: newStatus } : r))}
+      />
 
       {/* Info card */}
       <div className="bg-card border rounded-lg p-4 md:p-6 space-y-4">
@@ -662,13 +699,23 @@ export default function CostingReportDetails() {
       </div>
 
       <div className="flex gap-3 pb-8 flex-wrap">
-        <Button
-          onClick={() => navigate(`/costing/reports/${id}/field`)}
-          className="bg-blue-600 hover:bg-blue-700 text-white"
-        >
-          <Smartphone className="h-4 w-4 mr-2" />
-          {t('Field Entry', 'Καταγραφή Επί Τόπου')}
-        </Button>
+        {(!reviewLocked || canBypassLock) && (
+          <Button
+            onClick={() => navigate(`/costing/reports/${id}/field`)}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            <Smartphone className="h-4 w-4 mr-2" />
+            {t('Field Entry', 'Καταγραφή Επί Τόπου')}
+          </Button>
+        )}
+        {reviewLocked && !canBypassLock && (
+          <p className="text-sm text-muted-foreground italic">
+            {t(
+              'Report is locked for review. Editing is disabled until changes are requested.',
+              'Η αναφορά είναι κλειδωμένη για έλεγχο. Η επεξεργασία είναι απενεργοποιημένη.',
+            )}
+          </p>
+        )}
       </div>
 
       {/* Delete item confirm */}

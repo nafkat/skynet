@@ -16,6 +16,7 @@ import {
   LayoutDashboard,
   Trash2,
 } from 'lucide-react';
+import CostingNotificationsBell from '@/components/costing/CostingNotificationsBell';
 
 export default function CostingLayout() {
   const location = useLocation();
@@ -167,6 +168,9 @@ export default function CostingLayout() {
       </aside>
 
       <main className="flex-1 md:ml-72 relative z-10">
+        <div className="absolute top-4 right-6 z-20">
+          <CostingNotificationsBell />
+        </div>
         <div className="p-6 pt-16 md:pt-6">
           <Outlet />
         </div>
