@@ -253,8 +253,8 @@ export default function CostingDashboard() {
                   {r.projects && (
                     <p className="text-sm text-white/60 truncate">
                       {r.projects.project_code} — {r.projects.project_name}
-                      {r.projects.companies?.name && (
-                        <span className="text-white/40"> · {r.projects.companies.name}</span>
+                      {r.projects.customer_company_name && (
+                        <span className="text-white/40"> · {r.projects.customer_company_name}</span>
                       )}
                     </p>
                   )}
