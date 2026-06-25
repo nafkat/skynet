@@ -1,60 +1,56 @@
-## Costing Approval Workflow
+## Διάγνωση του τρέχοντος PDF
 
-### Statuses (διπλό μοντέλο)
+Ανοίγοντας το `SKYNET _ Lovable.pdf` που μου έστειλες είδα **τέσσερα ξεκάθαρα προβλήματα**:
 
-**Internal (review_status):**
-- `draft` → Field user γράφει
-- `submitted_for_review` → submitted από field user
-- `changes_requested` → Manager/Admin ζήτησε αλλαγές με σχόλιο
-- `approved` → Manager/Admin ενέκρινε
+1. **Browser headers/footers (Date, "SKYNET — Shipyard Operations Platform", URL, page numbers)** εμφανίζονται πάνω-κάτω σε κάθε σελίδα. Αυτά τα προσθέτει ο **Chrome print dialog**, και δεν αφαιρούνται από CSS — αφαιρούνται μόνο αν ο κάθε χρήστης τσεκάρει "Headers and footers: off". Δεν είναι αξιόπιστο.
 
-**External (status — υπάρχει ήδη):**
-- `sent`, `agreed`, `invoiced` → ξεκλειδώνουν ΜΟΝΟ όταν `review_status = approved`
+2. **Το running header (OPTIMUS PRIME logo block) και το running footer (OPTIMUS PRIME — CR-0004-v1) εμφανίζονται στη μέση των σελίδων**, όχι στο πάνω/κάτω άκρο. Αιτία: η τεχνική `position: fixed; top: -38mm` δουλεύει στον browser viewport, όχι ανά printed page — οπότε ο Chrome τα τοποθετεί όπου τύχει αφού γίνει pagination. Είναι θεμελιωδώς λάθος προσέγγιση.
 
-### Database
+3. **Section headings κόβονται στην κορυφή κάθε σελίδας** (το "1. KAPAKI" και "2. πορτα" φαίνονται μισά πίσω από το running footer που πέφτει εκεί).
 
-1. `cost_reports`: νέες στήλες
-   - `review_status` text default `'draft'`
-   - `submitted_at`, `submitted_by`
-   - `reviewed_at`, `reviewed_by`
-2. Νέος πίνακας `cost_report_review_comments` (id, report_id, author_id, comment, created_at) — για το «changes requested» thread + GRANTs + RLS.
-3. Νέος πίνακας `cost_report_notifications` (id, report_id, user_id, type, read_at, created_at) — in-app bell για Admin/Manager.
-4. RLS: external status transitions επιτρέπονται μόνο όταν `review_status='approved'`.
+4. **Κάποιες φωτογραφίες εμφανίζονται κενές** (λευκά πλαίσια). Πιθανότατα CORS ή timing — το `crossOrigin="anonymous"` με signed URLs αποτυγχάνει σιωπηλά.
 
-### Permissions
-- `costing.reports.submit` → field users (auto από template)
-- `costing.reports.approve` → Admin + Manager
-- Approve/Reject επιτρέπεται σε Admin **και** Manager
+Δηλαδή το θέμα δεν είναι «λίγο tuning στα margins» — η όλη προσέγγιση `window.print()` δεν μπορεί να δώσει σταθερό αποτέλεσμα σε όλους τους πελάτες.
 
-### UI
+## Πρόταση: αντικατάσταση του PDF export
 
-**CostingReportDetails / CostingFieldEntry:**
-- Field user σε `draft` ή `changes_requested`: κουμπί **"Submit for Review"**
-- Σε `submitted_for_review` / `approved`: read-only για field user (lock editing)
-- Manager/Admin σε `submitted_for_review`: κουμπιά **"Approve"** & **"Request Changes"** (με υποχρεωτικό σχόλιο σε modal)
-- Comments thread ορατό σε όλους τους εμπλεκόμενους
-- External status dropdown (sent/agreed/invoiced) disabled μέχρι `approved`
+Να εγκαταλείψουμε το `window.print()` και να φτιάξουμε **πραγματικό downloadable PDF** μέσω της βιβλιοθήκης `@react-pdf/renderer` (programmatic PDF generation, full control, ίδια έξοδος σε όλους τους πελάτες, χωρίς Chrome dialog).
 
-**CostingDashboard:**
-- Νέο φίλτρο: review_status badge (Draft / Pending Review / Changes Requested / Approved)
-- Χρωματιστά badges
-- Tab «Pending my review» για Admin/Manager
+### Τι αλλάζει για τον χρήστη
+- Στη σελίδα Report Details, το κουμπί **"Export PDF"** δεν θα ανοίγει `/print` με print dialog. Θα κατεβάζει απευθείας ένα αρχείο `CR-0004-v1.pdf`.
+- Καμία γραμμή του browser (date/URL/skynet title) δεν θα εμφανίζεται ποτέ.
+- Ο header (logo + company info) και ο footer (page X of Y + report code) θα μπαίνουν σωστά σε **κάθε** σελίδα.
 
-**Bell notification (in-app μόνο, χωρίς email):**
-- Στο `CostingLayout` header, καμπανάκι με unread count
-- Trigger όταν: field user κάνει submit → notify όλους Admin/Manager. Manager κάνει request changes/approve → notify creator.
-- Realtime via Supabase subscription στο `cost_report_notifications`.
+### Τι θα περιέχει το PDF (διατηρώντας τις πρόσφατες αποφάσεις)
+- **Cover page**: τίτλος έργου, project code, Client / Issued by / Document / Date, version notes, και cover photo αν υπάρχει. **Χωρίς** Grand Total στο εξώφυλλο.
+- **Sections με items**: τίτλος item (bold), περιγραφή, ποσότητα/μονάδα/τύπος, unit price, total, και photos σε grid 3 στηλών. Items με `wrap=false` ώστε να μη σπάνε στη μέση (επιλογή α που είχες διαλέξει). Photos clickable (link στο signed URL).
+- **Section attachments** με clickable links στο όνομα αρχείου (θα δουλεύουν αξιόπιστα στο react-pdf).
+- **Χωρίς** per-section totals μέσα στα sections.
+- **Στο τέλος**: Grand Total και από κάτω "Breakdown by Section / Ανάλυση ανά Τμήμα".
+- **Χωρίς** signatures, χωρίς legal statement.
+- **Running header**: σε κάθε σελίδα, logo + company name + address + VAT/Tax office + contact info (αριστερά-δεξιά layout).
+- **Running footer**: σε κάθε σελίδα, στο κέντρο `Page X / Y · CR-0004 v1 · OPTIMUS PRIME`.
 
-### Bilingual labels
-EL/EN strings για όλα τα νέα statuses, κουμπιά, και notifications.
+### Τι θα γίνει στον κώδικα (τεχνικά)
+- Προσθήκη dependency: `@react-pdf/renderer`.
+- Νέο component `src/pages/costing/CostingReportPdfDoc.tsx` που χτίζει το `<Document>` με `<Page>`, `<View>`, `<Text>`, `<Image>` και `<Link>` του react-pdf.
+- Φόρτωση Greek-capable font (Noto Sans) ώστε να αποδίδονται σωστά Ελληνικά (το default Helvetica δεν τα έχει).
+- `CostingReportPrint.tsx`: το αντικαθιστούμε με ένα μικρό wrapper σελίδα (`/print`) που τραβά τα data ίδια όπως τώρα και έχει κουμπί "Download PDF" — `PDFDownloadLink` του react-pdf. Καμία αλλαγή στο DB ή στο data fetching.
+- Στο `CostingReportDetails.tsx`, το υπάρχον κουμπί Export PDF να οδηγεί στο νέο flow (auto-download ή redirect στη `/print` που έχει το νέο κουμπί).
+- Φωτογραφίες & cover photo: prefetch των signed URLs σε `Uint8Array` πριν το render για να μπουν αξιόπιστα ως `<Image>` (χωρίς CORS issues).
 
-### Files to touch
-- Migration: schema + RLS + trigger για auto-notification on status change
-- `src/pages/costing/CostingReportDetails.tsx` — workflow actions, comments thread, lock states
-- `src/pages/costing/CostingFieldEntry.tsx` — submit button, lock όταν not editable
-- `src/pages/costing/CostingDashboard.tsx` — review_status filter + badges
-- `src/components/costing/CostingLayout.tsx` — notification bell
-- Νέο: `src/components/costing/ReviewActions.tsx`, `ReviewCommentsThread.tsx`, `CostingNotificationsBell.tsx`
-- Permission templates seed (admin/manager get approve, field gets submit)
+### Εκτός σκοπού (για να μη μεγαλώσει το PR)
+- Δεν αλλάζουμε τίποτα στο UI του report (Details/Field Entry).
+- Δεν αλλάζουμε το DB schema, RLS, ή buckets.
+- Δεν αλλάζουμε το θέμα attachments link logic — απλά θα δουλέψει σωστά μέσα στο νέο PDF.
 
-Έτοιμος να το χτίσω.
+### Παραδοτέο
+- Πιστό, σταθερό PDF που μοιάζει ίδιο σε κάθε πελάτη/browser.
+- Headers/footers στη σωστή θέση παντού.
+- Section headings ποτέ κομμένα.
+- Όλες οι φωτογραφίες εμφανίζονται σωστά.
+- Καμία γραμμή του browser με date/URL/skynet/page count.
+
+---
+
+Αν συμφωνείς να προχωρήσω με αυτή τη μετάβαση σε `@react-pdf/renderer`, πάτα **Implement plan**. Αν προτιμάς να επιμείνουμε στο `window.print()` και απλά να ξανατυλίξουμε CSS (με τα όρια που εξήγησα — δεν φεύγουν τα browser headers, και τα running headers θα συνεχίσουν να είναι ασταθή), πες μου να φτιάξω εναλλακτικό πλάνο.
