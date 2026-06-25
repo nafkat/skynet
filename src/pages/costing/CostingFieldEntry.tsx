@@ -760,6 +760,29 @@ export default function CostingFieldEntry() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={confirmLeave} onOpenChange={setConfirmLeave}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('Leave without saving?', 'Έξοδος χωρίς αποθήκευση;')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t(
+                'You have an unsaved item (description, quantity, or photos). If you leave now, it will be lost.',
+                'Έχετε μη αποθηκευμένη εργασία (περιγραφή, ποσότητα ή φωτογραφίες). Αν φύγετε, θα χαθεί.',
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('Stay & save', 'Παραμονή & αποθήκευση')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmLeaveNow}
+              className="bg-destructive text-destructive-foreground"
+            >
+              {t('Leave anyway', 'Έξοδος ούτως ή άλλως')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
