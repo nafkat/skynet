@@ -713,7 +713,180 @@ export default function CostingReportDetails() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Item details dialog */}
+      <Dialog open={!!detailItemId} onOpenChange={(o) => !o && setDetailItemId(null)}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          {(() => {
+            const item = sections.flatMap((s) => s.cost_items).find((i) => i.id === detailItemId);
+            if (!item) return null;
+            const calc = CALC_TYPES.find((c) => c.value === item.calculation_type);
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="text-base">
+                    {t('Item details', 'Λεπτομέρειες εργασίας')}
+                  </DialogTitle>
+                  <DialogDescription className="sr-only">
+                    {t('Full description, photos and pricing', 'Πλήρης περιγραφή, φωτογραφίες και τιμή')}
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-5">
+                  {/* Description */}
+                  <div>
+                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
+                      {t('Description', 'Περιγραφή')}
+                    </div>
+                    <p className="text-sm whitespace-pre-wrap break-words">{item.description}</p>
+                  </div>
+
+                  {/* Meta grid */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                    <div>
+                      <div className="text-[11px] uppercase text-muted-foreground">
+                        {t('Quantity', 'Ποσότητα')}
+                      </div>
+                      <div className="font-medium">
+                        {item.calculation_type === 'lumpsum'
+                          ? '—'
+                          : `${item.quantity ?? '—'} ${item.unit ?? ''}`}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[11px] uppercase text-muted-foreground">
+                        {t('Calculation', 'Υπολογισμός')}
+                      </div>
+                      <div className="font-medium">
+                        {calc ? (language === 'el' ? calc.labelEl : calc.labelEn) : item.calculation_type}
+                      </div>
+                    </div>
+                    {item.created_at && (
+                      <div>
+                        <div className="text-[11px] uppercase text-muted-foreground">
+                          {t('Created', 'Δημιουργήθηκε')}
+                        </div>
+                        <div className="font-medium">
+                          {new Date(item.created_at).toLocaleString('el-GR')}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Photos */}
+                  <div>
+                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2">
+                      {t('Photos', 'Φωτογραφίες')} ({item.photos.length})
+                    </div>
+                    {item.photos.length === 0 ? (
+                      <div className="text-sm text-muted-foreground italic">
+                        {t('No photos attached', 'Δεν υπάρχουν φωτογραφίες')}
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {item.photos.map((p) =>
+                          p.signedUrl ? (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => setLightboxUrl(p.signedUrl!)}
+                              className="group relative rounded-md overflow-hidden border bg-muted aspect-square hover:ring-2 hover:ring-primary transition"
+                            >
+                              <img
+                                src={p.signedUrl}
+                                alt={p.caption || ''}
+                                className="h-full w-full object-cover"
+                              />
+                              <span className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                <Maximize2 className="h-5 w-5 text-white" />
+                              </span>
+                            </button>
+                          ) : null,
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Price + total */}
+                  {canViewCosts && (
+                    <div className="border-t pt-4 flex items-end justify-between flex-wrap gap-3">
+                      <div>
+                        <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
+                          {t('Unit Price', 'Τιμή Μονάδας')}
+                        </div>
+                        {canEditCosts ? (
+                          <div className="relative">
+                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">€</span>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={
+                                editingPrice[item.id] !== undefined
+                                  ? editingPrice[item.id]
+                                  : item.unit_price?.toString() ?? ''
+                              }
+                              onChange={(e) =>
+                                setEditingPrice((prev) => ({ ...prev, [item.id]: e.target.value }))
+                              }
+                              onBlur={() => {
+                                if (editingPrice[item.id] !== undefined) handleSavePrice(item.id);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                              }}
+                              disabled={savingPrice === item.id}
+                              className="w-40 h-10 pl-6 text-base bg-background border-primary/30 focus:border-primary"
+                              placeholder="0.00"
+                            />
+                          </div>
+                        ) : (
+                          <div className="text-lg font-medium">
+                            {item.unit_price !== null ? `€${item.unit_price.toFixed(2)}` : '—'}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
+                          {t('Total', 'Σύνολο')}
+                        </div>
+                        <div className="text-2xl font-bold text-primary">{fmt(calcTotal(item))}</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Lightbox */}
+      <Dialog open={!!lightboxUrl} onOpenChange={(o) => !o && setLightboxUrl(null)}>
+        <DialogContent className="max-w-[95vw] max-h-[95vh] p-2 bg-black/95 border-0">
+          <DialogHeader className="sr-only">
+            <DialogTitle>{t('Photo preview', 'Προεπισκόπηση φωτογραφίας')}</DialogTitle>
+          </DialogHeader>
+          {lightboxUrl && (
+            <div className="w-full h-full flex items-center justify-center overflow-auto">
+              <img
+                src={lightboxUrl}
+                alt=""
+                className="max-w-full max-h-[88vh] object-contain cursor-zoom-in"
+                onClick={(e) => {
+                  const img = e.currentTarget;
+                  img.classList.toggle('!max-h-none');
+                  img.classList.toggle('!max-w-none');
+                  img.classList.toggle('cursor-zoom-in');
+                  img.classList.toggle('cursor-zoom-out');
+                }}
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
+
   );
 }
 
