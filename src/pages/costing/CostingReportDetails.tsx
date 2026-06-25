@@ -136,6 +136,14 @@ export default function CostingReportDetails() {
     (!reviewLocked || canBypassLock) &&
     (canDeleteAnyItem || (!!user && item.created_by === user.id));
 
+  // Cover photo can be edited by Admin/Manager OR any field user with item create perm
+  const canEditCover =
+    (hasElevatedRole ||
+      canEditCostsBase ||
+      hasPermission('costing.items.create') ||
+      hasPermission('costing.items.edit')) &&
+    (!reviewLocked || canBypassLock);
+
   const fetchReport = async () => {
     if (!id) return;
     setLoading(true);
