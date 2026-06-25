@@ -24,8 +24,13 @@ Font.register({
   ],
 });
 
-// Disable hyphenation (avoids broken Greek words)
-Font.registerHyphenationCallback((word) => [word]);
+// Keep normal words intact, but allow very long unspaced text to wrap instead of overflowing cells.
+Font.registerHyphenationCallback((word) => {
+  if (word.length <= 18) return [word];
+  const chunks: string[] = [];
+  for (let i = 0; i < word.length; i += 18) chunks.push(word.slice(i, i + 18));
+  return chunks;
+});
 
 export interface PdfCostItem {
   id: string;
@@ -96,7 +101,7 @@ const styles = StyleSheet.create({
     fontSize: 9.5,
     color: '#0f172a',
     paddingTop: 88, // room for running header
-    paddingBottom: 38, // room for running footer
+    paddingBottom: 52, // room for running footer
     paddingHorizontal: 38,
     lineHeight: 1.35,
   },
@@ -119,7 +124,7 @@ const styles = StyleSheet.create({
   headerRight: { fontSize: 8, color: SLATE_600, textAlign: 'right', lineHeight: 1.3 },
   footer: {
     position: 'absolute',
-    bottom: 16,
+    top: 812,
     left: 38,
     right: 38,
     borderTopWidth: 0.8,
@@ -130,13 +135,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   // Cover
-  coverWrap: { marginTop: 50, alignItems: 'center' },
-  coverEyebrow: { fontSize: 9, letterSpacing: 3, color: SLATE_500, textTransform: 'uppercase' },
-  coverTitle: { fontSize: 26, fontWeight: 'bold', color: SKY_900, marginTop: 8, textAlign: 'center' },
-  coverCode: { fontSize: 12, color: SLATE_600, marginTop: 4 },
-  coverGrid: { marginTop: 36, width: '85%', flexDirection: 'row', flexWrap: 'wrap' },
+  coverWrap: { marginTop: 46, alignItems: 'center' },
+  coverEyebrow: { fontSize: 9, letterSpacing: 0, color: SLATE_500, textTransform: 'uppercase' },
+  coverTitle: { width: '86%', fontSize: 21, lineHeight: 1.18, fontWeight: 'bold', color: SKY_900, marginTop: 10, textAlign: 'center' },
+  coverCode: { fontSize: 11, color: SLATE_600, marginTop: 10 },
+  coverGrid: { marginTop: 32, width: '85%', flexDirection: 'row', flexWrap: 'wrap' },
   coverCell: { width: '50%', paddingVertical: 6, paddingRight: 8, borderBottomWidth: 0.6, borderBottomColor: SLATE_200 },
-  coverLabel: { fontSize: 7.5, letterSpacing: 1.2, color: SLATE_500, textTransform: 'uppercase', marginBottom: 2 },
+  coverLabel: { fontSize: 7.5, letterSpacing: 0, color: SLATE_500, textTransform: 'uppercase', marginBottom: 2 },
   coverValue: { fontSize: 10.5 },
   coverNotes: {
     marginTop: 18, width: '85%', paddingLeft: 10,
@@ -164,28 +169,28 @@ const styles = StyleSheet.create({
   itemUnit: { fontSize: 8.5, color: SLATE_600 },
   itemTotal: { fontSize: 11.5, fontWeight: 'bold', color: SKY_900, marginTop: 1 },
   photosGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 6, marginHorizontal: -2 },
-  photoCell: { width: '33.333%', padding: 2 },
-  photo: { width: '100%', height: 90, objectFit: 'cover', borderWidth: 0.5, borderColor: SLATE_200, borderRadius: 2 },
+  photoCell: { width: '50%', padding: 2 },
+  photo: { width: '100%', height: 104, objectFit: 'cover', borderWidth: 0.5, borderColor: SLATE_200, borderRadius: 2 },
   // Attachments
   attBox: {
     marginTop: 4, marginBottom: 10, padding: 8,
     borderWidth: 0.6, borderColor: SLATE_200, borderRadius: 3,
     backgroundColor: SLATE_50,
   },
-  attHeader: { fontSize: 8, letterSpacing: 1, color: SLATE_600, textTransform: 'uppercase', marginBottom: 4 },
+  attHeader: { fontSize: 8, letterSpacing: 0, color: SLATE_600, textTransform: 'uppercase', marginBottom: 4 },
   attLink: { fontSize: 9.5, color: SKY_700, textDecoration: 'underline', marginBottom: 2 },
   // Totals
   grandRow: {
     marginTop: 14, paddingTop: 10, borderTopWidth: 1.5, borderTopColor: '#7dd3fc',
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
   },
-  grandLabel: { fontSize: 13, fontWeight: 'bold', color: SLATE_700, textTransform: 'uppercase', letterSpacing: 1.2 },
+  grandLabel: { fontSize: 13, fontWeight: 'bold', color: SLATE_700, textTransform: 'uppercase', letterSpacing: 0 },
   grandValue: { fontSize: 17, fontWeight: 'bold', color: SKY_900 },
   breakdownBox: {
     marginTop: 14, padding: 10,
     borderWidth: 0.6, borderColor: SLATE_200, borderRadius: 3, backgroundColor: SLATE_50,
   },
-  breakdownTitle: { fontSize: 10, fontWeight: 'bold', color: SLATE_700, textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 6 },
+  breakdownTitle: { fontSize: 10, fontWeight: 'bold', color: SLATE_700, textTransform: 'uppercase', letterSpacing: 0, marginBottom: 6 },
   breakdownRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 3, borderBottomWidth: 0.4, borderBottomColor: SLATE_200 },
   breakdownLabel: { fontSize: 9.5, color: SLATE_700, flex: 1, paddingRight: 8 },
   breakdownValue: { fontSize: 9.5, fontWeight: 'bold', color: SKY_900 },
@@ -261,13 +266,13 @@ export function CostingReportPdfDoc({ data }: { data: PdfReportInput }) {
   );
 
   const Footer = () => (
-    <View style={styles.footer} fixed>
-      <Text
-        render={({ pageNumber, totalPages }) =>
-          `${tr('Page', 'Σελίδα')} ${pageNumber} / ${totalPages}  ·  ${footerLabel}`
-        }
-      />
-    </View>
+    <Text
+      style={styles.footer}
+      fixed
+      render={({ pageNumber, totalPages }) =>
+        `${tr('Page', 'Σελίδα')} ${pageNumber} / ${totalPages}  ·  ${footerLabel}`
+      }
+    />
   );
 
   return (
@@ -307,13 +312,8 @@ export function CostingReportPdfDoc({ data }: { data: PdfReportInput }) {
         <Header />
         <Footer />
 
-        {data.sections.map((sec, sIdx) => (
-          <View key={sec.id}>
-            <Text style={styles.sectionTitle}>
-              {sIdx + 1}. {sec.title}
-            </Text>
-
-            {sec.items.map((item, iIdx) => {
+        {data.sections.map((sec, sIdx) => {
+          const renderItem = (item: PdfCostItem, iIdx: number) => {
               const total = calcTotal(item);
               const isLump = item.calculation_type === 'lumpsum';
               const calcLabel = CALC_LABEL[item.calculation_type]?.[data.language] ?? item.calculation_type;
@@ -348,7 +348,7 @@ export function CostingReportPdfDoc({ data }: { data: PdfReportInput }) {
 
                   {item.photos.length > 0 ? (
                     <View style={styles.photosGrid}>
-                      {item.photos.map((url, i) => (
+                      {item.photos.slice(0, 2).map((url, i) => (
                         <View key={i} style={styles.photoCell}>
                           <Link src={url}>
                             <Image src={url} style={styles.photo} />
@@ -359,20 +359,40 @@ export function CostingReportPdfDoc({ data }: { data: PdfReportInput }) {
                   ) : null}
                 </View>
               );
-            })}
+            };
+
+          const [firstItem, ...restItems] = sec.items;
+
+          return (
+          <View key={sec.id}>
+            {firstItem ? (
+              <View wrap={false}>
+                <Text style={styles.sectionTitle}>
+                  {sIdx + 1}. {sec.title}
+                </Text>
+                {renderItem(firstItem, 0)}
+              </View>
+            ) : (
+              <Text style={styles.sectionTitle}>
+                {sIdx + 1}. {sec.title}
+              </Text>
+            )}
+
+            {restItems.map((item, idx) => renderItem(item, idx + 1))}
 
             {sec.attachments.length > 0 ? (
               <View style={styles.attBox} wrap={false}>
                 <Text style={styles.attHeader}>{tr('Attachments', 'Συνημμένα')}</Text>
                 {sec.attachments.map((a, i) => (
                   <Link key={i} src={a.url} style={styles.attLink}>
-                    {`📎 ${a.file_name}`}
+                    {`${i + 1}. ${a.file_name}`}
                   </Link>
                 ))}
               </View>
             ) : null}
           </View>
-        ))}
+          );
+        })}
 
         {/* GRAND TOTAL */}
         <View style={styles.grandRow} wrap={false}>
