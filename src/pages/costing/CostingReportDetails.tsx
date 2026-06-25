@@ -435,6 +435,14 @@ export default function CostingReportDetails() {
         )}
       </div>
 
+      <ReviewWorkflow
+        reportId={report.id}
+        reportCode={`${report.code}-v${report.version_number}`}
+        reviewStatus={report.review_status}
+        createdBy={report.created_by}
+        onChanged={(newStatus) => setReport((r) => (r ? { ...r, review_status: newStatus } : r))}
+      />
+
       {/* Info card */}
       <div className="bg-card border rounded-lg p-4 md:p-6 space-y-4">
         <div className="grid md:grid-cols-2 gap-4">
