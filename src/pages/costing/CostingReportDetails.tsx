@@ -106,7 +106,7 @@ export default function CostingReportDetails() {
   const canViewCosts = hasElevatedRole || hasPermission('costing.costs.view');
   const canEditCosts = hasElevatedRole || hasPermission('costing.costs.edit');
   const canChangeStatus = hasElevatedRole || hasPermission('costing.reports.change_status');
-  const canCreateReports = hasElevatedRole || hasPermission('costing.reports.create');
+  
   const canDeleteReport = hasElevatedRole || hasPermission('costing.reports.delete');
   const canEditAnyItem = hasElevatedRole || hasPermission('costing.items.edit');
   const canDeleteAnyItem = hasElevatedRole || hasPermission('costing.items.delete');
