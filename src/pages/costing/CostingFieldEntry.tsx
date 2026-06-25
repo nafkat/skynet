@@ -111,7 +111,7 @@ export default function CostingFieldEntry() {
 
   const hasUnsaved =
     !isEditMode &&
-    (title.trim().length > 0 || description.trim().length > 0 || quantity.trim().length > 0 || photos.length > 0);
+    (title.trim().length > 0 || description.trim().length > 0 || quantity.trim().length > 0 || photos.length > 0 || !!voiceNoteBlob);
 
   // Warn on browser/tab close while unsaved
   useEffect(() => {
