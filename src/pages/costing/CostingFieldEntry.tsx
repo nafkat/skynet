@@ -45,6 +45,8 @@ const CALC_TYPES = [
   { value: 'weight',  labelEn: 'Weight (kg)', labelEl: 'Βάρος (kg)' },
 ];
 
+const MAX_FIELD_ENTRY_PHOTOS = 2;
+
 declare global {
   interface Window {
     SpeechRecognition: any;
@@ -327,7 +329,18 @@ export default function CostingFieldEntry() {
 
   const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    const newPhotos = files.map(file => ({
+    const currentCount = existingPhotos.length + photos.length;
+    const remaining = MAX_FIELD_ENTRY_PHOTOS - currentCount;
+    if (remaining <= 0) {
+      toast.error(t('Maximum 2 photos per item', 'Μέχρι 2 φωτογραφίες ανά εργασία'));
+      if (cameraRef.current) cameraRef.current.value = '';
+      return;
+    }
+    const acceptedFiles = files.slice(0, remaining);
+    if (files.length > acceptedFiles.length) {
+      toast.warning(t('Only 2 photos per item are allowed', 'Επιτρέπονται μόνο 2 φωτογραφίες ανά εργασία'));
+    }
+    const newPhotos = acceptedFiles.map(file => ({
       file,
       previewUrl: URL.createObjectURL(file),
     }));
@@ -845,7 +858,12 @@ export default function CostingFieldEntry() {
 
         {/* Photos */}
         <div className="bg-card/80 backdrop-blur-sm rounded-xl border border-border p-4 space-y-3">
-          <Label className="text-sm font-semibold">{t('Photos', 'Φωτογραφίες')}</Label>
+          <div className="flex items-center justify-between gap-3">
+            <Label className="text-sm font-semibold">{t('Photos', 'Φωτογραφίες')}</Label>
+            <span className="text-xs text-muted-foreground">
+              {existingPhotos.length + photos.length}/{MAX_FIELD_ENTRY_PHOTOS}
+            </span>
+          </div>
 
           {(existingPhotos.length > 0 || photos.length > 0) && (
             <div className="grid grid-cols-3 gap-2">
@@ -880,14 +898,20 @@ export default function CostingFieldEntry() {
               type="file"
               accept="image/*"
               capture="environment"
-              multiple
               className="hidden"
               onChange={handlePhotoCapture}
+              disabled={existingPhotos.length + photos.length >= MAX_FIELD_ENTRY_PHOTOS}
             />
-            <div className="flex items-center justify-center gap-2 h-14 border-2 border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/30 transition-colors">
+            <div className={`flex items-center justify-center gap-2 h-14 border-2 border-dashed border-border rounded-lg transition-colors ${
+              existingPhotos.length + photos.length >= MAX_FIELD_ENTRY_PHOTOS
+                ? 'opacity-60 cursor-not-allowed'
+                : 'cursor-pointer hover:bg-muted/30'
+            }`}>
               <Camera className="h-5 w-5 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">
-                {existingPhotos.length + photos.length > 0
+                {existingPhotos.length + photos.length >= MAX_FIELD_ENTRY_PHOTOS
+                  ? t('Photo limit reached', 'Συμπληρώθηκε το όριο φωτογραφιών')
+                  : existingPhotos.length + photos.length > 0
                   ? t('Add more photos', 'Προσθήκη φωτογραφιών')
                   : t('Take photo', 'Τράβηξε φωτογραφία')}
               </span>
