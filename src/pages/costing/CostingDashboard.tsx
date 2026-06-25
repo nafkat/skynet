@@ -51,7 +51,7 @@ export default function CostingDashboard() {
     try {
       const { data } = await supabase
         .from('cost_reports')
-        .select('id, code, version_number, status, created_at, projects(project_code, project_name, companies(name))')
+        .select('id, code, version_number, status, created_at, projects(project_code, project_name, customer_company_name, assigned_shipyard_company)')
         .order('created_at', { ascending: false });
 
       if (data) {
