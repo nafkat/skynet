@@ -482,6 +482,29 @@ export default function CostingFieldEntry() {
 
       photos.forEach(p => URL.revokeObjectURL(p.previewUrl));
 
+      // ---- Voice note handling ----
+      // Delete removed existing voice note
+      if (voiceNoteToDelete) {
+        await supabase.storage.from('cost-photos').remove([voiceNoteToDelete]);
+        if (itemId) {
+          await supabase.from('cost_items').update({ voice_note_path: null }).eq('id', itemId);
+        }
+        setVoiceNoteToDelete(null);
+      }
+      // Upload new voice note
+      if (itemId && voiceNoteBlob) {
+        const ext = voiceNoteBlob.type.includes('mp4') ? 'm4a' : 'webm';
+        const path = `${id}/${itemId}/voice-${Date.now()}.${ext}`;
+        const { error: vErr } = await supabase.storage
+          .from('cost-photos')
+          .upload(path, voiceNoteBlob, { contentType: voiceNoteBlob.type, upsert: false });
+        if (!vErr) {
+          await supabase.from('cost_items').update({ voice_note_path: path }).eq('id', itemId);
+        } else {
+          toast.warning(t('Voice note upload failed', 'Αποτυχία ανεβάσματος ηχητικού'));
+        }
+      }
+
       if (photoFailures > 0) {
         toast.warning(
           t(
@@ -505,6 +528,9 @@ export default function CostingFieldEntry() {
         setUnit('');
         setCalcType('unit');
         setPhotos([]);
+        if (voiceNoteUrl) URL.revokeObjectURL(voiceNoteUrl);
+        setVoiceNoteBlob(null);
+        setVoiceNoteUrl('');
         setSavedCount(c => c + 1);
         toast.success(t('Item saved! Ready for next.', 'Αποθηκεύτηκε! Έτοιμο για επόμενο.'));
       }
