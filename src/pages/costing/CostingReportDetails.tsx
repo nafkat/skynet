@@ -555,6 +555,15 @@ export default function CostingReportDetails() {
                               )}
                             </Button>
                           </div>
+
+                          {item.voice_note_url && (
+                            <div className="mt-2 flex items-center gap-2">
+                              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                                🎙️ {t('Voice Note', 'Ηχητικό')}
+                              </span>
+                              <audio src={item.voice_note_url} controls className="h-8 max-w-full" />
+                            </div>
+                          )}
                         </div>
 
 
