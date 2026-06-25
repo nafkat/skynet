@@ -86,11 +86,29 @@ export default function CostingFieldEntry() {
 
   const [saving, setSaving] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
+  const [savedItems, setSavedItems] = useState<{ id: string; description: string }[]>([]);
   const [lastSavedDesc, setLastSavedDesc] = useState<string>('');
   const [saveError, setSaveError] = useState<string>('');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmLeave, setConfirmLeave] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const cameraRef = useRef<HTMLInputElement>(null);
+
+  const hasUnsaved =
+    !isEditMode &&
+    (description.trim().length > 0 || quantity.trim().length > 0 || photos.length > 0);
+
+  // Warn on browser/tab close while unsaved
+  useEffect(() => {
+    if (!hasUnsaved) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [hasUnsaved]);
+
 
   useEffect(() => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -366,6 +384,9 @@ export default function CostingFieldEntry() {
         navigate(`/costing/reports/${id}`);
       } else {
         setLastSavedDesc(savedDescription);
+        if (itemId) {
+          setSavedItems((prev) => [...prev, { id: itemId!, description: savedDescription }]);
+        }
         setDescription('');
         setQuantity('');
         setUnit('');
@@ -406,7 +427,17 @@ export default function CostingFieldEntry() {
     }
   };
 
-  const handleDone = () => navigate(`/costing/reports/${id}`);
+  const handleDone = () => {
+    if (hasUnsaved) {
+      setConfirmLeave(true);
+      return;
+    }
+    navigate(`/costing/reports/${id}`);
+  };
+  const confirmLeaveNow = () => {
+    setConfirmLeave(false);
+    navigate(`/costing/reports/${id}`);
+  };
 
   return (
     <div
@@ -455,6 +486,20 @@ export default function CostingFieldEntry() {
             </Button>
           )}
         </div>
+
+        {/* Saved-this-session banner */}
+        {!isEditMode && savedItems.length > 0 && (
+          <div className="bg-green-500/15 backdrop-blur-sm border border-green-400/50 rounded-xl p-3 space-y-1">
+            <div className="text-green-50 text-xs font-semibold uppercase tracking-wider">
+              {t('Saved in this session', 'Αποθηκευμένα σε αυτή τη συνεδρία')} ({savedItems.length})
+            </div>
+            <ol className="text-green-50 text-sm space-y-0.5 list-decimal list-inside max-h-40 overflow-auto">
+              {savedItems.map((it) => (
+                <li key={it.id} className="truncate" title={it.description}>{it.description}</li>
+              ))}
+            </ol>
+          </div>
+        )}
 
         {/* Section selector */}
         <div className="bg-card/80 backdrop-blur-sm rounded-xl border border-border p-4 space-y-3">
@@ -711,6 +756,29 @@ export default function CostingFieldEntry() {
               className="bg-destructive text-destructive-foreground"
             >
               {deleting ? t('Deleting...', 'Διαγραφή...') : t('Delete', 'Διαγραφή')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmLeave} onOpenChange={setConfirmLeave}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('Leave without saving?', 'Έξοδος χωρίς αποθήκευση;')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t(
+                'You have an unsaved item (description, quantity, or photos). If you leave now, it will be lost.',
+                'Έχετε μη αποθηκευμένη εργασία (περιγραφή, ποσότητα ή φωτογραφίες). Αν φύγετε, θα χαθεί.',
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('Stay & save', 'Παραμονή & αποθήκευση')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmLeaveNow}
+              className="bg-destructive text-destructive-foreground"
+            >
+              {t('Leave anyway', 'Έξοδος ούτως ή άλλως')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
