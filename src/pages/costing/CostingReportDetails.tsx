@@ -22,6 +22,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
+import SectionAttachments from '@/components/costing/SectionAttachments';
 
 interface ItemPhoto {
   id: string;
@@ -633,6 +634,7 @@ export default function CostingReportDetails() {
                   ))}
                 </div>
               )}
+              {sec.isOpen && <SectionAttachments sectionId={sec.id} />}
             </div>
           ))
         )}

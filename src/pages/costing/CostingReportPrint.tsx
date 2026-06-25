@@ -16,11 +16,17 @@ interface CostItem {
   photos: string[];
 }
 
+interface SectionAttachment {
+  file_name: string;
+  url: string;
+}
+
 interface CostSection {
   id: string;
   title: string;
   sort_order: number;
   cost_items: CostItem[];
+  attachments: SectionAttachment[];
 }
 
 interface Company {
@@ -120,11 +126,30 @@ export default function CostingReportPrint() {
                   };
                 }),
             );
+            // Section-level attachments with long-lived signed URLs (1 year)
+            const { data: atts } = await supabase
+              .from('cost_section_attachments')
+              .select('storage_path, file_name')
+              .eq('section_id', s.id)
+              .order('created_at', { ascending: true });
+            let attachments: SectionAttachment[] = [];
+            if (atts && atts.length > 0) {
+              const { data: signed } = await supabase.storage
+                .from('cost-attachments')
+                .createSignedUrls(atts.map((a: any) => a.storage_path), 60 * 60 * 24 * 365);
+              const map = new Map<string, string>();
+              (signed || []).forEach((s: any) => s.signedUrl && s.path && map.set(s.path, s.signedUrl));
+              attachments = atts.map((a: any) => ({
+                file_name: a.file_name,
+                url: map.get(a.storage_path) || '',
+              })).filter((a) => a.url);
+            }
             return {
               id: s.id,
               title: s.title,
               sort_order: s.sort_order,
               cost_items: items,
+              attachments,
             };
           }),
         );
@@ -391,6 +416,29 @@ export default function CostingReportPrint() {
                   </div>
                 );
               })}
+
+              {sec.attachments.length > 0 && (
+                <div className="avoid-break mt-2 mb-3 border border-slate-200 rounded-md p-3 bg-slate-50">
+                  <div className="text-[9pt] uppercase tracking-wider text-slate-600 mb-1.5">
+                    {t('Attachments', 'Συνημμένα')}
+                  </div>
+                  <ul className="text-[10pt] space-y-1">
+                    {sec.attachments.map((a, i) => (
+                      <li key={i}>
+                        <a
+                          href={a.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sky-700 underline [overflow-wrap:anywhere]"
+                        >
+                          📎 {a.file_name}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
 
               <div className="avoid-break flex justify-end mt-2 mb-4 pr-2">
                 <div className="text-[10pt]">
