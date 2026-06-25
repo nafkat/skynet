@@ -1,0 +1,1 @@
+ALTER TABLE public.cost_reports ADD COLUMN IF NOT EXISTS cover_photo_path TEXT;
