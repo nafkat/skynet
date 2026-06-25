@@ -50,6 +50,7 @@ interface ReportData {
   version_notes: string | null;
   created_at: string;
   status: string;
+  cover_photo_path: string | null;
   projects: {
     project_code: string;
     project_name: string;
@@ -78,6 +79,7 @@ export default function CostingReportPrint() {
   const [sections, setSections] = useState<CostSection[]>([]);
   const [company, setCompany] = useState<Company | null>(null);
   const [companyLogoSigned, setCompanyLogoSigned] = useState<string | null>(null);
+  const [coverPhotoSigned, setCoverPhotoSigned] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -86,7 +88,7 @@ export default function CostingReportPrint() {
         const { data: r } = await supabase
           .from('cost_reports')
           .select(
-            'code, version_number, status, version_notes, created_at, projects(project_code, project_name, customer_company_name, assigned_shipyard_company)',
+            'code, version_number, status, version_notes, created_at, cover_photo_path, projects(project_code, project_name, customer_company_name, assigned_shipyard_company)',
           )
           .eq('id', id)
           .single();
@@ -176,6 +178,15 @@ export default function CostingReportPrint() {
             }
           }
         }
+
+        // Cover photo
+        const coverPath = (r as any)?.cover_photo_path as string | null;
+        if (coverPath) {
+          const { data: cs } = await supabase.storage
+            .from('cost-photos')
+            .createSignedUrl(coverPath, 60 * 60);
+          if (cs?.signedUrl) setCoverPhotoSigned(cs.signedUrl);
+        }
       } finally {
         setLoading(false);
       }
@@ -248,14 +259,14 @@ export default function CostingReportPrint() {
       <style>{`
         @page {
           size: A4;
-          margin: 28mm 16mm 22mm 16mm;
+          margin: 36mm 16mm 22mm 16mm;
         }
         @media print {
           .no-print { display: none !important; }
           html, body { background: white !important; }
           .print-page-bg { background: white !important; }
           .running-header {
-            position: fixed; top: -22mm; left: 0; right: 0;
+            position: fixed; top: -30mm; left: 0; right: 0;
             border-bottom: 1.5pt solid #0c4a6e;
           }
           .running-footer {
@@ -350,12 +361,22 @@ export default function CostingReportPrint() {
                 </div>
               )}
 
-              <div className="mt-[30mm] inline-block border border-sky-200 bg-sky-50 px-8 py-4 rounded-md">
-                <div className="text-[9pt] uppercase tracking-wider text-slate-500">
-                  {t('Grand Total', 'Γενικό Σύνολο')}
+              {coverPhotoSigned && (
+                <div className="mt-[20mm] flex justify-center">
+                  <img
+                    src={coverPhotoSigned}
+                    alt=""
+                    crossOrigin="anonymous"
+                    style={{
+                      maxWidth: '150mm',
+                      maxHeight: '95mm',
+                      objectFit: 'contain',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '3px',
+                    }}
+                  />
                 </div>
-                <div className="text-[24pt] font-bold text-sky-900">{fmt(grandTotal)}</div>
-              </div>
+              )}
             </div>
           </div>
 
@@ -475,28 +496,6 @@ export default function CostingReportPrint() {
             <div className="text-[18pt] font-bold text-sky-900">{fmt(grandTotal)}</div>
           </div>
 
-          {/* SIGNATURES */}
-          <div className="avoid-break mt-[20mm] page-break">
-            <h3 className="text-[12pt] font-semibold mb-6 text-slate-700">
-              {t('Signatures', 'Υπογραφές')}
-            </h3>
-            <div className="grid grid-cols-2 gap-12 mt-[15mm]">
-              <SignatureBlock
-                label={t('Issued by', 'Εκδότης')}
-                name={company?.company_name || report.projects?.assigned_shipyard_company || ''}
-              />
-              <SignatureBlock
-                label={t('Client', 'Πελάτης')}
-                name={report.projects?.customer_company_name || ''}
-              />
-            </div>
-            <div className="mt-12 text-[9pt] text-slate-500 italic">
-              {t(
-                'This document was issued by the company listed above. Prices are valid for 30 days from the date of issue unless otherwise stated.',
-                'Το παρόν έγγραφο εκδόθηκε από την παραπάνω εταιρεία. Οι τιμές ισχύουν για 30 ημέρες από την ημερομηνία έκδοσης, εκτός εάν αναφέρεται διαφορετικά.',
-              )}
-            </div>
-          </div>
         </div>
       </div>
     </>

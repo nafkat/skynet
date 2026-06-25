@@ -562,6 +562,7 @@ export type Database = {
       cost_reports: {
         Row: {
           code: string
+          cover_photo_path: string | null
           created_at: string
           created_by: string | null
           deleted_at: string | null
@@ -581,6 +582,7 @@ export type Database = {
         }
         Insert: {
           code?: string
+          cover_photo_path?: string | null
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
@@ -600,6 +602,7 @@ export type Database = {
         }
         Update: {
           code?: string
+          cover_photo_path?: string | null
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null

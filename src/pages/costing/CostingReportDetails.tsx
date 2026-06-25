@@ -65,6 +65,7 @@ interface CostReport {
   created_by: string | null;
   version_notes: string | null;
   created_at: string;
+  cover_photo_path: string | null;
   projects: {
     project_code: string;
     project_name: string;
@@ -109,6 +110,8 @@ export default function CostingReportDetails() {
   const [confirmDeleteReport, setConfirmDeleteReport] = useState(false);
   const [detailItemId, setDetailItemId] = useState<string | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [coverPhotoUrl, setCoverPhotoUrl] = useState<string | null>(null);
+  const [uploadingCover, setUploadingCover] = useState(false);
 
   const canViewCosts = hasElevatedRole || hasPermission('costing.costs.view');
   const canEditCostsBase = hasElevatedRole || hasPermission('costing.costs.edit');
@@ -133,6 +136,14 @@ export default function CostingReportDetails() {
     (!reviewLocked || canBypassLock) &&
     (canDeleteAnyItem || (!!user && item.created_by === user.id));
 
+  // Cover photo can be edited by Admin/Manager OR any field user with item create perm
+  const canEditCover =
+    (hasElevatedRole ||
+      canEditCostsBase ||
+      hasPermission('costing.items.create') ||
+      hasPermission('costing.items.edit')) &&
+    (!reviewLocked || canBypassLock);
+
   const fetchReport = async () => {
     if (!id) return;
     setLoading(true);
@@ -140,7 +151,7 @@ export default function CostingReportDetails() {
       const { data: r } = await supabase
         .from('cost_reports')
         .select(
-          'id, code, version_number, status, review_status, created_by, version_notes, created_at, projects(project_code, project_name, customer_company_name, assigned_shipyard_company)',
+          'id, code, version_number, status, review_status, created_by, version_notes, created_at, cover_photo_path, projects(project_code, project_name, customer_company_name, assigned_shipyard_company)',
         )
         .eq('id', id)
         .single();
@@ -172,6 +183,18 @@ export default function CostingReportDetails() {
       }
 
       setReport(r as unknown as CostReport);
+
+      // Sign cover photo URL if present
+      const cpPath = (r as any)?.cover_photo_path as string | null;
+      if (cpPath) {
+        const { data: cs } = await supabase.storage
+          .from('cost-photos')
+          .createSignedUrl(cpPath, 60 * 60);
+        setCoverPhotoUrl(cs?.signedUrl ?? null);
+      } else {
+        setCoverPhotoUrl(null);
+      }
+
       setSections(
         ((secs as any[]) || []).map((s) => ({
           ...s,
@@ -265,6 +288,67 @@ export default function CostingReportDetails() {
     }
     setUpdatingStatus(false);
   };
+
+  const handleUploadCoverPhoto = async (file: File) => {
+    if (!id || !report) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error(t('File too large (max 10MB)', 'Πολύ μεγάλο αρχείο (μέγ. 10MB)'));
+      return;
+    }
+    setUploadingCover(true);
+    try {
+      const ext = file.name.split('.').pop() || 'jpg';
+      const path = `covers/${id}/${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from('cost-photos')
+        .upload(path, file, { upsert: false, contentType: file.type });
+      if (upErr) throw upErr;
+
+      // Remove any previous cover photo from storage
+      if (report.cover_photo_path) {
+        await supabase.storage.from('cost-photos').remove([report.cover_photo_path]);
+      }
+
+      const { error: updErr } = await supabase
+        .from('cost_reports')
+        .update({ cover_photo_path: path, updated_at: new Date().toISOString() })
+        .eq('id', id);
+      if (updErr) throw updErr;
+
+      const { data: cs } = await supabase.storage
+        .from('cost-photos')
+        .createSignedUrl(path, 60 * 60);
+      setCoverPhotoUrl(cs?.signedUrl ?? null);
+      setReport((r) => (r ? { ...r, cover_photo_path: path } : r));
+      toast.success(t('Cover photo updated', 'Η φωτογραφία εξωφύλλου ενημερώθηκε'));
+    } catch (e: any) {
+      toast.error(e?.message || t('Upload failed', 'Αποτυχία ανεβάσματος'));
+    } finally {
+      setUploadingCover(false);
+    }
+  };
+
+  const handleDeleteCoverPhoto = async () => {
+    if (!id || !report?.cover_photo_path) return;
+    setUploadingCover(true);
+    try {
+      await supabase.storage.from('cost-photos').remove([report.cover_photo_path]);
+      const { error } = await supabase
+        .from('cost_reports')
+        .update({ cover_photo_path: null, updated_at: new Date().toISOString() })
+        .eq('id', id);
+      if (error) throw error;
+      setCoverPhotoUrl(null);
+      setReport((r) => (r ? { ...r, cover_photo_path: null } : r));
+      toast.success(t('Cover photo removed', 'Η φωτογραφία εξωφύλλου αφαιρέθηκε'));
+    } catch (e: any) {
+      toast.error(e?.message || t('Delete failed', 'Αποτυχία διαγραφής'));
+    } finally {
+      setUploadingCover(false);
+    }
+  };
+
+
 
 
   const handleDeleteItem = async () => {
@@ -468,6 +552,68 @@ export default function CostingReportDetails() {
             value={new Date(report.created_at).toLocaleDateString('el-GR')}
           />
         </div>
+
+        {/* Cover photo (shown on PDF cover) */}
+        {(coverPhotoUrl || canEditCover) && (
+          <div className="border-t pt-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-muted-foreground">
+                {t('Cover Photo (PDF)', 'Φωτογραφία Εξωφύλλου (PDF)')}
+              </span>
+              {canEditCover && (
+                <div className="flex items-center gap-2">
+                  <label className="inline-flex items-center gap-1 cursor-pointer text-xs px-2 py-1 rounded border hover:bg-muted">
+                    <ImageIcon className="h-3.5 w-3.5" />
+                    {coverPhotoUrl
+                      ? t('Replace', 'Αντικατάσταση')
+                      : t('Upload', 'Ανέβασμα')}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      disabled={uploadingCover}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleUploadCoverPhoto(f);
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
+                  {coverPhotoUrl && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={uploadingCover}
+                      onClick={handleDeleteCoverPhoto}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+            {coverPhotoUrl ? (
+              <button
+                type="button"
+                onClick={() => setLightboxUrl(coverPhotoUrl)}
+                className="block w-full"
+              >
+                <img
+                  src={coverPhotoUrl}
+                  alt="cover"
+                  className="w-full max-h-64 object-cover rounded border"
+                />
+              </button>
+            ) : (
+              <p className="text-xs text-muted-foreground italic">
+                {t(
+                  'Optional — will appear on the PDF cover page.',
+                  'Προαιρετική — θα εμφανιστεί στο εξώφυλλο του PDF.',
+                )}
+              </p>
+            )}
+          </div>
+        )}
 
         {canViewCosts && (
           <div className="border-t pt-4 flex items-center justify-between">
