@@ -206,6 +206,42 @@ export default function CostingReportPrint() {
   const fileName = `${data.code}-v${data.version_number}.pdf`;
   const doc = <CostingReportPdfDoc data={data} />;
 
+  const triggerDownload = async () => {
+    if (!data) return;
+    setDownloading(true);
+    try {
+      const blob = await pdf(<CostingReportPdfDoc data={data} />).toBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      toast.error(t('Failed to generate PDF', 'Αποτυχία δημιουργίας PDF'));
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handleDownloadClick = () => {
+    if (!data) return;
+    const result = runPdfPreflight({ data, rawSectionCount });
+    if (result.issues.length === 0) {
+      triggerDownload();
+      return;
+    }
+    setIssues(result.issues);
+    setPreflightOpen(true);
+    if (!result.ok) {
+      // contains an error → block automatic download; user must close.
+    }
+  };
+
+  const hasErrors = issues.some((i) => i.severity === 'error');
+
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
       <div className="sticky top-0 z-50 bg-card border-b shadow-sm px-4 py-3 flex items-center gap-3">
@@ -219,18 +255,14 @@ export default function CostingReportPrint() {
             'Προεπισκόπηση του τελικού PDF — πάτα Λήψη για αποθήκευση',
           )}
         </div>
-        <PDFDownloadLink document={doc} fileName={fileName}>
-          {({ loading: l }) => (
-            <Button size="sm" disabled={l}>
-              {l ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4 mr-2" />
-              )}
-              {l ? t('Preparing…', 'Προετοιμασία…') : t('Download PDF', 'Λήψη PDF')}
-            </Button>
+        <Button size="sm" disabled={downloading} onClick={handleDownloadClick}>
+          {downloading ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Download className="h-4 w-4 mr-2" />
           )}
-        </PDFDownloadLink>
+          {downloading ? t('Preparing…', 'Προετοιμασία…') : t('Download PDF', 'Λήψη PDF')}
+        </Button>
       </div>
 
       <div className="flex-1 p-4">
@@ -241,6 +273,66 @@ export default function CostingReportPrint() {
           {doc}
         </PDFViewer>
       </div>
+
+      <Dialog open={preflightOpen} onOpenChange={setPreflightOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {t('Pre-download check', 'Έλεγχος πριν τη λήψη')}
+            </DialogTitle>
+            <DialogDescription>
+              {hasErrors
+                ? t(
+                    'The PDF cannot be generated due to the following issues:',
+                    'Το PDF δεν μπορεί να δημιουργηθεί λόγω των παρακάτω ζητημάτων:',
+                  )
+                : t(
+                    'We found some issues. You can still download, but please review:',
+                    'Βρέθηκαν κάποια ζητήματα. Μπορείς να κατεβάσεις, αλλά κάνε έναν έλεγχο:',
+                  )}
+            </DialogDescription>
+          </DialogHeader>
+          <ul className="space-y-2 max-h-72 overflow-y-auto">
+            {issues.map((it, idx) => {
+              const Icon =
+                it.severity === 'error'
+                  ? XCircle
+                  : it.severity === 'warning'
+                    ? AlertTriangle
+                    : Info;
+              const color =
+                it.severity === 'error'
+                  ? 'text-destructive'
+                  : it.severity === 'warning'
+                    ? 'text-amber-600'
+                    : 'text-sky-600';
+              return (
+                <li key={idx} className="flex gap-2 text-sm">
+                  <Icon className={`h-4 w-4 mt-0.5 flex-shrink-0 ${color}`} />
+                  <span>{language === 'el' ? it.message.el : it.message.en}</span>
+                </li>
+              );
+            })}
+          </ul>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPreflightOpen(false)}>
+              {t('Cancel', 'Άκυρο')}
+            </Button>
+            {!hasErrors && (
+              <Button
+                onClick={() => {
+                  setPreflightOpen(false);
+                  triggerDownload();
+                }}
+                disabled={downloading}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                {t('Download anyway', 'Λήψη πάραυτα')}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
