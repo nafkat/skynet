@@ -165,6 +165,7 @@ export default function CostingReportDetails() {
             .sort((a: any, b: any) => a.sort_order - b.sort_order)
             .map((it: any) => ({
               ...it,
+              voice_note_url: it.voice_note_path ? urlByPath.get(it.voice_note_path) : undefined,
               photos: (it.cost_item_photos || []).map((p: any) => ({
                 id: p.id,
                 storage_path: p.storage_path,
