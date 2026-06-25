@@ -50,6 +50,7 @@ interface ReportData {
   version_notes: string | null;
   created_at: string;
   status: string;
+  cover_photo_path: string | null;
   projects: {
     project_code: string;
     project_name: string;
