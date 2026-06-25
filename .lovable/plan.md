@@ -1,41 +1,60 @@
-## Πρόβλημα
+## Costing Approval Workflow
 
-1. **Field Entry — items δεν εμφανίζονται.** Στο CR-0004 βλέπεις μόνο 1 item (KATASKEVI), που είναι αυτό που δημιουργήθηκε με τη φόρμα "New Report". Από τα network logs καμία νέα αποθήκευση από Field Entry δεν έφτασε στο `cost_items`. Η RLS επιτρέπει σε admin να κάνει insert, οπότε η πιο πιθανή αιτία είναι ότι ο toast σφάλματος εμφανίζεται για λίγο και χάνεται, ή σιωπηλά αποτυγχάνει σε ένα δευτερεύον βήμα (π.χ. upload photo) και το item δεν επιστρέφεται. Δεν υπάρχει banner ορατότητας/επιβεβαίωσης μέσα στη φόρμα.
-2. **Πεδίο τιμής δυσδιάκριτο.** Στο Cost Report Details, η τιμή φαίνεται απλά ως κείμενο "€600.00" δίπλα από ένα μικρό μολυβάκι. Δεν μοιάζει με "κυψέλη" όπου μπαίνει τιμή.
+### Statuses (διπλό μοντέλο)
 
-## Λύσεις
+**Internal (review_status):**
+- `draft` → Field user γράφει
+- `submitted_for_review` → submitted από field user
+- `changes_requested` → Manager/Admin ζήτησε αλλαγές με σχόλιο
+- `approved` → Manager/Admin ενέκρινε
 
-### A. Field Entry — αξιόπιστη αποθήκευση & ορατότητα
+**External (status — υπάρχει ήδη):**
+- `sent`, `agreed`, `invoiced` → ξεκλειδώνουν ΜΟΝΟ όταν `review_status = approved`
 
-Αρχείο: `src/pages/costing/CostingFieldEntry.tsx`
+### Database
 
-1. **Σφάλματα ορατά μέσα στη φόρμα** (όχι μόνο toast): προσθήκη κόκκινου banner κάτω από το κουμπί Save με το πραγματικό μήνυμα της Supabase (`error.message`) όταν αποτυγχάνει το insert ή το upload φωτογραφίας. Δεν αναιρείται με auto-dismiss.
-2. **Σωστή ροή αποθήκευσης**:
-   - Έλεγχος `iErr` πρώτα· αν `!item` αλλά χωρίς error, να γίνεται ξεχωριστή ανάκτηση με `select().eq('id', …)` (workaround για περίπτωση RLS να επιτρέπει insert αλλά όχι το returning).
-   - Αν αποτύχει το photo upload, να μη χάνεται το item — toast προειδοποίησης για τη συγκεκριμένη φωτογραφία, αλλά το item μένει σωσμένο.
-3. **Επιβεβαίωση επιτυχίας**: μετά από κάθε save, εμφάνιση πράσινου mini-summary "Last saved: <description>" (μένει ορατό μέχρι το επόμενο save) ώστε ο χρήστης να βλέπει σαφώς ότι κάτι μπήκε.
-4. **Live counter ήδη υπάρχει** ("X saved") — να γίνει εμφανέστερο.
+1. `cost_reports`: νέες στήλες
+   - `review_status` text default `'draft'`
+   - `submitted_at`, `submitted_by`
+   - `reviewed_at`, `reviewed_by`
+2. Νέος πίνακας `cost_report_review_comments` (id, report_id, author_id, comment, created_at) — για το «changes requested» thread + GRANTs + RLS.
+3. Νέος πίνακας `cost_report_notifications` (id, report_id, user_id, type, read_at, created_at) — in-app bell για Admin/Manager.
+4. RLS: external status transitions επιτρέπονται μόνο όταν `review_status='approved'`.
 
-### B. Cost Report Details — εμφανέστερη κυψέλη τιμής
+### Permissions
+- `costing.reports.submit` → field users (auto από template)
+- `costing.reports.approve` → Admin + Manager
+- Approve/Reject επιτρέπεται σε Admin **και** Manager
 
-Αρχείο: `src/pages/costing/CostingReportDetails.tsx`
+### UI
 
-Για χρήστες με δικαίωμα `canEditCosts` (Admin/Manager):
+**CostingReportDetails / CostingFieldEntry:**
+- Field user σε `draft` ή `changes_requested`: κουμπί **"Submit for Review"**
+- Σε `submitted_for_review` / `approved`: read-only για field user (lock editing)
+- Manager/Admin σε `submitted_for_review`: κουμπιά **"Approve"** & **"Request Changes"** (με υποχρεωτικό σχόλιο σε modal)
+- Comments thread ορατό σε όλους τους εμπλεκόμενους
+- External status dropdown (sent/agreed/invoiced) disabled μέχρι `approved`
 
-1. Σε κάθε item, αντί για κείμενο + μολυβάκι, εμφάνιση **πάντα ορατού input** "Unit price" (στυλ κυψέλης πίνακα) με € prefix, που σώζει σε `onBlur` ή Enter. Έτσι ο χρήστης βλέπει αμέσως πού μπαίνει η τιμή.
-2. Διπλά labels στο header της λίστας: **Qty · Unit · Unit Price · Total** ώστε να μοιάζει με πίνακα κοστολόγησης.
-3. Για χρήστες χωρίς `canEditCosts`, το πεδίο παραμένει read-only κείμενο όπως σήμερα.
+**CostingDashboard:**
+- Νέο φίλτρο: review_status badge (Draft / Pending Review / Changes Requested / Approved)
+- Χρωματιστά badges
+- Tab «Pending my review» για Admin/Manager
 
-Δεν χρειάζονται αλλαγές σε DB ή RLS — όλα είναι frontend.
+**Bell notification (in-app μόνο, χωρίς email):**
+- Στο `CostingLayout` header, καμπανάκι με unread count
+- Trigger όταν: field user κάνει submit → notify όλους Admin/Manager. Manager κάνει request changes/approve → notify creator.
+- Realtime via Supabase subscription στο `cost_report_notifications`.
 
-## Εκτός εμβέλειας τώρα
+### Bilingual labels
+EL/EN strings για όλα τα νέα statuses, κουμπιά, και notifications.
 
-- Δεν προσθέτουμε πεδίο τιμής στο Field Entry (το επιβεβαίωσες).
-- Δεν αλλάζουμε τη συμπεριφορά του "New Version" κουμπιού (σε άλλη κουβέντα).
+### Files to touch
+- Migration: schema + RLS + trigger για auto-notification on status change
+- `src/pages/costing/CostingReportDetails.tsx` — workflow actions, comments thread, lock states
+- `src/pages/costing/CostingFieldEntry.tsx` — submit button, lock όταν not editable
+- `src/pages/costing/CostingDashboard.tsx` — review_status filter + badges
+- `src/components/costing/CostingLayout.tsx` — notification bell
+- Νέο: `src/components/costing/ReviewActions.tsx`, `ReviewCommentsThread.tsx`, `CostingNotificationsBell.tsx`
+- Permission templates seed (admin/manager get approve, field gets submit)
 
-## Επαλήθευση
-
-Μετά την εφαρμογή:
-- Άνοιγμα CR-0004 → Field Entry → προσθήκη item με voice/text → επιβεβαίωση ότι εμφανίζεται στο Details με ορατή κυψέλη τιμής.
-- Επιβεβαίωση στη DB ότι νέα γραμμή υπάρχει στο `cost_items` με σωστό `created_by`.
-- Στο Details, εισαγωγή τιμής σε κενή κυψέλη → onBlur → εμφάνιση Total + ενημέρωση Grand Total.
+Έτοιμος να το χτίσω.
