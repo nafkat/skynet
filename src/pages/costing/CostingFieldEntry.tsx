@@ -645,6 +645,25 @@ export default function CostingFieldEntry() {
           </label>
         </div>
 
+        {/* Error banner */}
+        {saveError && (
+          <div className="rounded-lg border border-red-400/60 bg-red-500/15 text-red-100 p-3 text-sm">
+            <div className="font-semibold mb-0.5">{t('Save failed', 'Αποτυχία αποθήκευσης')}</div>
+            <div className="break-words">{saveError}</div>
+          </div>
+        )}
+
+        {/* Last saved confirmation */}
+        {!isEditMode && lastSavedDesc && !saveError && (
+          <div className="rounded-lg border border-green-400/60 bg-green-500/15 text-green-100 p-3 text-sm flex items-start gap-2">
+            <Check className="h-4 w-4 mt-0.5 shrink-0" />
+            <div className="min-w-0">
+              <div className="font-semibold">{t('Last saved', 'Τελευταία αποθήκευση')}</div>
+              <div className="truncate">{lastSavedDesc}</div>
+            </div>
+          </div>
+        )}
+
         {/* Save */}
         <Button
           onClick={handleSave}
@@ -665,6 +684,7 @@ export default function CostingFieldEntry() {
             </>
           )}
         </Button>
+
 
         <Button
           variant="outline"
