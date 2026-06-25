@@ -417,6 +417,29 @@ export default function CostingReportPrint() {
                 );
               })}
 
+              {sec.attachments.length > 0 && (
+                <div className="avoid-break mt-2 mb-3 border border-slate-200 rounded-md p-3 bg-slate-50">
+                  <div className="text-[9pt] uppercase tracking-wider text-slate-600 mb-1.5">
+                    {t('Attachments', 'Συνημμένα')}
+                  </div>
+                  <ul className="text-[10pt] space-y-1">
+                    {sec.attachments.map((a, i) => (
+                      <li key={i}>
+                        <a
+                          href={a.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sky-700 underline [overflow-wrap:anywhere]"
+                        >
+                          📎 {a.file_name}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+
               <div className="avoid-break flex justify-end mt-2 mb-4 pr-2">
                 <div className="text-[10pt]">
                   <span className="text-slate-600 mr-2">
