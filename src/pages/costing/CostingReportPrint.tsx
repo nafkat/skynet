@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Download, Loader2, AlertTriangle, Info, XCircle } from 'lucide-react';
-import { pdf, PDFViewer } from '@react-pdf/renderer';
+import { pdf } from '@react-pdf/renderer';
 import {
   CostingReportPdfDoc,
   type PdfReportInput,
@@ -204,7 +204,6 @@ export default function CostingReportPrint() {
   }
 
   const fileName = `${data.code}-v${data.version_number}.pdf`;
-  const doc = <CostingReportPdfDoc data={data} />;
 
   const triggerDownload = async () => {
     if (!data) return;
@@ -221,6 +220,21 @@ export default function CostingReportPrint() {
       URL.revokeObjectURL(url);
     } catch (e: any) {
       toast.error(t('Failed to generate PDF', 'Αποτυχία δημιουργίας PDF'));
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handleOpenPreview = async () => {
+    if (!data) return;
+    setDownloading(true);
+    try {
+      const blob = await pdf(<CostingReportPdfDoc data={data} />).toBlob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener,noreferrer');
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (e: any) {
+      toast.error(t('Failed to generate PDF preview', 'Αποτυχία δημιουργίας προεπισκόπησης PDF'));
     } finally {
       setDownloading(false);
     }
@@ -266,12 +280,34 @@ export default function CostingReportPrint() {
       </div>
 
       <div className="flex-1 p-4">
-        <PDFViewer
-          showToolbar={false}
-          style={{ width: '100%', height: 'calc(100vh - 110px)', border: 'none' }}
-        >
-          {doc}
-        </PDFViewer>
+        <div className="h-[calc(100vh-110px)] rounded-md border bg-card flex flex-col items-center justify-center gap-4 text-center px-6">
+          <Info className="h-8 w-8 text-sky-600" />
+          <div className="space-y-1">
+            <p className="text-sm font-medium">
+              {t('PDF export is ready.', 'Το PDF export είναι έτοιμο.')}
+            </p>
+            <p className="text-xs text-muted-foreground max-w-md">
+              {t(
+                'Chrome sometimes blocks embedded PDF viewers inside the live preview sandbox. Use Open preview or Download PDF instead.',
+                'Ο Chrome μερικές φορές μπλοκάρει ενσωματωμένους PDF viewers μέσα στο sandbox του live preview. Χρησιμοποίησε Άνοιγμα προεπισκόπησης ή Λήψη PDF.',
+              )}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <Button variant="outline" size="sm" disabled={downloading} onClick={handleOpenPreview}>
+              {downloading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              {t('Open preview', 'Άνοιγμα προεπισκόπησης')}
+            </Button>
+            <Button size="sm" disabled={downloading} onClick={handleDownloadClick}>
+              {downloading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4 mr-2" />
+              )}
+              {t('Download PDF', 'Λήψη PDF')}
+            </Button>
+          </div>
+        </div>
       </div>
 
       <Dialog open={preflightOpen} onOpenChange={setPreflightOpen}>
