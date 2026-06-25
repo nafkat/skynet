@@ -259,7 +259,7 @@ export default function CostingReportPrint() {
       <style>{`
         @page {
           size: A4;
-          margin: 28mm 16mm 22mm 16mm;
+          margin: 36mm 16mm 22mm 16mm;
         }
         @media print {
           .no-print { display: none !important; }
