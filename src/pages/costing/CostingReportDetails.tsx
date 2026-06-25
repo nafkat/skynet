@@ -139,7 +139,7 @@ export default function CostingReportDetails() {
       const { data: r } = await supabase
         .from('cost_reports')
         .select(
-          'id, code, version_number, status, version_notes, created_at, projects(project_code, project_name, customer_company_name, assigned_shipyard_company)',
+          'id, code, version_number, status, review_status, created_by, version_notes, created_at, projects(project_code, project_name, customer_company_name, assigned_shipyard_company)',
         )
         .eq('id', id)
         .single();
