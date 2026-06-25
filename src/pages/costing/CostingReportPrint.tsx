@@ -496,28 +496,6 @@ export default function CostingReportPrint() {
             <div className="text-[18pt] font-bold text-sky-900">{fmt(grandTotal)}</div>
           </div>
 
-          {/* SIGNATURES */}
-          <div className="avoid-break mt-[20mm] page-break">
-            <h3 className="text-[12pt] font-semibold mb-6 text-slate-700">
-              {t('Signatures', 'Υπογραφές')}
-            </h3>
-            <div className="grid grid-cols-2 gap-12 mt-[15mm]">
-              <SignatureBlock
-                label={t('Issued by', 'Εκδότης')}
-                name={company?.company_name || report.projects?.assigned_shipyard_company || ''}
-              />
-              <SignatureBlock
-                label={t('Client', 'Πελάτης')}
-                name={report.projects?.customer_company_name || ''}
-              />
-            </div>
-            <div className="mt-12 text-[9pt] text-slate-500 italic">
-              {t(
-                'This document was issued by the company listed above. Prices are valid for 30 days from the date of issue unless otherwise stated.',
-                'Το παρόν έγγραφο εκδόθηκε από την παραπάνω εταιρεία. Οι τιμές ισχύουν για 30 ημέρες από την ημερομηνία έκδοσης, εκτός εάν αναφέρεται διαφορετικά.',
-              )}
-            </div>
-          </div>
         </div>
       </div>
     </>
