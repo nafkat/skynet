@@ -102,7 +102,7 @@ export default function CostingNotificationsBell() {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-80 p-0">
+      <PopoverContent align="start" side="bottom" className="w-80 p-0 z-50">
         <div className="p-3 border-b flex items-center justify-between">
           <span className="font-medium text-sm">{t('Notifications', 'Ειδοποιήσεις')}</span>
           {unread > 0 && (
