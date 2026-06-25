@@ -405,19 +405,27 @@ export default function CostingReportPrint() {
                     {item.photos.length > 0 && (
                       <div className="grid grid-cols-3 gap-2 mt-3">
                         {item.photos.map((url, i) => (
-                          <img
+                          <a
                             key={i}
-                            src={url}
-                            alt=""
-                            crossOrigin="anonymous"
-                            style={{
-                              width: '100%',
-                              height: '38mm',
-                              objectFit: 'cover',
-                              borderRadius: '3px',
-                              border: '1px solid #e5e7eb',
-                            }}
-                          />
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title={t('Click to open photo', 'Κλικ για άνοιγμα φωτογραφίας')}
+                            style={{ display: 'block', textDecoration: 'none' }}
+                          >
+                            <img
+                              src={url}
+                              alt=""
+                              crossOrigin="anonymous"
+                              style={{
+                                width: '100%',
+                                height: '38mm',
+                                objectFit: 'cover',
+                                borderRadius: '3px',
+                                border: '1px solid #e5e7eb',
+                              }}
+                            />
+                          </a>
                         ))}
                       </div>
                     )}
