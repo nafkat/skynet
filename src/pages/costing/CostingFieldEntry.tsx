@@ -618,21 +618,24 @@ export default function CostingFieldEntry() {
             <Button
               type="button"
               onClick={toggleListening}
+              disabled={transcribing}
               className={`w-full h-14 text-base font-medium transition-all ${
                 isListening
                   ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse'
                   : 'bg-blue-600 hover:bg-blue-700 text-white'
               }`}
             >
-              {isListening ? (
+              {transcribing ? (
+                <>{t('Transcribing...', 'Μεταγραφή...')}</>
+              ) : isListening ? (
                 <>
                   <MicOff className="h-5 w-5 mr-2" />
-                  {t('Stop Recording', 'Διακοπή Εγγραφής')}
+                  {t('Stop & Transcribe', 'Διακοπή & Μεταγραφή')}
                 </>
               ) : (
                 <>
                   <Mic className="h-5 w-5 mr-2" />
-                  {t('Tap to Speak', 'Πατήστε για Ομιλία')}
+                  {t('Tap to Speak (EL/EN)', 'Πατήστε για Ομιλία (EL/EN)')}
                 </>
               )}
             </Button>
