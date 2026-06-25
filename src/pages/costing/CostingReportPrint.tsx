@@ -172,6 +172,7 @@ export default function CostingReportPrint() {
         const filtered = pdfSections.filter(
           (s) => s.items.length > 0 || s.attachments.length > 0,
         );
+        setRawSectionCount(pdfSections.length);
 
         setData({
           language: language === 'el' ? 'el' : 'en',
