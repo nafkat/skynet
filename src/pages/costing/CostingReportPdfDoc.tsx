@@ -11,14 +11,14 @@ import {
 
 // Register the app font for Greek + Latin PDF output.
 Font.register({
-  family: 'RobotoPdf',
+  family: 'NotoSansPdf',
   fonts: [
     {
-      src: 'https://cdn.jsdelivr.net/npm/@fontsource/roboto@5.0.8/files/roboto-greek-400-normal.woff',
+      src: 'https://raw.githubusercontent.com/notofonts/noto-fonts/main/hinted/ttf/NotoSans/NotoSans-Regular.ttf',
       fontWeight: 'normal',
     },
     {
-      src: 'https://cdn.jsdelivr.net/npm/@fontsource/roboto@5.0.8/files/roboto-greek-700-normal.woff',
+      src: 'https://raw.githubusercontent.com/notofonts/noto-fonts/main/hinted/ttf/NotoSans/NotoSans-Bold.ttf',
       fontWeight: 'bold',
     },
   ],
@@ -97,7 +97,7 @@ const SLATE_50 = '#f8fafc';
 
 const styles = StyleSheet.create({
   page: {
-    fontFamily: 'RobotoPdf',
+    fontFamily: 'NotoSansPdf',
     fontSize: 9.5,
     color: '#0f172a',
     paddingTop: 88, // room for running header
