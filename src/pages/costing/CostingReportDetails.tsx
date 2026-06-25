@@ -131,19 +131,44 @@ export default function CostingReportDetails() {
       const { data: secs } = await supabase
         .from('cost_sections')
         .select(
-          'id, title, sort_order, cost_items(id, description, calculation_type, quantity, unit, unit_price, sort_order, created_by)',
+          'id, title, sort_order, cost_items(id, description, calculation_type, quantity, unit, unit_price, sort_order, created_by, created_at, cost_item_photos(id, storage_path, caption))',
         )
         .eq('report_id', id)
         .order('sort_order');
+
+      // Collect every storage path and sign in one batch
+      const allPaths: string[] = [];
+      ((secs as any[]) || []).forEach((s) =>
+        (s.cost_items || []).forEach((it: any) =>
+          (it.cost_item_photos || []).forEach((p: any) => allPaths.push(p.storage_path)),
+        ),
+      );
+      const urlByPath = new Map<string, string>();
+      if (allPaths.length > 0) {
+        const { data: signed } = await supabase.storage
+          .from('cost-photos')
+          .createSignedUrls(allPaths, 60 * 60);
+        (signed || []).forEach((s: any) => {
+          if (s.signedUrl && s.path) urlByPath.set(s.path, s.signedUrl);
+        });
+      }
 
       setReport(r as unknown as CostReport);
       setSections(
         ((secs as any[]) || []).map((s) => ({
           ...s,
           isOpen: true,
-          cost_items: [...(s.cost_items || [])].sort(
-            (a: CostItem, b: CostItem) => a.sort_order - b.sort_order,
-          ),
+          cost_items: [...(s.cost_items || [])]
+            .sort((a: any, b: any) => a.sort_order - b.sort_order)
+            .map((it: any) => ({
+              ...it,
+              photos: (it.cost_item_photos || []).map((p: any) => ({
+                id: p.id,
+                storage_path: p.storage_path,
+                caption: p.caption,
+                signedUrl: urlByPath.get(p.storage_path),
+              })),
+            })),
         })) as CostSection[],
       );
     } finally {
