@@ -194,9 +194,9 @@ export default function CostingDashboard() {
         ))}
       </div>
 
-      <div className="bg-black/40 backdrop-blur-md border border-white/10 rounded-lg p-6">
-        <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-          <h2 className="text-xl font-semibold text-white">
+      <div className="bg-black/40 backdrop-blur-md border border-white/10 rounded-lg p-4 sm:p-6 min-w-0">
+        <div className="flex items-center justify-between gap-3 mb-4 flex-wrap min-w-0">
+          <h2 className="text-lg sm:text-xl font-semibold text-white min-w-0">
             {isSearching
               ? t('Search Results', 'Αποτελέσματα Αναζήτησης')
               : t('Recent Reports', 'Πρόσφατες Αναφορές')}
@@ -204,7 +204,7 @@ export default function CostingDashboard() {
               <span className="ml-2 text-sm font-normal text-white/60">({filtered.length})</span>
             )}
           </h2>
-          <div className="flex items-center gap-2 flex-1 sm:flex-initial min-w-[260px] max-w-md">
+          <div className="flex items-center gap-2 w-full sm:w-auto sm:flex-initial sm:min-w-[260px] sm:max-w-md">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50 pointer-events-none" />
               <Input

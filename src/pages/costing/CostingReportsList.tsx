@@ -98,11 +98,11 @@ export default function CostingReportsList() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <h1 className="text-3xl font-bold text-white">
+      <div className="flex items-start justify-between gap-3 flex-wrap min-w-0">
+        <h1 className="text-2xl sm:text-3xl font-bold text-white break-words min-w-0 flex-1">
           {t('Cost Reports', 'Αναφορές Κόστους')}
         </h1>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={fetchReports} disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             {t('Refresh', 'Ανανέωση')}
@@ -117,7 +117,7 @@ export default function CostingReportsList() {
       </div>
 
       <div className="flex flex-wrap gap-2 items-center">
-        <div className="relative flex-1 min-w-[200px] max-w-md">
+        <div className="relative flex-1 w-full sm:min-w-[200px] max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder={t('Search code, project, client…', 'Αναζήτηση κωδικού, έργου, πελάτη…')}
