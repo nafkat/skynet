@@ -159,16 +159,16 @@ export default function CostingDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-3xl font-bold text-white">
+      <div className="flex items-start justify-between gap-3 flex-wrap min-w-0">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl sm:text-3xl font-bold text-white break-words">
             {t('Costing Dashboard', 'Πίνακας Κοστολόγησης')}
           </h1>
-          <p className="text-white/70 mt-1">
+          <p className="text-white/70 mt-1 text-sm sm:text-base">
             {t('Overview of cost reports', 'Επισκόπηση αναφορών κόστους')}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             {t('Refresh', 'Ανανέωση')}
