@@ -172,8 +172,8 @@ export default function CostingLayout() {
         </div>
       </aside>
 
-      <main className="flex-1 md:ml-72 relative z-10">
-        <div className="p-6 pt-16 md:pt-6">
+      <main className="flex-1 md:ml-72 relative z-10 min-w-0 overflow-x-hidden">
+        <div className="p-3 sm:p-6 pt-16 md:pt-6 min-w-0">
           <Outlet />
         </div>
       </main>
