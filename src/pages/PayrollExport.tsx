@@ -74,10 +74,13 @@ interface PayrollRow {
   regular_hours: number;
   overtime_hours: number;
   regular_hourly_rate: number;
+  regular_rate_all_in: number;
   overtime_hourly_rate: number;
   regular_amount: number;
+  regular_all_in_amount: number;
   overtime_amount: number;
   total_amount: number;
+  total_all_in_ot: number;
   project_code?: string;
   project_name?: string;
 }
