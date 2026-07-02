@@ -239,6 +239,7 @@ export default function AdminDashboard() {
 
   // Filter entries based on selected filters
   const filteredEntries = useMemo(() => {
+    const q = employeeSearch.trim().toLowerCase();
     return timeEntries.filter(entry => {
       if (selectedProject !== 'all' && entry.project_id !== selectedProject) {
         return false;
@@ -247,9 +248,14 @@ export default function AdminDashboard() {
       if (selectedSpecialty !== 'all' && entrySpecialtyId !== selectedSpecialty) {
         return false;
       }
+      if (q) {
+        const emp = entry.employees;
+        const haystack = `${emp.first_name ?? ''} ${emp.last_name ?? ''} ${emp.employee_code ?? ''} ${emp.afm ?? ''}`.toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
       return true;
     });
-  }, [timeEntries, selectedProject, selectedSpecialty]);
+  }, [timeEntries, selectedProject, selectedSpecialty, employeeSearch]);
 
   // KPI Calculations - aligned with Reports logic
   const kpis = useMemo(() => {
