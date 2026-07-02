@@ -88,6 +88,7 @@ interface ActionPermissionRecord {
   action_key: string;
   allowed: boolean;
   description: string | null;
+  module_key: string;
 }
 
 interface AuditLogRecord {
