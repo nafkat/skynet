@@ -207,8 +207,10 @@ export default function PayrollExport() {
       const regular_hours = Math.round((regular_minutes / 60) * 100) / 100;
       const overtime_hours = Math.round((overtime_minutes / 60) * 100) / 100;
       const regular_amount = Math.round(regular_hours * employee.regular_hourly_rate * 100) / 100;
+      const regular_all_in_amount = Math.round(regular_hours * (employee.regular_rate_all_in || 0) * 100) / 100;
       const overtime_amount = Math.round(overtime_hours * employee.overtime_hourly_rate * 100) / 100;
       const total_amount = Math.round((regular_amount + overtime_amount) * 100) / 100;
+      const total_all_in_ot = Math.round((regular_all_in_amount + overtime_amount) * 100) / 100;
 
       const row: PayrollRow = {
         employee_code: employee.employee_code,
@@ -222,10 +224,13 @@ export default function PayrollExport() {
         regular_hours,
         overtime_hours,
         regular_hourly_rate: employee.regular_hourly_rate,
+        regular_rate_all_in: employee.regular_rate_all_in || 0,
         overtime_hourly_rate: employee.overtime_hourly_rate,
         regular_amount,
+        regular_all_in_amount,
         overtime_amount,
         total_amount,
+        total_all_in_ot,
       };
 
       // Add project info if filtered by project
