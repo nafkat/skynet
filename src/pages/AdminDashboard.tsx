@@ -431,6 +431,50 @@ export default function AdminDashboard() {
     return Array.from(specialtyMap.values()).sort((a, b) => b.totalHours - a.totalHours);
   }, [filteredEntries, specialties, language]);
 
+  // Daily breakdown (visible when employee search is active) - lists each entry per day for review/fix
+  interface DailyEntryRow {
+    entryId: string;
+    date: string;
+    employeeName: string;
+    projectCode: string;
+    projectName: string;
+    specialtyName: string;
+    regularHours: number;
+    overtimeHours: number;
+    totalHours: number;
+    regularCost: number;
+    allInCost: number;
+    otCost: number;
+  }
+  const dailyBreakdown = useMemo<DailyEntryRow[]>(() => {
+    if (!employeeSearch.trim()) return [];
+    return filteredEntries
+      .map(entry => {
+        const entrySpecialtyId = entry.specialty_id ?? entry.employees.specialty_id;
+        const specialty = specialties.find(s => s.id === entrySpecialtyId);
+        const specialtyName = specialty
+          ? (language === 'el' ? specialty.name_el : specialty.name_en)
+          : (language === 'el' ? 'Άγνωστη' : 'Unknown');
+        const regularHours = entry.regular_minutes / 60;
+        const overtimeHours = entry.overtime_minutes / 60;
+        return {
+          entryId: entry.id,
+          date: entry.entry_date,
+          employeeName: `${entry.employees.first_name} ${entry.employees.last_name}`,
+          projectCode: entry.projects.project_code,
+          projectName: entry.projects.project_name,
+          specialtyName,
+          regularHours,
+          overtimeHours,
+          totalHours: entry.duration_minutes / 60,
+          regularCost: regularHours * (entry.employees.regular_hourly_rate || 0),
+          allInCost: regularHours * (entry.employees.regular_rate_all_in || 0),
+          otCost: overtimeHours * (entry.employees.overtime_hourly_rate || 0),
+        };
+      })
+      .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  }, [filteredEntries, employeeSearch, specialties, language]);
+
   // Alerts
   const alerts = useMemo(() => {
     const alertList: Alert[] = [];
@@ -1078,6 +1122,66 @@ export default function AdminDashboard() {
             )}
           </CardContent>
         </Card>
+
+        {/* Daily Breakdown - visible when employee search is active */}
+        {employeeSearch.trim() && (
+          <Card className="card-elevated">
+            <CardHeader>
+              <CardTitle>
+                {language === 'el' ? 'Ανάλυση ανά Ημέρα' : 'Daily Breakdown'}
+                <span className="ml-2 text-sm font-normal text-muted-foreground">
+                  ({dailyBreakdown.length} {language === 'el' ? 'καταχωρήσεις' : 'entries'})
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {dailyBreakdown.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  {language === 'el' ? 'Δεν βρέθηκαν καταχωρήσεις για αυτόν τον εργαζόμενο στην επιλεγμένη περίοδο.' : 'No entries found for this employee in the selected period.'}
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-left text-muted-foreground">
+                        <th className="py-2 pr-3">{language === 'el' ? 'Ημερομηνία' : 'Date'}</th>
+                        <th className="py-2 pr-3">{language === 'el' ? 'Εργαζόμενος' : 'Employee'}</th>
+                        <th className="py-2 pr-3">{language === 'el' ? 'Έργο' : 'Project'}</th>
+                        <th className="py-2 pr-3">{language === 'el' ? 'Ειδικότητα' : 'Specialty'}</th>
+                        <th className="py-2 pr-3 text-right">{language === 'el' ? 'Κανονικές' : 'Regular'}</th>
+                        <th className="py-2 pr-3 text-right">{language === 'el' ? 'Υπερωρίες' : 'OT'}</th>
+                        <th className="py-2 pr-3 text-right">Total (Reg+OT)</th>
+                        <th className="py-2 pr-3 text-right">Total (All-in+OT)</th>
+                        <th className="py-2 pr-3 text-right">{language === 'el' ? 'Ενέργειες' : 'Actions'}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dailyBreakdown.map((row) => (
+                        <tr key={row.entryId} className="border-b hover:bg-muted/40">
+                          <td className="py-2 pr-3 font-medium">{format(parseISO(row.date), 'dd/MM/yyyy')}</td>
+                          <td className="py-2 pr-3">{row.employeeName}</td>
+                          <td className="py-2 pr-3">{row.projectCode} - {row.projectName}</td>
+                          <td className="py-2 pr-3">{row.specialtyName}</td>
+                          <td className="py-2 pr-3 text-right">{row.regularHours.toFixed(3)}</td>
+                          <td className="py-2 pr-3 text-right">{row.overtimeHours.toFixed(3)}</td>
+                          <td className="py-2 pr-3 text-right">{formatCurrency(row.regularCost + row.otCost)}</td>
+                          <td className="py-2 pr-3 text-right">{formatCurrency(row.allInCost + row.otCost)}</td>
+                          <td className="py-2 pr-3 text-right">
+                            <Link to={`/corrections?entry=${row.entryId}`}>
+                              <Button variant="outline" size="sm">
+                                {language === 'el' ? 'Διόρθωση' : 'Fix'}
+                              </Button>
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </MainLayout>
   );
