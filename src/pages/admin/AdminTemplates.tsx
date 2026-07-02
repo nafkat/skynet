@@ -60,6 +60,7 @@ interface ModuleConfig {
 
 interface ActionConfig {
   action_key: string;
+  module_key: string;
   description: string | null;
   allowed: boolean;
 }
