@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Input } from '@/components/ui/input';
 import { 
   Clock, 
   Timer, 
@@ -23,7 +24,9 @@ import {
   Users,
   FileSpreadsheet,
   ChevronRight,
-  ChevronDown
+  ChevronDown,
+  Search,
+  X
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { usePendingCorrections } from '@/hooks/usePendingCorrections';
@@ -46,6 +49,8 @@ interface TimeEntry {
     id: string;
     first_name: string;
     last_name: string;
+    employee_code: string | null;
+    afm: string | null;
     specialty_id: string;
     regular_hourly_rate: number;
     regular_rate_all_in: number;
@@ -133,6 +138,7 @@ export default function AdminDashboard() {
   const [customDateTo, setCustomDateTo] = useState<Date>(new Date());
   const [selectedProject, setSelectedProject] = useState<string>('all');
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>('all');
+  const [employeeSearch, setEmployeeSearch] = useState<string>('');
   
   // Payroll Export Modal
   const [payrollModalOpen, setPayrollModalOpen] = useState(false);
@@ -195,6 +201,8 @@ export default function AdminDashboard() {
               id,
               first_name,
               last_name,
+              employee_code,
+              afm,
               specialty_id,
               regular_hourly_rate,
               regular_rate_all_in,
@@ -234,6 +242,7 @@ export default function AdminDashboard() {
 
   // Filter entries based on selected filters
   const filteredEntries = useMemo(() => {
+    const q = employeeSearch.trim().toLowerCase();
     return timeEntries.filter(entry => {
       if (selectedProject !== 'all' && entry.project_id !== selectedProject) {
         return false;
@@ -242,9 +251,14 @@ export default function AdminDashboard() {
       if (selectedSpecialty !== 'all' && entrySpecialtyId !== selectedSpecialty) {
         return false;
       }
+      if (q) {
+        const emp = entry.employees;
+        const haystack = `${emp.first_name ?? ''} ${emp.last_name ?? ''} ${emp.employee_code ?? ''} ${emp.afm ?? ''}`.toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
       return true;
     });
-  }, [timeEntries, selectedProject, selectedSpecialty]);
+  }, [timeEntries, selectedProject, selectedSpecialty, employeeSearch]);
 
   // KPI Calculations - aligned with Reports logic
   const kpis = useMemo(() => {
@@ -640,6 +654,32 @@ export default function AdminDashboard() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* Employee Search */}
+              <div className="space-y-2 flex-1 min-w-[220px]">
+                <label className="text-sm font-medium">
+                  {language === 'el' ? 'Αναζήτηση Εργαζομένου' : 'Employee Search'}
+                </label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    value={employeeSearch}
+                    onChange={(e) => setEmployeeSearch(e.target.value)}
+                    placeholder={language === 'el' ? 'Όνομα, κωδικός, ΑΦΜ...' : 'Name, code, AFM...'}
+                    className="pl-9 pr-9"
+                  />
+                  {employeeSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setEmployeeSearch('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-muted"
+                      aria-label="Clear"
+                    >
+                      <X className="h-4 w-4 text-muted-foreground" />
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </CardContent>
