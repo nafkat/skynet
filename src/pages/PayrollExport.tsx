@@ -39,6 +39,7 @@ interface Employee {
   last_name: string;
   specialty_id: string;
   regular_hourly_rate: number;
+  regular_rate_all_in: number;
   overtime_hourly_rate: number;
   regular_start_time: string;
   regular_end_time: string;
