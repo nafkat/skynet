@@ -361,12 +361,13 @@ export default function AdminUsers() {
         .eq('user_id', userId);
 
       const actionsList: ActionPermissionRecord[] = (actionsData || []).map(a => {
-        // For non-timekeeping modules, prefer user_permissions (template-driven).
+        // Unified read: permissions come from templates (user_permissions) for ALL
+        // modules. user_module_actions is a legacy per-toggle override used only by
+        // timekeeping; if set to true it still counts. Runtime auth checks read from
+        // user_permissions, so that is the source of truth.
         const fromTemplate = userPermissions?.find(up => up.permission_key === a.action_key);
         const fromToggle = userActions?.find(ua => ua.action_key === a.action_key);
-        const allowed = a.module_key === 'timekeeping'
-          ? (fromToggle?.allowed ?? false)
-          : (fromTemplate?.allowed ?? false);
+        const allowed = (fromTemplate?.allowed === true) || (fromToggle?.allowed === true);
         return {
           action_key: a.action_key,
           description: a.description,
