@@ -160,22 +160,24 @@ export default function AdminTemplates() {
       setModules(modulesConfig);
       setOriginalModules(JSON.parse(JSON.stringify(modulesConfig)));
 
-      // Fetch all timekeeping actions
+      // Fetch ALL module actions (all modules, not just timekeeping)
       const { data: allActions } = await supabase
         .from('module_actions')
-        .select('action_key, description')
-        .eq('module_key', 'timekeeping');
+        .select('action_key, module_key, description')
+        .order('module_key')
+        .order('action_key');
 
-      // Fetch template actions
-      const { data: templateActions } = await supabase
-        .from('permission_template_actions')
-        .select('action_key, allowed')
+      // Fetch template permissions (source of truth used by runtime via recompute_user_permissions)
+      const { data: templatePerms } = await supabase
+        .from('permission_template_permissions')
+        .select('permission_key, allowed')
         .eq('template_id', templateId);
 
       const actionsConfig: ActionConfig[] = (allActions || []).map(a => {
-        const config = templateActions?.find(ta => ta.action_key === a.action_key);
+        const config = templatePerms?.find(tp => tp.permission_key === a.action_key);
         return {
           action_key: a.action_key,
+          module_key: a.module_key,
           description: a.description,
           allowed: config?.allowed ?? false,
         };
