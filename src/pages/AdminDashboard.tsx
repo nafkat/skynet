@@ -197,6 +197,8 @@ export default function AdminDashboard() {
               id,
               first_name,
               last_name,
+              employee_code,
+              afm,
               specialty_id,
               regular_hourly_rate,
               regular_rate_all_in,
