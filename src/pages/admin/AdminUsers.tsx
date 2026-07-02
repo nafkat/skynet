@@ -1526,47 +1526,55 @@ export default function AdminUsers() {
                             announcements:{ el: 'Ενέργειες Ανακοινώσεων',   en: 'Announcements Actions' },
                             admin_console:{ el: 'Ενέργειες Admin',           en: 'Admin Actions' },
                           };
-                          return Object.entries(grouped).map(([moduleKey, actions]) => (
-                            <div key={moduleKey}>
-                              <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
-                                <Clock className="h-4 w-4" />
-                                {moduleLabels[moduleKey]
-                                  ? (language === 'el' ? moduleLabels[moduleKey].el : moduleLabels[moduleKey].en)
-                                  : moduleKey}
-                              </h3>
-                              <div className="space-y-2">
-                                {actions.map((action) => (
-                                  <div
-                                    key={action.action_key}
-                                    className="flex items-center justify-between p-3 rounded-lg border bg-card"
-                                  >
-                                    <div className="flex items-center gap-3">
-                                      {action.allowed ? (
-                                        <CheckCircle className="h-4 w-4 text-green-500" />
-                                      ) : (
-                                        <XCircle className="h-4 w-4 text-muted-foreground" />
-                                      )}
-                                      <div>
-                                        <span className="text-sm font-medium">
-                                          {formatActionKey(action.action_key)}
-                                        </span>
-                                        {action.description && (
-                                          <p className="text-xs text-muted-foreground">
-                                            {action.description}
-                                          </p>
+                          return Object.entries(grouped).map(([moduleKey, actions]) => {
+                            const isTemplateDriven = moduleKey !== 'timekeeping';
+                            return (
+                              <div key={moduleKey}>
+                                <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+                                  <Clock className="h-4 w-4" />
+                                  {moduleLabels[moduleKey]
+                                    ? (language === 'el' ? moduleLabels[moduleKey].el : moduleLabels[moduleKey].en)
+                                    : moduleKey}
+                                  {isTemplateDriven && (
+                                    <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded bg-muted text-muted-foreground">
+                                      {language === 'el' ? 'από ρόλο' : 'from role'}
+                                    </span>
+                                  )}
+                                </h3>
+                                <div className="space-y-2">
+                                  {actions.map((action) => (
+                                    <div
+                                      key={action.action_key}
+                                      className="flex items-center justify-between p-3 rounded-lg border bg-card"
+                                    >
+                                      <div className="flex items-center gap-3">
+                                        {action.allowed ? (
+                                          <CheckCircle className="h-4 w-4 text-green-500" />
+                                        ) : (
+                                          <XCircle className="h-4 w-4 text-muted-foreground" />
                                         )}
+                                        <div>
+                                          <span className="text-sm font-medium">
+                                            {formatActionKey(action.action_key)}
+                                          </span>
+                                          {action.description && (
+                                            <p className="text-xs text-muted-foreground">
+                                              {action.description}
+                                            </p>
+                                          )}
+                                        </div>
                                       </div>
+                                      <Switch
+                                        checked={action.allowed}
+                                        onCheckedChange={(checked) => handleActionToggle(action.action_key, checked)}
+                                        disabled={saving || isTemplateDriven}
+                                      />
                                     </div>
-                                    <Switch
-                                      checked={action.allowed}
-                                      onCheckedChange={(checked) => handleActionToggle(action.action_key, checked)}
-                                      disabled={saving}
-                                    />
-                                  </div>
-                                ))}
+                                  ))}
+                                </div>
                               </div>
-                            </div>
-                          ));
+                            );
+                          });
                         })()}
 
                         {/* Info Box */}
