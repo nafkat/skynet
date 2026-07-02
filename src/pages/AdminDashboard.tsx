@@ -655,6 +655,32 @@ export default function AdminDashboard() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Employee Search */}
+              <div className="space-y-2 flex-1 min-w-[220px]">
+                <label className="text-sm font-medium">
+                  {language === 'el' ? 'Αναζήτηση Εργαζομένου' : 'Employee Search'}
+                </label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    value={employeeSearch}
+                    onChange={(e) => setEmployeeSearch(e.target.value)}
+                    placeholder={language === 'el' ? 'Όνομα, κωδικός, ΑΦΜ...' : 'Name, code, AFM...'}
+                    className="pl-9 pr-9"
+                  />
+                  {employeeSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setEmployeeSearch('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-muted"
+                      aria-label="Clear"
+                    >
+                      <X className="h-4 w-4 text-muted-foreground" />
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
