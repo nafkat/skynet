@@ -60,6 +60,7 @@ interface ModuleConfig {
 
 interface ActionConfig {
   action_key: string;
+  module_key: string;
   description: string | null;
   allowed: boolean;
 }
@@ -159,22 +160,24 @@ export default function AdminTemplates() {
       setModules(modulesConfig);
       setOriginalModules(JSON.parse(JSON.stringify(modulesConfig)));
 
-      // Fetch all timekeeping actions
+      // Fetch ALL module actions (all modules, not just timekeeping)
       const { data: allActions } = await supabase
         .from('module_actions')
-        .select('action_key, description')
-        .eq('module_key', 'timekeeping');
+        .select('action_key, module_key, description')
+        .order('module_key')
+        .order('action_key');
 
-      // Fetch template actions
-      const { data: templateActions } = await supabase
-        .from('permission_template_actions')
-        .select('action_key, allowed')
+      // Fetch template permissions (source of truth used by runtime via recompute_user_permissions)
+      const { data: templatePerms } = await supabase
+        .from('permission_template_permissions')
+        .select('permission_key, allowed')
         .eq('template_id', templateId);
 
       const actionsConfig: ActionConfig[] = (allActions || []).map(a => {
-        const config = templateActions?.find(ta => ta.action_key === a.action_key);
+        const config = templatePerms?.find(tp => tp.permission_key === a.action_key);
         return {
           action_key: a.action_key,
+          module_key: a.module_key,
           description: a.description,
           allowed: config?.allowed ?? false,
         };
@@ -352,18 +355,27 @@ export default function AdminTemplates() {
         }
       }
 
-      // Save actions and log changes
+      // Save actions to permission_template_permissions (source of truth)
       for (const action of actions) {
         const original = originalActions.find(a => a.action_key === action.action_key);
         if (original?.allowed !== action.allowed) {
           const { error } = await supabase
+            .from('permission_template_permissions')
+            .upsert({
+              template_id: selectedTemplate.id,
+              permission_key: action.action_key,
+              allowed: action.allowed,
+            }, { onConflict: 'template_id,permission_key' });
+          if (error) throw error;
+
+          // Keep legacy table in sync for any code still reading it
+          await supabase
             .from('permission_template_actions')
             .upsert({
               template_id: selectedTemplate.id,
               action_key: action.action_key,
               allowed: action.allowed,
             }, { onConflict: 'template_id,action_key' });
-          if (error) throw error;
 
           await supabase.from('permission_audit_logs').insert({
             actor_user_id: user!.id,
@@ -379,6 +391,15 @@ export default function AdminTemplates() {
             },
           });
         }
+      }
+
+      // Recompute permissions for all users assigned to this template so changes take effect immediately
+      const { data: assignedUsers } = await supabase
+        .from('user_permission_templates')
+        .select('user_id')
+        .eq('template_id', selectedTemplate.id);
+      for (const u of assignedUsers || []) {
+        await supabase.rpc('recompute_user_permissions', { _user_id: u.user_id });
       }
 
       // Update original state to match current
@@ -577,43 +598,63 @@ export default function AdminTemplates() {
 
                     <Separator />
 
-                    {/* Timekeeping Actions */}
-                    <div>
-                      <h3 className="text-sm font-medium mb-3">
-                        {language === 'el' ? 'Ενέργειες Χρονοκαταγραφής' : 'Timekeeping Actions'}
-                      </h3>
-                      <div className="space-y-2">
-                        {actions.map((action) => (
-                          <div
-                            key={action.action_key}
-                            className="flex items-center justify-between p-3 rounded-lg border"
-                          >
-                            <div className="flex items-center gap-3">
-                              {action.allowed ? (
-                                <Check className="h-4 w-4 text-green-500" />
-                              ) : (
-                                <X className="h-4 w-4 text-muted-foreground" />
-                              )}
-                              <div>
-                                <span className="text-sm font-medium">
-                                  {formatActionKey(action.action_key)}
-                                </span>
-                                {action.description && (
-                                  <p className="text-xs text-muted-foreground">
-                                    {action.description}
-                                  </p>
-                                )}
+                    {/* Actions grouped per module */}
+                    {(() => {
+                      const moduleOrder = ['timekeeping', 'procurement', 'announcements', 'costing', 'admin_console'];
+                      const moduleLabels: Record<string, { el: string; en: string }> = {
+                        timekeeping: { el: 'Ενέργειες Χρονοκαταγραφής', en: 'Timekeeping Actions' },
+                        procurement: { el: 'Ενέργειες Προμηθειών', en: 'Procurement Actions' },
+                        announcements: { el: 'Ενέργειες Ανακοινώσεων', en: 'Announcements Actions' },
+                        costing: { el: 'Ενέργειες Costing', en: 'Costing Actions' },
+                        admin_console: { el: 'Ενέργειες Admin Console', en: 'Admin Console Actions' },
+                      };
+                      const grouped: Record<string, ActionConfig[]> = {};
+                      for (const a of actions) {
+                        (grouped[a.module_key] ||= []).push(a);
+                      }
+                      const keys = Object.keys(grouped).sort(
+                        (a, b) => (moduleOrder.indexOf(a) + 1 || 99) - (moduleOrder.indexOf(b) + 1 || 99)
+                      );
+                      return keys.map((mk) => (
+                        <div key={mk}>
+                          <h3 className="text-sm font-medium mb-3">
+                            {moduleLabels[mk]?.[language === 'el' ? 'el' : 'en'] ??
+                              `${mk} ${language === 'el' ? 'Ενέργειες' : 'Actions'}`}
+                          </h3>
+                          <div className="space-y-2">
+                            {grouped[mk].map((action) => (
+                              <div
+                                key={action.action_key}
+                                className="flex items-center justify-between p-3 rounded-lg border"
+                              >
+                                <div className="flex items-center gap-3">
+                                  {action.allowed ? (
+                                    <Check className="h-4 w-4 text-green-500" />
+                                  ) : (
+                                    <X className="h-4 w-4 text-muted-foreground" />
+                                  )}
+                                  <div>
+                                    <span className="text-sm font-medium">
+                                      {formatActionKey(action.action_key)}
+                                    </span>
+                                    {action.description && (
+                                      <p className="text-xs text-muted-foreground">
+                                        {action.description}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                                <Switch
+                                  checked={action.allowed}
+                                  onCheckedChange={(checked) => handleActionToggle(action.action_key, checked)}
+                                  disabled={saving}
+                                />
                               </div>
-                            </div>
-                            <Switch
-                              checked={action.allowed}
-                              onCheckedChange={(checked) => handleActionToggle(action.action_key, checked)}
-                              disabled={saving}
-                            />
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                    </div>
+                        </div>
+                      ));
+                    })()}
 
                     {/* Info Box */}
                     <div className="flex items-start gap-3 p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
