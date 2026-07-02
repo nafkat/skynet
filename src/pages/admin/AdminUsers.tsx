@@ -343,7 +343,9 @@ export default function AdminUsers() {
       });
       setModuleAccess(moduleAccessList);
 
-      // Fetch actions for ALL modules with permissions
+      // Fetch actions for ALL modules with permissions.
+      // Timekeeping actions are stored in `user_module_actions` (toggle-driven).
+      // Costing (and other template-driven modules) live in `user_permissions`.
       const { data: actionsData } = await supabase
         .from('module_actions')
         .select('action_key, description, module_key');
@@ -353,13 +355,23 @@ export default function AdminUsers() {
         .select('action_key, allowed')
         .eq('user_id', userId);
 
+      const { data: userPermissions } = await supabase
+        .from('user_permissions')
+        .select('permission_key, allowed')
+        .eq('user_id', userId);
+
       const actionsList: ActionPermissionRecord[] = (actionsData || []).map(a => {
-        const permission = userActions?.find(ua => ua.action_key === a.action_key);
+        // For non-timekeeping modules, prefer user_permissions (template-driven).
+        const fromTemplate = userPermissions?.find(up => up.permission_key === a.action_key);
+        const fromToggle = userActions?.find(ua => ua.action_key === a.action_key);
+        const allowed = a.module_key === 'timekeeping'
+          ? (fromToggle?.allowed ?? false)
+          : (fromTemplate?.allowed ?? false);
         return {
           action_key: a.action_key,
           description: a.description,
           module_key: a.module_key,
-          allowed: permission?.allowed ?? false,
+          allowed,
         };
       });
       setActionPermissions(actionsList);
