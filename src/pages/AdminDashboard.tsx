@@ -1122,6 +1122,66 @@ export default function AdminDashboard() {
             )}
           </CardContent>
         </Card>
+
+        {/* Daily Breakdown - visible when employee search is active */}
+        {employeeSearch.trim() && (
+          <Card className="card-elevated">
+            <CardHeader>
+              <CardTitle>
+                {language === 'el' ? 'Ανάλυση ανά Ημέρα' : 'Daily Breakdown'}
+                <span className="ml-2 text-sm font-normal text-muted-foreground">
+                  ({dailyBreakdown.length} {language === 'el' ? 'καταχωρήσεις' : 'entries'})
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {dailyBreakdown.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  {language === 'el' ? 'Δεν βρέθηκαν καταχωρήσεις για αυτόν τον εργαζόμενο στην επιλεγμένη περίοδο.' : 'No entries found for this employee in the selected period.'}
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-left text-muted-foreground">
+                        <th className="py-2 pr-3">{language === 'el' ? 'Ημερομηνία' : 'Date'}</th>
+                        <th className="py-2 pr-3">{language === 'el' ? 'Εργαζόμενος' : 'Employee'}</th>
+                        <th className="py-2 pr-3">{language === 'el' ? 'Έργο' : 'Project'}</th>
+                        <th className="py-2 pr-3">{language === 'el' ? 'Ειδικότητα' : 'Specialty'}</th>
+                        <th className="py-2 pr-3 text-right">{language === 'el' ? 'Κανονικές' : 'Regular'}</th>
+                        <th className="py-2 pr-3 text-right">{language === 'el' ? 'Υπερωρίες' : 'OT'}</th>
+                        <th className="py-2 pr-3 text-right">Total (Reg+OT)</th>
+                        <th className="py-2 pr-3 text-right">Total (All-in+OT)</th>
+                        <th className="py-2 pr-3 text-right">{language === 'el' ? 'Ενέργειες' : 'Actions'}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dailyBreakdown.map((row) => (
+                        <tr key={row.entryId} className="border-b hover:bg-muted/40">
+                          <td className="py-2 pr-3 font-medium">{format(parseISO(row.date), 'dd/MM/yyyy')}</td>
+                          <td className="py-2 pr-3">{row.employeeName}</td>
+                          <td className="py-2 pr-3">{row.projectCode} - {row.projectName}</td>
+                          <td className="py-2 pr-3">{row.specialtyName}</td>
+                          <td className="py-2 pr-3 text-right">{row.regularHours.toFixed(3)}</td>
+                          <td className="py-2 pr-3 text-right">{row.overtimeHours.toFixed(3)}</td>
+                          <td className="py-2 pr-3 text-right">{formatCurrency(row.regularCost + row.otCost)}</td>
+                          <td className="py-2 pr-3 text-right">{formatCurrency(row.allInCost + row.otCost)}</td>
+                          <td className="py-2 pr-3 text-right">
+                            <Link to={`/corrections?entry=${row.entryId}`}>
+                              <Button variant="outline" size="sm">
+                                {language === 'el' ? 'Διόρθωση' : 'Fix'}
+                              </Button>
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </MainLayout>
   );
