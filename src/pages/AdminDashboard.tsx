@@ -46,6 +46,8 @@ interface TimeEntry {
     id: string;
     first_name: string;
     last_name: string;
+    employee_code: string | null;
+    afm: string | null;
     specialty_id: string;
     regular_hourly_rate: number;
     regular_rate_all_in: number;
