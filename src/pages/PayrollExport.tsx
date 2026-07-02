@@ -354,13 +354,17 @@ export default function PayrollExport() {
         { wch: 14 }, // First Name
         { wch: 16 }, // Last Name
         { wch: 20 }, // Specialty
+        { wch: 18 }, // Type
         { wch: 14 }, // Regular Hours
         { wch: 14 }, // Overtime Hours
         { wch: 18 }, // Regular Rate
+        { wch: 22 }, // Regular All-in Rate
         { wch: 18 }, // Overtime Rate
         { wch: 16 }, // Regular Cost
+        { wch: 20 }, // Regular All-in Cost
         { wch: 16 }, // Overtime Cost
-        { wch: 20 }, // Total (Regular + OT)
+        { wch: 22 }, // Total (Regular + OT)
+        { wch: 22 }, // Total (All-in + OT)
         { wch: 14 }, // AFM
         { wch: 28 }, // IBAN
         { wch: 16 }, // Bank Name
