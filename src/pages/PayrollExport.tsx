@@ -305,9 +305,9 @@ export default function PayrollExport() {
       const headers = [
         'Employee Code', 'First Name', 'Last Name', 'Specialty', 'Type',
         'Regular Hours', 'Overtime Hours',
-        'Regular Rate (€/hr)', 'Overtime Rate (€/hr)',
-        'Regular Cost (€)', 'Overtime Cost (€)',
-        'Total (Regular + OT) (€)',
+        'Regular Rate (€/hr)', 'Regular All-in Rate (€/hr)', 'Overtime Rate (€/hr)',
+        'Regular Cost (€)', 'Regular All-in Cost (€)', 'Overtime Cost (€)',
+        'Total (Regular + OT) (€)', 'Total (All-in + OT) (€)',
         'AFM', 'IBAN', 'Bank Name',
       ];
       if (selectedProjectDetails) {
@@ -321,10 +321,10 @@ export default function PayrollExport() {
       const totalRegularHours   = Math.round(payrollData.reduce((s, r) => s + r.regular_hours, 0) * 100) / 100;
       const totalOvertimeHours  = Math.round(payrollData.reduce((s, r) => s + r.overtime_hours, 0) * 100) / 100;
       const totalRegularAmt     = Math.round(payrollData.reduce((s, r) => s + r.regular_amount, 0) * 100) / 100;
+      const totalRegularAllInAmt = Math.round(payrollData.reduce((s, r) => s + r.regular_all_in_amount, 0) * 100) / 100;
       const totalOvertimeAmt    = Math.round(payrollData.reduce((s, r) => s + r.overtime_amount, 0) * 100) / 100;
-      const totalAllInAmt       = Math.round(payrollData.reduce((s, r) => s + ((r as unknown as Record<string, number>).all_in_amount || 0), 0) * 100) / 100;
       const grandTotal          = Math.round(payrollData.reduce((s, r) => s + r.total_amount, 0) * 100) / 100;
-      const grandTotalAllIn     = Math.round(payrollData.reduce((s, r) => s + ((r as unknown as Record<string, number>).total_all_in_amount || 0), 0) * 100) / 100;
+      const grandTotalAllInOt   = Math.round(payrollData.reduce((s, r) => s + r.total_all_in_ot, 0) * 100) / 100;
 
       // Empty separator row
       const emptyRow = headers.map(() => '');
@@ -335,8 +335,10 @@ export default function PayrollExport() {
         if (h === 'Regular Hours') return totalRegularHours;
         if (h === 'Overtime Hours') return totalOvertimeHours;
         if (h === 'Regular Cost (€)') return totalRegularAmt;
+        if (h === 'Regular All-in Cost (€)') return totalRegularAllInAmt;
         if (h === 'Overtime Cost (€)') return totalOvertimeAmt;
         if (h === 'Total (Regular + OT) (€)') return grandTotal;
+        if (h === 'Total (All-in + OT) (€)') return grandTotalAllInOt;
         return '';
       });
 
