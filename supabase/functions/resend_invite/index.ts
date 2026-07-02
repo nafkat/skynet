@@ -11,102 +11,88 @@ interface ResendInviteRequest {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    // Verify the request is authenticated
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // Create client with user's token to verify they're an admin
     const userClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
 
-    // Get the current user
     const { data: { user: currentUser }, error: userError } = await userClient.auth.getUser();
     if (userError || !currentUser) {
-      console.error("Auth error:", userError);
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    // Check if current user is admin (via user_roles table - secure location)
-    const { data: roleData, error: roleError } = await userClient
+    const { data: roleData } = await userClient
       .from("user_roles")
       .select("role")
       .eq("user_id", currentUser.id)
       .eq("role", "admin")
       .maybeSingle();
 
-    if (roleError || !roleData) {
-      console.error("Role check failed:", roleError, roleData);
-      return new Response(
-        JSON.stringify({ error: "Only admins can resend invitations" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (!roleData) {
+      return new Response(JSON.stringify({ error: "Only admins can resend invitations" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    // Parse request body
     const { user_id }: ResendInviteRequest = await req.json();
     console.log("Resend invite request for user:", user_id);
 
     if (!user_id) {
-      return new Response(
-        JSON.stringify({ error: "user_id is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "user_id is required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    // Create admin client for user management
     const adminClient = createClient(supabaseUrl, supabaseServiceKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    // Get the target user
     const { data: userData, error: getUserError } = await adminClient.auth.admin.getUserById(user_id);
-    
     if (getUserError || !userData?.user) {
-      console.error("Get user error:", getUserError);
-      return new Response(
-        JSON.stringify({ error: "User not found" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "User not found" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const targetUser = userData.user;
     const userEmail = targetUser.email;
 
     if (!userEmail) {
-      return new Response(
-        JSON.stringify({ error: "User has no email address" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "User has no email address" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    // Check if user has already confirmed their email (accepted invite)
     if (targetUser.email_confirmed_at) {
-      return new Response(
-        JSON.stringify({ error: "User has already accepted their invitation" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "User has already accepted their invitation" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    // Get user's display name from profile
     const { data: profileData } = await adminClient
       .from("profiles")
       .select("full_name, display_name")
@@ -115,108 +101,90 @@ serve(async (req) => {
 
     const displayName = profileData?.full_name || profileData?.display_name || userEmail.split("@")[0];
 
-    // Generate new invite link - this invalidates any previous invite tokens
-    // Supabase's generateLink with 'invite' type creates a new token and invalidates old ones
+    // Generate a fresh invite link (invalidates previous invite tokens). Does NOT send email.
+    const redirectTo = `${req.headers.get("origin") || Deno.env.get("SITE_URL") || "https://skynetshipyard.app"}/home`;
     const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
-      type: 'invite',
+      type: "invite",
       email: userEmail,
       options: {
-        data: {
-          full_name: displayName,
-        },
-        redirectTo: `${req.headers.get("origin") || Deno.env.get("SITE_URL") || "https://skynet.lovable.app"}/home`,
+        data: { full_name: displayName },
+        redirectTo,
       },
     });
 
-    if (linkError) {
+    if (linkError || !linkData?.properties?.action_link) {
       console.error("Generate link error:", linkError);
-      return new Response(
-        JSON.stringify({ error: linkError.message }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: linkError?.message || "Failed to generate invite link" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    // Send the invitation email using the magic link
-    // The generateLink returns a link with the token, we need to send it via email
-    // Using Supabase's invite method which handles email sending
-    const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(userEmail, {
-      data: {
-        full_name: displayName,
+    const inviteUrl = linkData.properties.action_link;
+
+    // Send via Resend (bypasses Supabase built-in SMTP rate limit)
+    const resendApiKey = Deno.env.get("RESEND_API_KEY");
+    const fromEmail = Deno.env.get("FROM_EMAIL") || "onboarding@resend.dev";
+
+    if (!resendApiKey) {
+      console.error("RESEND_API_KEY not configured");
+      return new Response(JSON.stringify({ error: "Email service not configured" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const emailRes = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${resendApiKey}`,
+        "Content-Type": "application/json",
       },
-      redirectTo: `${req.headers.get("origin") || Deno.env.get("SITE_URL") || "https://skynet.lovable.app"}/home`,
+      body: JSON.stringify({
+        from: `Skynet Shipyard <${fromEmail}>`,
+        to: [userEmail],
+        subject: "Your invitation to Skynet Shipyard",
+        html: `
+          <div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#0f172a">
+            <h2 style="margin:0 0 16px">Welcome${displayName ? `, ${displayName}` : ""}!</h2>
+            <p>You have been invited to join <strong>Skynet Shipyard</strong>. Click the button below to accept your invitation and set up your account.</p>
+            <p style="margin:32px 0">
+              <a href="${inviteUrl}" style="background:#0ea5e9;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">Accept invitation</a>
+            </p>
+            <p style="font-size:12px;color:#64748b">If the button does not work, copy and paste this link:<br/><a href="${inviteUrl}">${inviteUrl}</a></p>
+          </div>
+        `,
+      }),
     });
 
-    if (inviteError) {
-      // If user already exists, that's expected - we just want to resend
-      if (!inviteError.message.includes("already been registered")) {
-        console.error("Invite error:", inviteError);
-        return new Response(
-          JSON.stringify({ error: inviteError.message }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      // For existing users, we need to use a different approach
-      // Use the recovery flow which will send a password reset email
-      // This is the Supabase-recommended way to resend access to unconfirmed users
-      console.log("User exists, using recovery flow for resend");
-      
-      // Update the user to trigger a new invite
-      const { error: updateError } = await adminClient.auth.admin.updateUserById(user_id, {
-        email_confirm: false, // Reset confirmation status
+    if (!emailRes.ok) {
+      const errText = await emailRes.text();
+      console.error("Resend send failed:", emailRes.status, errText);
+      return new Response(JSON.stringify({ error: `Failed to send email: ${errText}` }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-
-      if (updateError) {
-        console.error("Update user error:", updateError);
-      }
-
-      // Now send the invite again
-      const { error: reinviteError } = await adminClient.auth.admin.generateLink({
-        type: 'magiclink',
-        email: userEmail,
-        options: {
-          redirectTo: `${req.headers.get("origin") || Deno.env.get("SITE_URL") || "https://skynet.lovable.app"}/home`,
-        },
-      });
-
-      if (reinviteError) {
-        console.error("Reinvite error:", reinviteError);
-        return new Response(
-          JSON.stringify({ error: reinviteError.message }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
     }
 
-    // Log the resend action
     await adminClient.from("permission_audit_logs").insert({
       actor_user_id: currentUser.id,
       target_user_id: user_id,
       change_type: "INVITE_RESENT",
-      details: { 
-        action: "RESEND_INVITE", 
-        email: userEmail,
-        resent_at: new Date().toISOString(),
-      },
+      details: { action: "RESEND_INVITE", email: userEmail, resent_at: new Date().toISOString() },
     });
 
     console.log("Invitation resent successfully for:", userEmail);
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: "Invitation email has been resent",
-        email: userEmail,
-      }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ success: true, message: "Invitation email has been resent", email: userEmail }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
-
   } catch (error: unknown) {
     console.error("Error:", error);
     const errorMessage = error instanceof Error ? error.message : "Internal server error";
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: errorMessage }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
