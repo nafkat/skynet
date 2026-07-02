@@ -355,18 +355,27 @@ export default function AdminTemplates() {
         }
       }
 
-      // Save actions and log changes
+      // Save actions to permission_template_permissions (source of truth)
       for (const action of actions) {
         const original = originalActions.find(a => a.action_key === action.action_key);
         if (original?.allowed !== action.allowed) {
           const { error } = await supabase
+            .from('permission_template_permissions')
+            .upsert({
+              template_id: selectedTemplate.id,
+              permission_key: action.action_key,
+              allowed: action.allowed,
+            }, { onConflict: 'template_id,permission_key' });
+          if (error) throw error;
+
+          // Keep legacy table in sync for any code still reading it
+          await supabase
             .from('permission_template_actions')
             .upsert({
               template_id: selectedTemplate.id,
               action_key: action.action_key,
               allowed: action.allowed,
             }, { onConflict: 'template_id,action_key' });
-          if (error) throw error;
 
           await supabase.from('permission_audit_logs').insert({
             actor_user_id: user!.id,
@@ -382,6 +391,15 @@ export default function AdminTemplates() {
             },
           });
         }
+      }
+
+      // Recompute permissions for all users assigned to this template so changes take effect immediately
+      const { data: assignedUsers } = await supabase
+        .from('user_permission_templates')
+        .select('user_id')
+        .eq('template_id', selectedTemplate.id);
+      for (const u of assignedUsers || []) {
+        await supabase.rpc('recompute_user_permissions', { _user_id: u.user_id });
       }
 
       // Update original state to match current
