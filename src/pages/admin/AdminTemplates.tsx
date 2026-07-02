@@ -598,43 +598,63 @@ export default function AdminTemplates() {
 
                     <Separator />
 
-                    {/* Timekeeping Actions */}
-                    <div>
-                      <h3 className="text-sm font-medium mb-3">
-                        {language === 'el' ? 'Ενέργειες Χρονοκαταγραφής' : 'Timekeeping Actions'}
-                      </h3>
-                      <div className="space-y-2">
-                        {actions.map((action) => (
-                          <div
-                            key={action.action_key}
-                            className="flex items-center justify-between p-3 rounded-lg border"
-                          >
-                            <div className="flex items-center gap-3">
-                              {action.allowed ? (
-                                <Check className="h-4 w-4 text-green-500" />
-                              ) : (
-                                <X className="h-4 w-4 text-muted-foreground" />
-                              )}
-                              <div>
-                                <span className="text-sm font-medium">
-                                  {formatActionKey(action.action_key)}
-                                </span>
-                                {action.description && (
-                                  <p className="text-xs text-muted-foreground">
-                                    {action.description}
-                                  </p>
-                                )}
+                    {/* Actions grouped per module */}
+                    {(() => {
+                      const moduleOrder = ['timekeeping', 'procurement', 'announcements', 'costing', 'admin_console'];
+                      const moduleLabels: Record<string, { el: string; en: string }> = {
+                        timekeeping: { el: 'Ενέργειες Χρονοκαταγραφής', en: 'Timekeeping Actions' },
+                        procurement: { el: 'Ενέργειες Προμηθειών', en: 'Procurement Actions' },
+                        announcements: { el: 'Ενέργειες Ανακοινώσεων', en: 'Announcements Actions' },
+                        costing: { el: 'Ενέργειες Costing', en: 'Costing Actions' },
+                        admin_console: { el: 'Ενέργειες Admin Console', en: 'Admin Console Actions' },
+                      };
+                      const grouped: Record<string, ActionConfig[]> = {};
+                      for (const a of actions) {
+                        (grouped[a.module_key] ||= []).push(a);
+                      }
+                      const keys = Object.keys(grouped).sort(
+                        (a, b) => (moduleOrder.indexOf(a) + 1 || 99) - (moduleOrder.indexOf(b) + 1 || 99)
+                      );
+                      return keys.map((mk) => (
+                        <div key={mk}>
+                          <h3 className="text-sm font-medium mb-3">
+                            {moduleLabels[mk]?.[language === 'el' ? 'el' : 'en'] ??
+                              `${mk} ${language === 'el' ? 'Ενέργειες' : 'Actions'}`}
+                          </h3>
+                          <div className="space-y-2">
+                            {grouped[mk].map((action) => (
+                              <div
+                                key={action.action_key}
+                                className="flex items-center justify-between p-3 rounded-lg border"
+                              >
+                                <div className="flex items-center gap-3">
+                                  {action.allowed ? (
+                                    <Check className="h-4 w-4 text-green-500" />
+                                  ) : (
+                                    <X className="h-4 w-4 text-muted-foreground" />
+                                  )}
+                                  <div>
+                                    <span className="text-sm font-medium">
+                                      {formatActionKey(action.action_key)}
+                                    </span>
+                                    {action.description && (
+                                      <p className="text-xs text-muted-foreground">
+                                        {action.description}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                                <Switch
+                                  checked={action.allowed}
+                                  onCheckedChange={(checked) => handleActionToggle(action.action_key, checked)}
+                                  disabled={saving}
+                                />
                               </div>
-                            </div>
-                            <Switch
-                              checked={action.allowed}
-                              onCheckedChange={(checked) => handleActionToggle(action.action_key, checked)}
-                              disabled={saving}
-                            />
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                    </div>
+                        </div>
+                      ));
+                    })()}
 
                     {/* Info Box */}
                     <div className="flex items-start gap-3 p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
