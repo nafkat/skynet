@@ -135,6 +135,7 @@ export default function AdminDashboard() {
   const [customDateTo, setCustomDateTo] = useState<Date>(new Date());
   const [selectedProject, setSelectedProject] = useState<string>('all');
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>('all');
+  const [employeeSearch, setEmployeeSearch] = useState<string>('');
   
   // Payroll Export Modal
   const [payrollModalOpen, setPayrollModalOpen] = useState(false);
