@@ -343,11 +343,10 @@ export default function AdminUsers() {
       });
       setModuleAccess(moduleAccessList);
 
-      // Fetch timekeeping actions with permissions
+      // Fetch actions for ALL modules with permissions
       const { data: actionsData } = await supabase
         .from('module_actions')
-        .select('action_key, description')
-        .eq('module_key', 'timekeeping');
+        .select('action_key, description, module_key');
 
       const { data: userActions } = await supabase
         .from('user_module_actions')
@@ -359,6 +358,7 @@ export default function AdminUsers() {
         return {
           action_key: a.action_key,
           description: a.description,
+          module_key: a.module_key,
           allowed: permission?.allowed ?? false,
         };
       });
