@@ -39,6 +39,7 @@ interface Employee {
   last_name: string;
   specialty_id: string;
   regular_hourly_rate: number;
+  regular_rate_all_in: number;
   overtime_hourly_rate: number;
   regular_start_time: string;
   regular_end_time: string;
@@ -73,10 +74,13 @@ interface PayrollRow {
   regular_hours: number;
   overtime_hours: number;
   regular_hourly_rate: number;
+  regular_rate_all_in: number;
   overtime_hourly_rate: number;
   regular_amount: number;
+  regular_all_in_amount: number;
   overtime_amount: number;
   total_amount: number;
+  total_all_in_ot: number;
   project_code?: string;
   project_name?: string;
 }
@@ -203,8 +207,10 @@ export default function PayrollExport() {
       const regular_hours = Math.round((regular_minutes / 60) * 100) / 100;
       const overtime_hours = Math.round((overtime_minutes / 60) * 100) / 100;
       const regular_amount = Math.round(regular_hours * employee.regular_hourly_rate * 100) / 100;
+      const regular_all_in_amount = Math.round(regular_hours * (employee.regular_rate_all_in || 0) * 100) / 100;
       const overtime_amount = Math.round(overtime_hours * employee.overtime_hourly_rate * 100) / 100;
       const total_amount = Math.round((regular_amount + overtime_amount) * 100) / 100;
+      const total_all_in_ot = Math.round((regular_all_in_amount + overtime_amount) * 100) / 100;
 
       const row: PayrollRow = {
         employee_code: employee.employee_code,
@@ -218,10 +224,13 @@ export default function PayrollExport() {
         regular_hours,
         overtime_hours,
         regular_hourly_rate: employee.regular_hourly_rate,
+        regular_rate_all_in: employee.regular_rate_all_in || 0,
         overtime_hourly_rate: employee.overtime_hourly_rate,
         regular_amount,
+        regular_all_in_amount,
         overtime_amount,
         total_amount,
+        total_all_in_ot,
       };
 
       // Add project info if filtered by project
@@ -271,10 +280,13 @@ export default function PayrollExport() {
           'Regular Hours': row.regular_hours,
           'Overtime Hours': row.overtime_hours,
           'Regular Rate (€/hr)': row.regular_hourly_rate,
+          'Regular All-in Rate (€/hr)': row.regular_rate_all_in,
           'Overtime Rate (€/hr)': row.overtime_hourly_rate,
           'Regular Cost (€)': row.regular_amount,
+          'Regular All-in Cost (€)': row.regular_all_in_amount,
           'Overtime Cost (€)': row.overtime_amount,
           'Total (Regular + OT) (€)': row.total_amount,
+          'Total (All-in + OT) (€)': row.total_all_in_ot,
           'AFM': row.afm,
           'IBAN': row.iban,
           'Bank Name': row.bank_name,
@@ -293,9 +305,9 @@ export default function PayrollExport() {
       const headers = [
         'Employee Code', 'First Name', 'Last Name', 'Specialty', 'Type',
         'Regular Hours', 'Overtime Hours',
-        'Regular Rate (€/hr)', 'Overtime Rate (€/hr)',
-        'Regular Cost (€)', 'Overtime Cost (€)',
-        'Total (Regular + OT) (€)',
+        'Regular Rate (€/hr)', 'Regular All-in Rate (€/hr)', 'Overtime Rate (€/hr)',
+        'Regular Cost (€)', 'Regular All-in Cost (€)', 'Overtime Cost (€)',
+        'Total (Regular + OT) (€)', 'Total (All-in + OT) (€)',
         'AFM', 'IBAN', 'Bank Name',
       ];
       if (selectedProjectDetails) {
@@ -309,10 +321,10 @@ export default function PayrollExport() {
       const totalRegularHours   = Math.round(payrollData.reduce((s, r) => s + r.regular_hours, 0) * 100) / 100;
       const totalOvertimeHours  = Math.round(payrollData.reduce((s, r) => s + r.overtime_hours, 0) * 100) / 100;
       const totalRegularAmt     = Math.round(payrollData.reduce((s, r) => s + r.regular_amount, 0) * 100) / 100;
+      const totalRegularAllInAmt = Math.round(payrollData.reduce((s, r) => s + r.regular_all_in_amount, 0) * 100) / 100;
       const totalOvertimeAmt    = Math.round(payrollData.reduce((s, r) => s + r.overtime_amount, 0) * 100) / 100;
-      const totalAllInAmt       = Math.round(payrollData.reduce((s, r) => s + ((r as unknown as Record<string, number>).all_in_amount || 0), 0) * 100) / 100;
       const grandTotal          = Math.round(payrollData.reduce((s, r) => s + r.total_amount, 0) * 100) / 100;
-      const grandTotalAllIn     = Math.round(payrollData.reduce((s, r) => s + ((r as unknown as Record<string, number>).total_all_in_amount || 0), 0) * 100) / 100;
+      const grandTotalAllInOt   = Math.round(payrollData.reduce((s, r) => s + r.total_all_in_ot, 0) * 100) / 100;
 
       // Empty separator row
       const emptyRow = headers.map(() => '');
@@ -323,8 +335,10 @@ export default function PayrollExport() {
         if (h === 'Regular Hours') return totalRegularHours;
         if (h === 'Overtime Hours') return totalOvertimeHours;
         if (h === 'Regular Cost (€)') return totalRegularAmt;
+        if (h === 'Regular All-in Cost (€)') return totalRegularAllInAmt;
         if (h === 'Overtime Cost (€)') return totalOvertimeAmt;
         if (h === 'Total (Regular + OT) (€)') return grandTotal;
+        if (h === 'Total (All-in + OT) (€)') return grandTotalAllInOt;
         return '';
       });
 
@@ -340,13 +354,17 @@ export default function PayrollExport() {
         { wch: 14 }, // First Name
         { wch: 16 }, // Last Name
         { wch: 20 }, // Specialty
+        { wch: 18 }, // Type
         { wch: 14 }, // Regular Hours
         { wch: 14 }, // Overtime Hours
         { wch: 18 }, // Regular Rate
+        { wch: 22 }, // Regular All-in Rate
         { wch: 18 }, // Overtime Rate
         { wch: 16 }, // Regular Cost
+        { wch: 20 }, // Regular All-in Cost
         { wch: 16 }, // Overtime Cost
-        { wch: 20 }, // Total (Regular + OT)
+        { wch: 22 }, // Total (Regular + OT)
+        { wch: 22 }, // Total (All-in + OT)
         { wch: 14 }, // AFM
         { wch: 28 }, // IBAN
         { wch: 16 }, // Bank Name
