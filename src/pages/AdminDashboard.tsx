@@ -431,6 +431,50 @@ export default function AdminDashboard() {
     return Array.from(specialtyMap.values()).sort((a, b) => b.totalHours - a.totalHours);
   }, [filteredEntries, specialties, language]);
 
+  // Daily breakdown (visible when employee search is active) - lists each entry per day for review/fix
+  interface DailyEntryRow {
+    entryId: string;
+    date: string;
+    employeeName: string;
+    projectCode: string;
+    projectName: string;
+    specialtyName: string;
+    regularHours: number;
+    overtimeHours: number;
+    totalHours: number;
+    regularCost: number;
+    allInCost: number;
+    otCost: number;
+  }
+  const dailyBreakdown = useMemo<DailyEntryRow[]>(() => {
+    if (!employeeSearch.trim()) return [];
+    return filteredEntries
+      .map(entry => {
+        const entrySpecialtyId = entry.specialty_id ?? entry.employees.specialty_id;
+        const specialty = specialties.find(s => s.id === entrySpecialtyId);
+        const specialtyName = specialty
+          ? (language === 'el' ? specialty.name_el : specialty.name_en)
+          : (language === 'el' ? 'Άγνωστη' : 'Unknown');
+        const regularHours = entry.regular_minutes / 60;
+        const overtimeHours = entry.overtime_minutes / 60;
+        return {
+          entryId: entry.id,
+          date: entry.entry_date,
+          employeeName: `${entry.employees.first_name} ${entry.employees.last_name}`,
+          projectCode: entry.projects.project_code,
+          projectName: entry.projects.project_name,
+          specialtyName,
+          regularHours,
+          overtimeHours,
+          totalHours: entry.duration_minutes / 60,
+          regularCost: regularHours * (entry.employees.regular_hourly_rate || 0),
+          allInCost: regularHours * (entry.employees.regular_rate_all_in || 0),
+          otCost: overtimeHours * (entry.employees.overtime_hourly_rate || 0),
+        };
+      })
+      .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  }, [filteredEntries, employeeSearch, specialties, language]);
+
   // Alerts
   const alerts = useMemo(() => {
     const alertList: Alert[] = [];
