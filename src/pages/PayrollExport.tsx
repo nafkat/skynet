@@ -126,7 +126,7 @@ export default function PayrollExport() {
 
   const fetchStaticData = async () => {
     const [employeesRes, specialtiesRes, projectsRes] = await Promise.all([
-      supabase.from('employees').select('*').eq('status', 'active'),
+      supabase.from('employees').select('*'),
       supabase.from('specialties').select('*'),
       supabase.from('projects').select('*').eq('status', 'OPEN'),
     ]);
