@@ -2,7 +2,7 @@ import { ReactNode, useState, useCallback } from 'react';
 import { Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sidebar } from './Sidebar';
-import { getDailyWallpaper } from '@/hooks/useWallpaper';
+import { useDailyWallpaper } from '@/hooks/useWallpaper';
 
 interface MainLayoutProps {
   children: ReactNode;
