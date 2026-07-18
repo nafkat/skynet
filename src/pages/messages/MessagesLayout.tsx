@@ -2,7 +2,7 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { getDailyWallpaper } from '@/hooks/useWallpaper';
+import { useDailyWallpaper } from '@/hooks/useWallpaper';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -55,7 +55,7 @@ export default function MessagesLayout() {
 
   if (!hasElevatedRole) return null;
 
-  const wallpaperUrl = getDailyWallpaper();
+  const wallpaperUrl = useDailyWallpaper();
 
   return (
     <div

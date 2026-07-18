@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+
 const WALLPAPERS = [
   'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1920&q=80',
   'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1920&q=80',
@@ -31,10 +33,51 @@ const WALLPAPERS = [
   'https://images.unsplash.com/photo-1545558014-8692077e9b5c?w=1920&q=80',
 ];
 
-export const getDailyWallpaper = (): string => {
+const getDayIndex = (): number => {
   const now = new Date();
   const start = new Date(now.getFullYear(), 0, 0);
   const diff = now.getTime() - start.getTime();
   const dayOfYear = Math.floor(diff / (1000 * 60 * 60 * 24));
-  return WALLPAPERS[dayOfYear % WALLPAPERS.length];
+  return dayOfYear % WALLPAPERS.length;
+};
+
+// Preload and return first URL that loads successfully starting from index.
+const findValidWallpaper = (startIdx: number): Promise<string> =>
+  new Promise((resolve) => {
+    let attempt = 0;
+    const tryLoad = () => {
+      if (attempt >= WALLPAPERS.length) {
+        resolve(WALLPAPERS[startIdx]); // give up, return original
+        return;
+      }
+      const idx = (startIdx + attempt) % WALLPAPERS.length;
+      const url = WALLPAPERS[idx];
+      const img = new Image();
+      img.onload = () => resolve(url);
+      img.onerror = () => {
+        attempt += 1;
+        tryLoad();
+      };
+      img.src = url;
+    };
+    tryLoad();
+  });
+
+export const getDailyWallpaper = (): string => WALLPAPERS[getDayIndex()];
+
+export const useDailyWallpaper = (): string => {
+  const [url, setUrl] = useState<string>(() => WALLPAPERS[getDayIndex()]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const startIdx = getDayIndex();
+    findValidWallpaper(startIdx).then((resolved) => {
+      if (!cancelled) setUrl(resolved);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return url;
 };
