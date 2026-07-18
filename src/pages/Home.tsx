@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import GlobalSearchBar from '@/components/GlobalSearchBar';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { getDailyWallpaper } from '@/hooks/useWallpaper';
+import { useDailyWallpaper } from '@/hooks/useWallpaper';
 import { 
   Clock, 
   Megaphone, 
@@ -145,7 +145,7 @@ const modules: ModuleTile[] = [
 ];
 
 export default function Home() {
-  const wallpaperUrl = getDailyWallpaper();
+  const wallpaperUrl = useDailyWallpaper();
   const navigate = useNavigate();
   const { user, baseRole, signOut, isAdmin, loading, isActive, hasPermission, hasElevatedRole } = useAuth();
   const { language, setLanguage } = useLanguage();

@@ -19,7 +19,7 @@ import {
   ArrowLeft, Mic, MicOff, Camera, X, Plus,
   Save, Check, Loader2, Trash2,
 } from 'lucide-react';
-import { getDailyWallpaper } from '@/hooks/useWallpaper';
+import { useDailyWallpaper } from '@/hooks/useWallpaper';
 
 interface Section {
   id: string;
@@ -63,7 +63,7 @@ export default function CostingFieldEntry() {
   const { user, hasElevatedRole, hasPermission } = useAuth();
   const { language } = useLanguage();
   const t = (en: string, el: string) => (language === 'el' ? el : en);
-  const wallpaperUrl = getDailyWallpaper();
+  const wallpaperUrl = useDailyWallpaper();
   const canManageSections = hasElevatedRole || hasPermission('costing.reports.create') || hasPermission('costing.reports.edit');
 
   const [reportCode, setReportCode] = useState('');
