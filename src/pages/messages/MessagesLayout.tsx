@@ -55,7 +55,7 @@ export default function MessagesLayout() {
 
   if (!hasElevatedRole) return null;
 
-  const wallpaperUrl = getDailyWallpaper();
+  const wallpaperUrl = useDailyWallpaper();
 
   return (
     <div

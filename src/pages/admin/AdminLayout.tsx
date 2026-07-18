@@ -68,7 +68,7 @@ export default function AdminLayout() {
 
   if (!isAdmin) return null;
 
-  const wallpaperUrl = getDailyWallpaper();
+  const wallpaperUrl = useDailyWallpaper();
 
   return (
     <div
