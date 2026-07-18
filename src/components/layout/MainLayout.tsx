@@ -12,7 +12,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const handleClose = useCallback(() => setIsSidebarOpen(false), []);
 
-  const wallpaperUrl = getDailyWallpaper();
+  const wallpaperUrl = useDailyWallpaper();
 
   return (
     <div
