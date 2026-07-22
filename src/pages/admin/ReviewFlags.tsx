@@ -541,14 +541,9 @@ export default function ReviewFlagsPage() {
                   {t('Mark as resolved', 'Επίλυση')}
                 </Button>
               </div>
-
-                >
-                  <CheckCircle2 className="h-4 w-4 mr-1.5" />
-                  {t('Mark as resolved', 'Επίλυση')}
-                </Button>
-              </div>
             )}
           </div>
+
 
           <div className="bg-muted/40 rounded-md p-3 text-sm">
             <p className="text-xs text-muted-foreground mb-1">
