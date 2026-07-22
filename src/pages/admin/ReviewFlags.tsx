@@ -415,6 +415,52 @@ export default function ReviewFlagsPage() {
     return p?.full_name || p?.display_name || id.slice(0, 8);
   };
 
+  const handleDeleteEntry = async () => {
+    if (!deleteTarget || !user) return;
+    if (!deleteReason.trim()) {
+      toast.error(t('Reason is required', 'Η αιτιολογία είναι υποχρεωτική'));
+      return;
+    }
+    const entry = entries[deleteTarget.time_entry_id];
+    if (!entry) {
+      toast.error(t('Entry not loaded', 'Η καταχώρηση δεν φορτώθηκε'));
+      return;
+    }
+    setDeleteSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from('time_entries')
+        .update({
+          is_deleted: true,
+          deleted_at: new Date().toISOString(),
+          deleted_by: user.id,
+          delete_reason: `[DELETE via review flag] ${deleteReason.trim()}`,
+        })
+        .eq('id', entry.id);
+      if (error) throw error;
+
+      await addFlagComment(
+        deleteTarget.id,
+        user.id,
+        `[DELETE] ${deleteReason.trim()}`
+      );
+
+      toast.success(
+        t('Entry deleted. Flag stays open until manually resolved.',
+          'Η καταχώρηση διαγράφηκε. Η σημαία παραμένει ανοιχτή μέχρι χειροκίνητη επίλυση.')
+      );
+      setDeleteTarget(null);
+      setDeleteReason('');
+      refetch();
+      if (expandedFlag === deleteTarget.id) loadComments(deleteTarget.id);
+    } catch (err: any) {
+      toast.error(err?.message || t('Failed', 'Αποτυχία'));
+    } finally {
+      setDeleteSubmitting(false);
+    }
+  };
+
+
   const renderFlagCard = (f: EntryReviewFlag) => {
     const entry = entries[f.time_entry_id];
     const employee = entry ? employees[entry.employee_id] : null;
