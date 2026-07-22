@@ -99,6 +99,12 @@ export default function ReviewFlagsPage() {
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [confirmDeleteFlagged, setConfirmDeleteFlagged] = useState<number | null>(null);
 
+  // Delete-entry dialog state (option B: direct delete of the flagged entry)
+  const [deleteTarget, setDeleteTarget] = useState<EntryReviewFlag | null>(null);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+
+
   const dateLocale = language === 'el' ? el : enUS;
   const t = (en: string, gr: string) => (language === 'el' ? gr : en);
 
@@ -409,6 +415,52 @@ export default function ReviewFlagsPage() {
     return p?.full_name || p?.display_name || id.slice(0, 8);
   };
 
+  const handleDeleteEntry = async () => {
+    if (!deleteTarget || !user) return;
+    if (!deleteReason.trim()) {
+      toast.error(t('Reason is required', 'Η αιτιολογία είναι υποχρεωτική'));
+      return;
+    }
+    const entry = entries[deleteTarget.time_entry_id];
+    if (!entry) {
+      toast.error(t('Entry not loaded', 'Η καταχώρηση δεν φορτώθηκε'));
+      return;
+    }
+    setDeleteSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from('time_entries')
+        .update({
+          is_deleted: true,
+          deleted_at: new Date().toISOString(),
+          deleted_by: user.id,
+          delete_reason: `[DELETE via review flag] ${deleteReason.trim()}`,
+        })
+        .eq('id', entry.id);
+      if (error) throw error;
+
+      await addFlagComment(
+        deleteTarget.id,
+        user.id,
+        `[DELETE] ${deleteReason.trim()}`
+      );
+
+      toast.success(
+        t('Entry deleted. Flag stays open until manually resolved.',
+          'Η καταχώρηση διαγράφηκε. Η σημαία παραμένει ανοιχτή μέχρι χειροκίνητη επίλυση.')
+      );
+      setDeleteTarget(null);
+      setDeleteReason('');
+      refetch();
+      if (expandedFlag === deleteTarget.id) loadComments(deleteTarget.id);
+    } catch (err: any) {
+      toast.error(err?.message || t('Failed', 'Αποτυχία'));
+    } finally {
+      setDeleteSubmitting(false);
+    }
+  };
+
+
   const renderFlagCard = (f: EntryReviewFlag) => {
     const entry = entries[f.time_entry_id];
     const employee = entry ? employees[entry.employee_id] : null;
@@ -459,16 +511,27 @@ export default function ReviewFlagsPage() {
                 {t('Resolved', 'Επιλύθηκε')}
               </Badge>
             ) : (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap justify-end">
                 {!entry?.is_deleted && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => openEdit(f)}
-                  >
-                    <Pencil className="h-4 w-4 mr-1.5" />
-                    {t('Edit entry', 'Επεξεργασία')}
-                  </Button>
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => openEdit(f)}
+                    >
+                      <Pencil className="h-4 w-4 mr-1.5" />
+                      {t('Edit entry', 'Επεξεργασία')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/10"
+                      onClick={() => { setDeleteTarget(f); setDeleteReason(''); }}
+                    >
+                      <Trash2 className="h-4 w-4 mr-1.5" />
+                      {t('Delete entry', 'Διαγραφή')}
+                    </Button>
+                  </>
                 )}
                 <Button
                   size="sm"
@@ -480,6 +543,7 @@ export default function ReviewFlagsPage() {
               </div>
             )}
           </div>
+
 
           <div className="bg-muted/40 rounded-md p-3 text-sm">
             <p className="text-xs text-muted-foreground mb-1">
@@ -823,6 +887,77 @@ export default function ReviewFlagsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* DELETE ENTRY dialog (option B) */}
+      <Dialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) { setDeleteTarget(null); setDeleteReason(''); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              {t('Delete time entry?', 'Διαγραφή καταχώρησης;')}
+            </DialogTitle>
+            <DialogDescription>
+              {(() => {
+                if (!deleteTarget) return null;
+                const e = entries[deleteTarget.time_entry_id];
+                const emp = e ? employees[e.employee_id] : null;
+                const proj = e ? projects[e.project_id] : null;
+                return e ? (
+                  <>
+                    <span className="block font-medium text-foreground">
+                      {emp ? `${emp.last_name} ${emp.first_name} (${emp.employee_code})` : ''}
+                    </span>
+                    <span className="block text-xs mt-0.5">
+                      {proj ? `${proj.project_code} — ${proj.project_name}` : ''}
+                      {' • '}
+                      {format(new Date(e.entry_date), 'dd/MM/yyyy', { locale: dateLocale })}
+                      {' '}{e.start_time}–{e.end_time}
+                    </span>
+                    <span className="block text-xs mt-2">
+                      {t(
+                        'The entry will be soft-deleted and logged in the audit trail. The flag stays open until manually resolved.',
+                        'Η καταχώρηση θα διαγραφεί (soft-delete) και θα καταγραφεί στο audit log. Η σημαία παραμένει ανοιχτή μέχρι χειροκίνητη επίλυση.'
+                      )}
+                    </span>
+                  </>
+                ) : null;
+              })()}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="delete-reason">
+              {t('Reason for deletion', 'Αιτιολογία διαγραφής')} <span className="text-destructive">*</span>
+            </Label>
+            <Textarea
+              id="delete-reason"
+              value={deleteReason}
+              onChange={(e) => setDeleteReason(e.target.value)}
+              placeholder={t('Why is this entry being deleted?', 'Γιατί διαγράφεται αυτή η καταχώρηση;')}
+              rows={3}
+              maxLength={500}
+            />
+            <p className="text-xs text-muted-foreground">
+              {t('This reason will be added as a comment on the flag.', 'Η αιτιολογία θα προστεθεί ως σχόλιο στη σημαία.')}
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleteSubmitting}>
+              {t('Cancel', 'Άκυρο')}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteEntry}
+              disabled={!deleteReason.trim() || deleteSubmitting}
+            >
+              <Trash2 className="h-4 w-4 mr-1.5" />
+              {deleteSubmitting
+                ? t('Deleting…', 'Διαγραφή…')
+                : t('Yes, delete', 'Ναι, διαγραφή')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       </div>
     </div>
