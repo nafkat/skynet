@@ -888,6 +888,77 @@ export default function ReviewFlagsPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* DELETE ENTRY dialog (option B) */}
+      <Dialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) { setDeleteTarget(null); setDeleteReason(''); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              {t('Delete time entry?', 'Διαγραφή καταχώρησης;')}
+            </DialogTitle>
+            <DialogDescription>
+              {(() => {
+                if (!deleteTarget) return null;
+                const e = entries[deleteTarget.time_entry_id];
+                const emp = e ? employees[e.employee_id] : null;
+                const proj = e ? projects[e.project_id] : null;
+                return e ? (
+                  <>
+                    <span className="block font-medium text-foreground">
+                      {emp ? `${emp.last_name} ${emp.first_name} (${emp.employee_code})` : ''}
+                    </span>
+                    <span className="block text-xs mt-0.5">
+                      {proj ? `${proj.project_code} — ${proj.project_name}` : ''}
+                      {' • '}
+                      {format(new Date(e.entry_date), 'dd/MM/yyyy', { locale: dateLocale })}
+                      {' '}{e.start_time}–{e.end_time}
+                    </span>
+                    <span className="block text-xs mt-2">
+                      {t(
+                        'The entry will be soft-deleted and logged in the audit trail. The flag stays open until manually resolved.',
+                        'Η καταχώρηση θα διαγραφεί (soft-delete) και θα καταγραφεί στο audit log. Η σημαία παραμένει ανοιχτή μέχρι χειροκίνητη επίλυση.'
+                      )}
+                    </span>
+                  </>
+                ) : null;
+              })()}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="delete-reason">
+              {t('Reason for deletion', 'Αιτιολογία διαγραφής')} <span className="text-destructive">*</span>
+            </Label>
+            <Textarea
+              id="delete-reason"
+              value={deleteReason}
+              onChange={(e) => setDeleteReason(e.target.value)}
+              placeholder={t('Why is this entry being deleted?', 'Γιατί διαγράφεται αυτή η καταχώρηση;')}
+              rows={3}
+              maxLength={500}
+            />
+            <p className="text-xs text-muted-foreground">
+              {t('This reason will be added as a comment on the flag.', 'Η αιτιολογία θα προστεθεί ως σχόλιο στη σημαία.')}
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleteSubmitting}>
+              {t('Cancel', 'Άκυρο')}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteEntry}
+              disabled={!deleteReason.trim() || deleteSubmitting}
+            >
+              <Trash2 className="h-4 w-4 mr-1.5" />
+              {deleteSubmitting
+                ? t('Deleting…', 'Διαγραφή…')
+                : t('Yes, delete', 'Ναι, διαγραφή')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+
       </div>
     </div>
     </MainLayout>
