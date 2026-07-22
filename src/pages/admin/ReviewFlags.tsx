@@ -99,6 +99,12 @@ export default function ReviewFlagsPage() {
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [confirmDeleteFlagged, setConfirmDeleteFlagged] = useState<number | null>(null);
 
+  // Delete-entry dialog state (option B: direct delete of the flagged entry)
+  const [deleteTarget, setDeleteTarget] = useState<EntryReviewFlag | null>(null);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+
+
   const dateLocale = language === 'el' ? el : enUS;
   const t = (en: string, gr: string) => (language === 'el' ? gr : en);
 
