@@ -23,41 +23,24 @@ import {
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
+import {
+  fetchPayrollTimeEntries,
+  fetchPayrollEmployees,
+  buildPayrollRows,
+  summarizePayroll,
+  type PayrollEmployee,
+  type PayrollSpecialty,
+  type PayrollTimeEntry,
+} from '@/lib/payrollCalc';
 
 interface PayrollExportModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-interface TimeEntry {
-  id: string;
-  entry_date: string;
-  regular_minutes: number;
-  overtime_minutes: number;
-  employee_id: string;
-  project_id: string;
-}
-
-interface Employee {
-  id: string;
-  employee_code: string;
-  first_name: string;
-  last_name: string;
-  specialty_id: string;
-  regular_hourly_rate: number;
-  regular_rate_all_in: number;
-  overtime_hourly_rate: number;
-  afm: string | null;
-  iban: string | null;
-  bank_name: string | null;
-}
-
-interface Specialty {
-  id: string;
-  code: string;
-  name_en: string;
-  name_el: string;
-}
+type TimeEntry = PayrollTimeEntry;
+type Employee = PayrollEmployee;
+type Specialty = PayrollSpecialty;
 
 interface Project {
   id: string;
@@ -65,28 +48,6 @@ interface Project {
   project_name: string;
 }
 
-interface PayrollRow {
-  employee_code: string;
-  first_name: string;
-  last_name: string;
-  specialty: string;
-  afm: string;
-  iban: string;
-  bank_name: string;
-  regular_hours: number;
-  overtime_hours: number;
-  regular_hourly_rate: number;
-  regular_rate_all_in: number;
-  overtime_hourly_rate: number;
-  regular_cost: number;
-  regular_all_in_cost: number;
-  overtime_cost: number;
-  total_regular_ot: number;
-  total_all_in_ot: number;
-  project_code?: string;
-  project_name?: string;
-  hasMissingLegalData: boolean;
-}
 
 export function PayrollExportModal({ open, onOpenChange }: PayrollExportModalProps) {
   const { language } = useLanguage();
