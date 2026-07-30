@@ -75,21 +75,24 @@ export function PayrollExportModal({ open, onOpenChange }: PayrollExportModalPro
     const fromDate = format(dateFrom, 'yyyy-MM-dd');
     const toDate = format(dateTo, 'yyyy-MM-dd');
 
-    const [employeesRes, specialtiesRes, projectsRes, entriesRes] = await Promise.all([
-      supabase.from('employees').select('*').eq('status', 'active'),
-      supabase.from('specialties').select('id, code, name_en, name_el'),
-      supabase.from('projects').select('id, project_code, project_name'),
-      supabase.from('time_entries')
-        .select('id, entry_date, regular_minutes, overtime_minutes, employee_id, project_id')
-        .gte('entry_date', fromDate)
-        .lte('entry_date', toDate),
-    ]);
+    try {
+      const [employeesData, specialtiesRes, projectsRes, entriesData] = await Promise.all([
+        fetchPayrollEmployees(),
+        supabase.from('specialties').select('id, code, name_en, name_el'),
+        supabase.from('projects').select('id, project_code, project_name'),
+        fetchPayrollTimeEntries(fromDate, toDate),
+      ]);
 
-    if (employeesRes.data) setEmployees(employeesRes.data);
-    if (specialtiesRes.data) setSpecialties(specialtiesRes.data);
-    if (projectsRes.data) setProjects(projectsRes.data);
-    if (entriesRes.data) setTimeEntries(entriesRes.data);
-    setLoading(false);
+      setEmployees(employeesData);
+      if (specialtiesRes.data) setSpecialties(specialtiesRes.data);
+      if (projectsRes.data) setProjects(projectsRes.data);
+      setTimeEntries(entriesData);
+    } catch (error) {
+      console.error('Payroll fetch error:', error);
+      toast.error(language === 'el' ? 'Σφάλμα φόρτωσης δεδομένων' : 'Failed to load data');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Get selected project details
@@ -98,101 +101,33 @@ export function PayrollExportModal({ open, onOpenChange }: PayrollExportModalPro
     return projects.find(p => p.id === selectedProject) || null;
   }, [selectedProject, projects]);
 
-  const payrollData = useMemo(() => {
-    const employeeMap = new Map<string, {
-      employee: Employee;
-      specialty: Specialty | undefined;
-      regular_minutes: number;
-      overtime_minutes: number;
-    }>();
+  const payrollData = useMemo(
+    () =>
+      buildPayrollRows({
+        entries: timeEntries,
+        employees,
+        specialties,
+        selectedProject,
+        selectedSpecialty,
+        language,
+        projectDetails: selectedProjectDetails,
+      }),
+    [timeEntries, employees, specialties, selectedProject, selectedSpecialty, selectedProjectDetails, language]
+  );
 
-    const filteredEntries = timeEntries.filter(entry => {
-      if (selectedProject !== 'all' && entry.project_id !== selectedProject) return false;
-      const employee = employees.find(e => e.id === entry.employee_id);
-      if (selectedSpecialty !== 'all' && employee?.specialty_id !== selectedSpecialty) return false;
-      return true;
-    });
+  const preview = useMemo(() => {
+    const s = summarizePayroll(payrollData);
+    return {
+      employeeCount: s.employeeCount,
+      totalRegularHours: s.totalRegularHours,
+      totalOvertimeHours: s.totalOvertimeHours,
+      totalRegularOT: s.totalAmount,
+      totalAllInOT: s.totalAllInOT,
+      hasMissingLegalData: s.hasMissingLegalData,
+      employeesWithMissingData: s.employeesWithMissingData,
+    };
+  }, [payrollData]);
 
-    filteredEntries.forEach(entry => {
-      const employee = employees.find(e => e.id === entry.employee_id);
-      if (!employee) return;
-
-      const specialty = specialties.find(s => s.id === employee.specialty_id);
-      const existing = employeeMap.get(employee.id);
-
-      if (existing) {
-        existing.regular_minutes += entry.regular_minutes;
-        existing.overtime_minutes += entry.overtime_minutes;
-      } else {
-        employeeMap.set(employee.id, {
-          employee,
-          specialty,
-          regular_minutes: entry.regular_minutes,
-          overtime_minutes: entry.overtime_minutes,
-        });
-      }
-    });
-
-    const rows: PayrollRow[] = [];
-    employeeMap.forEach(data => {
-      const { employee, specialty, regular_minutes, overtime_minutes } = data;
-      
-      const regular_hours = Math.round((regular_minutes / 60) * 100) / 100;
-      const overtime_hours = Math.round((overtime_minutes / 60) * 100) / 100;
-      
-      // Calculate costs
-      const regular_cost = Math.round(regular_hours * employee.regular_hourly_rate * 100) / 100;
-      const regular_all_in_cost = Math.round(regular_hours * (employee.regular_rate_all_in || 0) * 100) / 100;
-      const overtime_cost = Math.round(overtime_hours * employee.overtime_hourly_rate * 100) / 100;
-      const total_regular_ot = Math.round((regular_cost + overtime_cost) * 100) / 100;
-      const total_all_in_ot = Math.round((regular_all_in_cost + overtime_cost) * 100) / 100;
-
-      // Check for missing legal data
-      const hasMissingLegalData = !employee.afm || !employee.iban || !employee.bank_name;
-
-      const row: PayrollRow = {
-        employee_code: employee.employee_code,
-        first_name: employee.first_name,
-        last_name: employee.last_name,
-        specialty: specialty ? (language === 'el' ? specialty.name_el : specialty.name_en) : '',
-        afm: employee.afm || '',
-        iban: employee.iban || '',
-        bank_name: employee.bank_name || '',
-        regular_hours,
-        overtime_hours,
-        regular_hourly_rate: employee.regular_hourly_rate,
-        regular_rate_all_in: employee.regular_rate_all_in || 0,
-        overtime_hourly_rate: employee.overtime_hourly_rate,
-        regular_cost,
-        regular_all_in_cost,
-        overtime_cost,
-        total_regular_ot,
-        total_all_in_ot,
-        hasMissingLegalData,
-      };
-
-      // Add project info if filtered
-      if (selectedProjectDetails) {
-        row.project_code = selectedProjectDetails.project_code;
-        row.project_name = selectedProjectDetails.project_name;
-      }
-
-      rows.push(row);
-    });
-
-    rows.sort((a, b) => a.employee_code.localeCompare(b.employee_code));
-    return rows;
-  }, [timeEntries, employees, specialties, selectedProject, selectedSpecialty, selectedProjectDetails, language]);
-
-  const preview = useMemo(() => ({
-    employeeCount: payrollData.length,
-    totalRegularHours: payrollData.reduce((sum, r) => sum + r.regular_hours, 0),
-    totalOvertimeHours: payrollData.reduce((sum, r) => sum + r.overtime_hours, 0),
-    totalRegularOT: payrollData.reduce((sum, r) => sum + r.total_regular_ot, 0),
-    totalAllInOT: payrollData.reduce((sum, r) => sum + r.total_all_in_ot, 0),
-    hasMissingLegalData: payrollData.some(r => r.hasMissingLegalData),
-    employeesWithMissingData: payrollData.filter(r => r.hasMissingLegalData).length,
-  }), [payrollData]);
 
 
   const handleExport = () => {
