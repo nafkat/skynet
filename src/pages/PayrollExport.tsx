@@ -83,30 +83,34 @@ export default function PayrollExport() {
   }, [hasElevatedRole, dateFrom, dateTo]);
 
   const fetchStaticData = async () => {
-    const [employeesRes, specialtiesRes, projectsRes] = await Promise.all([
-      supabase.from('employees').select('*'),
-      supabase.from('specialties').select('*'),
-      supabase.from('projects').select('*').eq('status', 'OPEN'),
-    ]);
+    try {
+      const [employeesData, specialtiesRes, projectsRes] = await Promise.all([
+        fetchPayrollEmployees(),
+        supabase.from('specialties').select('*'),
+        supabase.from('projects').select('*').eq('status', 'OPEN'),
+      ]);
 
-    if (employeesRes.data) setEmployees(employeesRes.data);
-    if (specialtiesRes.data) setSpecialties(specialtiesRes.data);
-    if (projectsRes.data) setProjects(projectsRes.data);
-    setLoading(false);
+      setEmployees(employeesData);
+      if (specialtiesRes.data) setSpecialties(specialtiesRes.data);
+      if (projectsRes.data) setProjects(projectsRes.data);
+    } catch (error) {
+      console.error('Payroll fetch error:', error);
+      toast.error(language === 'el' ? 'Σφάλμα φόρτωσης δεδομένων' : 'Failed to load data');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const fetchTimeEntries = async () => {
     const fromDate = format(dateFrom, 'yyyy-MM-dd');
     const toDate = format(dateTo, 'yyyy-MM-dd');
 
-    const { data } = await supabase
-      .from('time_entries')
-      .select('id, entry_date, regular_minutes, overtime_minutes, employee_id, project_id')
-      .eq('is_deleted', false)
-      .gte('entry_date', fromDate)
-      .lte('entry_date', toDate);
-
-    if (data) setTimeEntries(data);
+    try {
+      setTimeEntries(await fetchPayrollTimeEntries(fromDate, toDate));
+    } catch (error) {
+      console.error('Payroll entries fetch error:', error);
+      toast.error(language === 'el' ? 'Σφάλμα φόρτωσης καταχωρήσεων' : 'Failed to load time entries');
+    }
   };
 
   // Get selected project details
@@ -115,106 +119,32 @@ export default function PayrollExport() {
     return projects.find(p => p.id === selectedProject) || null;
   }, [selectedProject, projects]);
 
-  // Calculate payroll data
-  const payrollData = useMemo(() => {
-    const employeeMap = new Map<string, {
-      employee: Employee;
-      specialty: Specialty | undefined;
-      regular_minutes: number;
-      overtime_minutes: number;
-    }>();
-
-    // Filter entries by project/specialty
-    const filteredEntries = timeEntries.filter(entry => {
-      if (selectedProject !== 'all' && entry.project_id !== selectedProject) {
-        return false;
-      }
-      const employee = employees.find(e => e.id === entry.employee_id);
-      if (selectedSpecialty !== 'all' && employee?.specialty_id !== selectedSpecialty) {
-        return false;
-      }
-      return true;
-    });
-
-    // Group by employee
-    filteredEntries.forEach(entry => {
-      const employee = employees.find(e => e.id === entry.employee_id);
-      if (!employee) return;
-
-      const specialty = specialties.find(s => s.id === employee.specialty_id);
-      const existing = employeeMap.get(employee.id);
-
-      if (existing) {
-        existing.regular_minutes += entry.regular_minutes;
-        existing.overtime_minutes += entry.overtime_minutes;
-      } else {
-        employeeMap.set(employee.id, {
-          employee,
-          specialty,
-          regular_minutes: entry.regular_minutes,
-          overtime_minutes: entry.overtime_minutes,
-        });
-      }
-    });
-
-    // Calculate derived fields
-    const rows: PayrollRow[] = [];
-    employeeMap.forEach(data => {
-      const { employee, specialty, regular_minutes, overtime_minutes } = data;
-      
-      const regular_hours = Math.round((regular_minutes / 60) * 100) / 100;
-      const overtime_hours = Math.round((overtime_minutes / 60) * 100) / 100;
-      const regular_amount = Math.round(regular_hours * employee.regular_hourly_rate * 100) / 100;
-      const regular_all_in_amount = Math.round(regular_hours * (employee.regular_rate_all_in || 0) * 100) / 100;
-      const overtime_amount = Math.round(overtime_hours * employee.overtime_hourly_rate * 100) / 100;
-      const total_amount = Math.round((regular_amount + overtime_amount) * 100) / 100;
-      const total_all_in_ot = Math.round((regular_all_in_amount + overtime_amount) * 100) / 100;
-
-      const row: PayrollRow = {
-        employee_code: employee.employee_code,
-        first_name: employee.first_name,
-        last_name: employee.last_name,
-        specialty: specialty ? (language === 'el' ? specialty.name_el : specialty.name_en) : '',
-        employment_type: employee.employment_type || 'permanent',
-        afm: employee.afm || '',
-        iban: employee.iban || '',
-        bank_name: employee.bank_name || '',
-        regular_hours,
-        overtime_hours,
-        regular_hourly_rate: employee.regular_hourly_rate,
-        regular_rate_all_in: employee.regular_rate_all_in || 0,
-        overtime_hourly_rate: employee.overtime_hourly_rate,
-        regular_amount,
-        regular_all_in_amount,
-        overtime_amount,
-        total_amount,
-        total_all_in_ot,
-      };
-
-      // Add project info if filtered by project
-      if (selectedProjectDetails) {
-        row.project_code = selectedProjectDetails.project_code;
-        row.project_name = selectedProjectDetails.project_name;
-      }
-
-      rows.push(row);
-    });
-
-    // Sort by employee code
-    rows.sort((a, b) => a.employee_code.localeCompare(b.employee_code));
-
-    return rows;
-  }, [timeEntries, employees, specialties, selectedProject, selectedSpecialty, selectedProjectDetails, language]);
+  // Calculate payroll data (shared logic — identical to the dashboard modal)
+  const payrollData = useMemo(
+    () =>
+      buildPayrollRows({
+        entries: timeEntries,
+        employees,
+        specialties,
+        selectedProject,
+        selectedSpecialty,
+        language,
+        projectDetails: selectedProjectDetails,
+      }),
+    [timeEntries, employees, specialties, selectedProject, selectedSpecialty, selectedProjectDetails, language]
+  );
 
   // Preview summary
   const previewSummary = useMemo((): PreviewSummary => {
+    const s = summarizePayroll(payrollData);
     return {
-      employeeCount: payrollData.length,
-      totalRegularHours: payrollData.reduce((sum, r) => sum + r.regular_hours, 0),
-      totalOvertimeHours: payrollData.reduce((sum, r) => sum + r.overtime_hours, 0),
-      totalAmount: payrollData.reduce((sum, r) => sum + r.total_amount, 0),
+      employeeCount: s.employeeCount,
+      totalRegularHours: s.totalRegularHours,
+      totalOvertimeHours: s.totalOvertimeHours,
+      totalAmount: s.totalAmount,
     };
   }, [payrollData]);
+
 
   const handleExport = () => {
     if (payrollData.length === 0) {
