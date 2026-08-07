@@ -12,6 +12,7 @@ import { ThemeProvider } from "next-themes";
 // Pages
 import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
+import SetupAccount from "./pages/SetupAccount";
 import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import PayrollExport from "./pages/PayrollExport";
@@ -75,7 +76,7 @@ function ProtectedRoute({
   children: React.ReactNode;
   requiredRoles?: ('admin' | 'hr' | 'timekeeper')[];
 }) {
-  const { user, role, loading } = useAuth();
+  const { user, role, loading, setupCompleted } = useAuth();
 
   if (loading) {
     return (
@@ -89,6 +90,9 @@ function ProtectedRoute({
     return <Navigate to="/login" replace />;
   }
 
+  if (!setupCompleted) {
+    return <Navigate to="/setup-account" replace />;
+  }
 
   if (requiredRoles && role && !requiredRoles.includes(role)) {
     // Redirect to home launcher for unauthorized roles
@@ -96,6 +100,24 @@ function ProtectedRoute({
   }
 
   return <>{children}</>;
+}
+
+// Account setup gate: only for authenticated users who have not completed setup
+function SetupAccountRoute() {
+  const { user, loading, setupCompleted } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-pulse text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) return <Navigate to="/login" replace />;
+  if (setupCompleted) return <Navigate to="/home" replace />;
+
+  return <SetupAccount />;
 }
 
 // Smart redirect based on user role
@@ -123,6 +145,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/setup-account" element={<SetupAccountRoute />} />
       
       
       <Route path="/" element={<RoleBasedRedirect />} />
