@@ -2026,6 +2026,8 @@ export type Database = {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      cost_attachment_report_id: { Args: { _name: string }; Returns: string }
+      cost_photo_report_id: { Args: { _name: string }; Returns: string }
       get_all_users_with_profiles: {
         Args: never
         Returns: {
@@ -2090,6 +2092,7 @@ export type Database = {
         Args: { _user_id: string }
         Returns: undefined
       }
+      safe_uuid: { Args: { _txt: string }; Returns: string }
       user_has_items_in_report: {
         Args: { _report_id: string; _user_id: string }
         Returns: boolean
