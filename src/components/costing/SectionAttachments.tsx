@@ -5,6 +5,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Paperclip, Upload, Trash2, FileText, FileSpreadsheet, FileImage, File as FileIcon, Loader2, ExternalLink } from 'lucide-react';
+import { validateFile, acceptAttr } from '@/lib/fileValidation';
 
 interface Attachment {
   id: string;
@@ -17,7 +18,7 @@ interface Attachment {
   signedUrl?: string;
 }
 
-const MAX_BYTES = 10 * 1024 * 1024; // 10MB project standard
+
 
 function iconFor(name: string, mime: string | null) {
   const ext = name.split('.').pop()?.toLowerCase() || '';
@@ -77,8 +78,9 @@ export default function SectionAttachments({ sectionId }: { sectionId: string })
     setUploading(true);
     try {
       for (const file of Array.from(files)) {
-        if (file.size > MAX_BYTES) {
-          toast.error(t(`"${file.name}" exceeds 10MB limit`, `Το "${file.name}" υπερβαίνει το όριο 10MB`));
+        const v = validateFile(file, 'attachment');
+        if (!v.ok) {
+          toast.error(t(v.errorEn!, v.errorEl!));
           continue;
         }
         const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -136,6 +138,7 @@ export default function SectionAttachments({ sectionId }: { sectionId: string })
             ref={fileRef}
             type="file"
             multiple
+            accept={acceptAttr('attachment')}
             className="hidden"
             onChange={(e) => handleUpload(e.target.files)}
           />

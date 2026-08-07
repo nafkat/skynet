@@ -20,6 +20,7 @@ import {
   Save, Check, Loader2, Trash2,
 } from 'lucide-react';
 import { useDailyWallpaper } from '@/hooks/useWallpaper';
+import { validateFile, validateImageContent, acceptAttr } from '@/lib/fileValidation';
 
 interface Section {
   id: string;
@@ -100,6 +101,7 @@ export default function CostingFieldEntry() {
   const noteRecorderRef = useRef<MediaRecorder | null>(null);
   const noteChunksRef = useRef<Blob[]>([]);
   const noteStreamRef = useRef<MediaStream | null>(null);
+  const noteMimeRef = useRef<string>('audio/webm');
 
   const [saving, setSaving] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
@@ -281,6 +283,7 @@ export default function CostingFieldEntry() {
       const mimeType = mimeCandidates.find((m) => (window as any).MediaRecorder?.isTypeSupported?.(m)) || '';
       const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
       noteRecorderRef.current = recorder;
+      noteMimeRef.current = (recorder.mimeType || mimeType || 'audio/webm').split(';')[0];
       recorder.ondataavailable = (e) => { if (e.data.size > 0) noteChunksRef.current.push(e.data); };
       recorder.onstop = () => {
         stream.getTracks().forEach((tr) => tr.stop());
@@ -327,25 +330,32 @@ export default function CostingFieldEntry() {
 
 
 
-  const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
+    if (cameraRef.current) cameraRef.current.value = '';
     const currentCount = existingPhotos.length + photos.length;
     const remaining = MAX_FIELD_ENTRY_PHOTOS - currentCount;
     if (remaining <= 0) {
       toast.error(t('Maximum 2 photos per item', 'Μέχρι 2 φωτογραφίες ανά εργασία'));
-      if (cameraRef.current) cameraRef.current.value = '';
       return;
     }
     const acceptedFiles = files.slice(0, remaining);
     if (files.length > acceptedFiles.length) {
       toast.warning(t('Only 2 photos per item are allowed', 'Επιτρέπονται μόνο 2 φωτογραφίες ανά εργασία'));
     }
-    const newPhotos = acceptedFiles.map(file => ({
-      file,
-      previewUrl: URL.createObjectURL(file),
-    }));
+    const newPhotos: PhotoPreview[] = [];
+    for (const file of acceptedFiles) {
+      const v = validateFile(file, 'image');
+      if (!v.ok) { toast.error(t(v.errorEn!, v.errorEl!)); continue; }
+      const genuine = await validateImageContent(file);
+      if (!genuine) {
+        toast.error(t(`"${file.name}": file content is not a valid image.`, `Το "${file.name}": το περιεχόμενο δεν είναι έγκυρη εικόνα.`));
+        continue;
+      }
+      newPhotos.push({ file, previewUrl: URL.createObjectURL(file) });
+    }
+    if (newPhotos.length === 0) return;
     setPhotos(prev => [...prev, ...newPhotos]);
-    if (cameraRef.current) cameraRef.current.value = '';
   };
 
   const removePhoto = (idx: number) => {
@@ -385,6 +395,12 @@ export default function CostingFieldEntry() {
   };
 
   const uploadPhoto = async (itemId: string, photo: PhotoPreview): Promise<string | null> => {
+    // Defense in depth: re-validate right before the upload.
+    const v = validateFile(photo.file, 'image');
+    if (!v.ok || !(await validateImageContent(photo.file))) {
+      console.error('Photo rejected by validation:', photo.file.name);
+      return null;
+    }
     const ext = photo.file.name.split('.').pop() || 'jpg';
     const path = `${id}/${itemId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
     const { error } = await supabase.storage
@@ -506,11 +522,18 @@ export default function CostingFieldEntry() {
       }
       // Upload new voice note
       if (itemId && voiceNoteBlob) {
-        const ext = voiceNoteBlob.type.includes('mp4') ? 'm4a' : 'webm';
+        const mime = (voiceNoteBlob.type || noteMimeRef.current || 'audio/webm').split(';')[0];
+        const ext = mime.includes('mp4') ? 'm4a' : 'webm';
+        const voiceFile = new File([voiceNoteBlob], `voice-note.${ext}`, { type: mime });
+        const vv = validateFile(voiceFile, 'audio');
+        if (!vv.ok) {
+          toast.error(t(vv.errorEn!, vv.errorEl!));
+          return; // do not upload
+        }
         const path = `${id}/${itemId}/voice-${Date.now()}.${ext}`;
         const { error: vErr } = await supabase.storage
           .from('cost-photos')
-          .upload(path, voiceNoteBlob, { contentType: voiceNoteBlob.type, upsert: false });
+          .upload(path, voiceFile, { contentType: mime, upsert: false });
         if (!vErr) {
           await supabase.from('cost_items').update({ voice_note_path: path }).eq('id', itemId);
         } else {
@@ -896,7 +919,7 @@ export default function CostingFieldEntry() {
             <input
               ref={cameraRef}
               type="file"
-              accept="image/*"
+              accept={acceptAttr('image')}
               capture="environment"
               className="hidden"
               onChange={handlePhotoCapture}
