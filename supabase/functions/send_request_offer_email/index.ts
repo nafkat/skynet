@@ -162,6 +162,43 @@ serve(async (req: Request) => {
   }
 
   try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    // --- Authentication & authorization ---
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const jwt = authHeader.replace("Bearer ", "");
+    const authClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(jwt);
+    const userId = claimsData?.claims?.sub as string | undefined;
+    if (claimsError || !userId) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const { data: allowed, error: permError } = await supabase.rpc("has_permission", {
+      _user_id: userId,
+      _permission_key: "module.procurement",
+    });
+    if (permError || allowed !== true) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (!resendApiKey) throw new Error("RESEND_API_KEY is not configured");
 
@@ -169,12 +206,13 @@ serve(async (req: Request) => {
     const replyToEmail = Deno.env.get("REPLY_TO_EMAIL");
     const resend = new Resend(resendApiKey);
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
     const { request_offer_id }: RequestBody = await req.json();
-    if (!request_offer_id) throw new Error("request_offer_id is required");
+    if (!request_offer_id || typeof request_offer_id !== "string") {
+      return new Response(JSON.stringify({ error: "request_offer_id is required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     console.log(`Processing request offer: ${request_offer_id}`);
 
