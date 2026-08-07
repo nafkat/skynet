@@ -516,11 +516,18 @@ export default function CostingFieldEntry() {
       }
       // Upload new voice note
       if (itemId && voiceNoteBlob) {
-        const ext = voiceNoteBlob.type.includes('mp4') ? 'm4a' : 'webm';
+        const mime = (voiceNoteBlob.type || noteMimeRef.current || 'audio/webm').split(';')[0];
+        const ext = mime.includes('mp4') ? 'm4a' : 'webm';
+        const voiceFile = new File([voiceNoteBlob], `voice-note.${ext}`, { type: mime });
+        const vv = validateFile(voiceFile, 'audio');
+        if (!vv.ok) {
+          toast.error(t(vv.errorEn!, vv.errorEl!));
+          return; // do not upload
+        }
         const path = `${id}/${itemId}/voice-${Date.now()}.${ext}`;
         const { error: vErr } = await supabase.storage
           .from('cost-photos')
-          .upload(path, voiceNoteBlob, { contentType: voiceNoteBlob.type, upsert: false });
+          .upload(path, voiceFile, { contentType: mime, upsert: false });
         if (!vErr) {
           await supabase.from('cost_items').update({ voice_note_path: path }).eq('id', itemId);
         } else {
