@@ -1307,6 +1307,7 @@ export type Database = {
           id: string
           is_active: boolean
           preferred_language: string
+          setup_completed: boolean
           updated_at: string
           user_id: string
         }
@@ -1317,6 +1318,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           preferred_language?: string
+          setup_completed?: boolean
           updated_at?: string
           user_id: string
         }
@@ -1327,6 +1329,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           preferred_language?: string
+          setup_completed?: boolean
           updated_at?: string
           user_id?: string
         }
