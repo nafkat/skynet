@@ -39,6 +39,7 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const webhookSecret = Deno.env.get('TELEGRAM_WEBHOOK_SECRET');
 
     if (!supabaseUrl || !serviceRoleKey || !TELEGRAM_BOT_TOKEN) {
       console.error('Missing environment variables');
@@ -48,8 +49,66 @@ Deno.serve(async (req) => {
       });
     }
 
+    const url = new URL(req.url);
+
+    // --- Admin-only maintenance action: (re)register the Telegram webhook with the secret token ---
+    if (url.searchParams.get('action') === 'register_webhook') {
+      const authHeader = req.headers.get('Authorization');
+      if (!authHeader?.startsWith('Bearer ') || !webhookSecret) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const jwt = authHeader.replace('Bearer ', '');
+      const authClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(jwt);
+      const userId = claimsData?.claims?.sub as string | undefined;
+      if (claimsError || !userId) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const admin = createClient(supabaseUrl, serviceRoleKey);
+      const { data: isAdmin } = await admin.rpc('is_admin', { _user_id: userId });
+      if (isAdmin !== true) {
+        return new Response(JSON.stringify({ error: 'Forbidden' }), {
+          status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const webhookUrl = `${supabaseUrl.replace('.supabase.co', '.supabase.co')}/functions/v1/telegram_webhook`;
+      const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: webhookUrl,
+          secret_token: webhookSecret,
+          allowed_updates: ['message'],
+        }),
+      });
+      const out = await res.json();
+      return new Response(JSON.stringify({ registered: out.ok === true, description: out.description ?? null }), {
+        status: out.ok ? 200 : 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // --- Verify the request really comes from Telegram ---
+    if (webhookSecret) {
+      const provided = req.headers.get('x-telegram-bot-api-secret-token');
+      if (provided !== webhookSecret) {
+        console.warn('Rejected webhook call with invalid secret token');
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     const payload = await req.json();
-    console.log('Telegram webhook payload:', JSON.stringify(payload));
+    console.log('Telegram webhook payload received');
+
 
     if (!payload.message) {
       console.log('Ignoring non-message update');

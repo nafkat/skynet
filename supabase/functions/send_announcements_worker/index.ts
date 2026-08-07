@@ -212,6 +212,44 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+    // --- Authentication & authorization ---
+    const authHeader = req.headers.get('Authorization');
+    const cronSecret = Deno.env.get('ANNOUNCEMENTS_WORKER_SECRET');
+    const providedSecret = req.headers.get('x-worker-secret');
+    const isCron = !!cronSecret && providedSecret === cronSecret;
+
+    if (!isCron) {
+      if (!authHeader?.startsWith('Bearer ')) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const jwt = authHeader.replace('Bearer ', '');
+      const authClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(jwt);
+      const userId = claimsData?.claims?.sub as string | undefined;
+      if (claimsError || !userId) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const [{ data: modAllowed }, { data: elevated }] = await Promise.all([
+        supabase.rpc('has_permission', { _user_id: userId, _permission_key: 'module.announcements' }),
+        supabase.rpc('has_elevated_role', { _user_id: userId }),
+      ]);
+      if (modAllowed !== true && elevated !== true) {
+        return new Response(JSON.stringify({ error: 'Forbidden' }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     console.log('Starting announcement delivery worker...');
 
     const { data: deliveries, error: fetchError } = await supabase
