@@ -283,6 +283,7 @@ export default function CostingFieldEntry() {
       const mimeType = mimeCandidates.find((m) => (window as any).MediaRecorder?.isTypeSupported?.(m)) || '';
       const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
       noteRecorderRef.current = recorder;
+      noteMimeRef.current = (recorder.mimeType || mimeType || 'audio/webm').split(';')[0];
       recorder.ondataavailable = (e) => { if (e.data.size > 0) noteChunksRef.current.push(e.data); };
       recorder.onstop = () => {
         stream.getTracks().forEach((tr) => tr.stop());
