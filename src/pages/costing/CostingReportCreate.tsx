@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import {
   Plus, Trash2, ChevronDown, ChevronUp, Save, ArrowLeft, Camera, X,
 } from 'lucide-react';
+import { validateFile, validateImageContent, acceptAttr } from '@/lib/fileValidation';
 
 interface Project {
   id: string;
@@ -138,12 +139,20 @@ export default function CostingReportCreate() {
       ),
     );
 
-  const addPhotos = (sectionTempId: string, itemTempId: string, files: FileList | null) => {
+  const addPhotos = async (sectionTempId: string, itemTempId: string, files: FileList | null) => {
     if (!files || files.length === 0) return;
-    const newPhotos: PhotoPreview[] = Array.from(files).map((file) => ({
-      file,
-      previewUrl: URL.createObjectURL(file),
-    }));
+    const newPhotos: PhotoPreview[] = [];
+    for (const file of Array.from(files)) {
+      const v = validateFile(file, 'image');
+      if (!v.ok) { toast.error(t(v.errorEn!, v.errorEl!)); continue; }
+      const genuine = await validateImageContent(file);
+      if (!genuine) {
+        toast.error(t(`"${file.name}": file content is not a valid image.`, `Το "${file.name}": το περιεχόμενο δεν είναι έγκυρη εικόνα.`));
+        continue;
+      }
+      newPhotos.push({ file, previewUrl: URL.createObjectURL(file) });
+    }
+    if (newPhotos.length === 0) return;
     setSections((s) =>
       s.map((sec) =>
         sec.tempId === sectionTempId
