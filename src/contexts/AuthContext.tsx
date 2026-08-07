@@ -14,6 +14,8 @@ interface AuthContextType {
   baseRole: BaseRole | null;
   loading: boolean;
   isActive: boolean;
+  setupCompleted: boolean;
+  refreshSetupStatus: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   isAdmin: boolean;
@@ -33,6 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [baseRole, setBaseRole] = useState<BaseRole | null>(null);
   const [isActive, setIsActive] = useState(true);
+  const [setupCompleted, setSetupCompleted] = useState(true);
   const [loading, setLoading] = useState(true);
   const [permissions, setPermissions] = useState<string[]>([]);
 
@@ -48,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('is_active')
+        .select('is_active, setup_completed')
         .eq('user_id', userId)
         .maybeSingle();
 
@@ -70,12 +73,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return {
         baseRole,
         isActive: profileData?.is_active ?? true,
+        setupCompleted: profileData?.setup_completed ?? true,
         permissions: (permissionsData || []).map(p => p.permission_key),
       };
     } catch (err) {
       console.error('Error fetching user data:', err);
-      return { baseRole: 'employee' as BaseRole, isActive: true, permissions: [] };
+      return { baseRole: 'employee' as BaseRole, isActive: true, setupCompleted: true, permissions: [] };
     }
+  };
+
+  const refreshSetupStatus = async () => {
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (!currentUser) return;
+    const { data } = await supabase
+      .from('profiles')
+      .select('setup_completed')
+      .eq('user_id', currentUser.id)
+      .maybeSingle();
+    setSetupCompleted(data?.setup_completed ?? true);
   };
 
   const refreshPermissions = async () => {
@@ -99,12 +114,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const userData = await fetchUserData(currentSession.user.id);
             setBaseRole(userData.baseRole);
             setIsActive(userData.isActive);
+            setSetupCompleted(userData.setupCompleted);
             setPermissions(userData.permissions);
             setLoading(false);
           }, 0);
         } else {
           setBaseRole(null);
           setIsActive(true);
+          setSetupCompleted(true);
           setPermissions([]);
           setLoading(false);
         }
@@ -119,6 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         fetchUserData(initialSession.user.id).then((userData) => {
           setBaseRole(userData.baseRole);
           setIsActive(userData.isActive);
+          setSetupCompleted(userData.setupCompleted);
           setPermissions(userData.permissions);
           setLoading(false);
         });
@@ -141,6 +159,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setBaseRole(null);
     setIsActive(true);
+    setSetupCompleted(true);
     setPermissions([]);
     setLoading(false);
   };
@@ -184,6 +203,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         baseRole,
         loading,
         isActive,
+        setupCompleted,
+        refreshSetupStatus,
         signIn,
         signOut,
         isAdmin,

@@ -100,7 +100,7 @@ serve(async (req) => {
     }
 
     // Generate invite link WITHOUT sending email (bypass Supabase built-in SMTP rate limit)
-    const redirectTo = `${req.headers.get("origin") || Deno.env.get("SITE_URL") || "https://skynetshipyard.app"}/home`;
+    const redirectTo = `${req.headers.get("origin") || Deno.env.get("SITE_URL") || "https://skynetshipyard.app"}/setup-account`;
     const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
       type: "invite",
       email,

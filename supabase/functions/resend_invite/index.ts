@@ -102,7 +102,7 @@ serve(async (req) => {
     const displayName = profileData?.full_name || profileData?.display_name || userEmail.split("@")[0];
 
     // Generate a fresh invite link (invalidates previous invite tokens). Does NOT send email.
-    const redirectTo = `${req.headers.get("origin") || Deno.env.get("SITE_URL") || "https://skynetshipyard.app"}/home`;
+    const redirectTo = `${req.headers.get("origin") || Deno.env.get("SITE_URL") || "https://skynetshipyard.app"}/setup-account`;
     const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
       type: "invite",
       email: userEmail,
