@@ -20,6 +20,7 @@ import {
   Save, Check, Loader2, Trash2,
 } from 'lucide-react';
 import { useDailyWallpaper } from '@/hooks/useWallpaper';
+import { validateFile, validateImageContent, acceptAttr } from '@/lib/fileValidation';
 
 interface Section {
   id: string;
@@ -100,6 +101,7 @@ export default function CostingFieldEntry() {
   const noteRecorderRef = useRef<MediaRecorder | null>(null);
   const noteChunksRef = useRef<Blob[]>([]);
   const noteStreamRef = useRef<MediaStream | null>(null);
+  const noteMimeRef = useRef<string>('audio/webm');
 
   const [saving, setSaving] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
@@ -327,25 +329,32 @@ export default function CostingFieldEntry() {
 
 
 
-  const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
+    if (cameraRef.current) cameraRef.current.value = '';
     const currentCount = existingPhotos.length + photos.length;
     const remaining = MAX_FIELD_ENTRY_PHOTOS - currentCount;
     if (remaining <= 0) {
       toast.error(t('Maximum 2 photos per item', 'Μέχρι 2 φωτογραφίες ανά εργασία'));
-      if (cameraRef.current) cameraRef.current.value = '';
       return;
     }
     const acceptedFiles = files.slice(0, remaining);
     if (files.length > acceptedFiles.length) {
       toast.warning(t('Only 2 photos per item are allowed', 'Επιτρέπονται μόνο 2 φωτογραφίες ανά εργασία'));
     }
-    const newPhotos = acceptedFiles.map(file => ({
-      file,
-      previewUrl: URL.createObjectURL(file),
-    }));
+    const newPhotos: PhotoPreview[] = [];
+    for (const file of acceptedFiles) {
+      const v = validateFile(file, 'image');
+      if (!v.ok) { toast.error(t(v.errorEn!, v.errorEl!)); continue; }
+      const genuine = await validateImageContent(file);
+      if (!genuine) {
+        toast.error(t(`"${file.name}": file content is not a valid image.`, `Το "${file.name}": το περιεχόμενο δεν είναι έγκυρη εικόνα.`));
+        continue;
+      }
+      newPhotos.push({ file, previewUrl: URL.createObjectURL(file) });
+    }
+    if (newPhotos.length === 0) return;
     setPhotos(prev => [...prev, ...newPhotos]);
-    if (cameraRef.current) cameraRef.current.value = '';
   };
 
   const removePhoto = (idx: number) => {
