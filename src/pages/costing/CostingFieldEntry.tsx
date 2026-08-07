@@ -395,6 +395,12 @@ export default function CostingFieldEntry() {
   };
 
   const uploadPhoto = async (itemId: string, photo: PhotoPreview): Promise<string | null> => {
+    // Defense in depth: re-validate right before the upload.
+    const v = validateFile(photo.file, 'image');
+    if (!v.ok || !(await validateImageContent(photo.file))) {
+      console.error('Photo rejected by validation:', photo.file.name);
+      return null;
+    }
     const ext = photo.file.name.split('.').pop() || 'jpg';
     const path = `${id}/${itemId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
     const { error } = await supabase.storage
@@ -913,7 +919,7 @@ export default function CostingFieldEntry() {
             <input
               ref={cameraRef}
               type="file"
-              accept="image/*"
+              accept={acceptAttr('image')}
               capture="environment"
               className="hidden"
               onChange={handlePhotoCapture}
