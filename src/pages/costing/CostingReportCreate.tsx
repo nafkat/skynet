@@ -139,7 +139,7 @@ export default function CostingReportCreate() {
       ),
     );
 
-  const addPhotos = async (sectionTempId: string, itemTempId: string, files: FileList | null) => {
+  const addPhotos = async (sectionTempId: string, itemTempId: string, files: File[] | FileList | null) => {
     if (!files || files.length === 0) return;
     const newPhotos: PhotoPreview[] = [];
     for (const file of Array.from(files)) {
@@ -199,6 +199,12 @@ export default function CostingReportCreate() {
     itemId: string,
     photo: PhotoPreview,
   ): Promise<string | null> => {
+    // Defense in depth: re-validate right before the upload.
+    const v = validateFile(photo.file, 'image');
+    if (!v.ok || !(await validateImageContent(photo.file))) {
+      console.error('Photo rejected by validation:', photo.file.name);
+      return null;
+    }
     const ext = photo.file.name.split('.').pop() || 'jpg';
     const path = `${reportId}/${itemId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
     const { error } = await supabase.storage
@@ -537,12 +543,13 @@ export default function CostingReportCreate() {
                       <label className="block">
                         <input
                           type="file"
-                          accept="image/*"
+                          accept={acceptAttr('image')}
                           multiple
                           className="hidden"
                           onChange={(e) => {
-                            addPhotos(sec.tempId, item.tempId, e.target.files);
+                            const picked = Array.from(e.target.files || []);
                             e.currentTarget.value = '';
+                            void addPhotos(sec.tempId, item.tempId, picked);
                           }}
                         />
                         <div className="flex items-center justify-center gap-2 h-10 border-2 border-dashed border-border rounded-md cursor-pointer hover:bg-muted/30 transition-colors">
