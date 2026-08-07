@@ -1,27 +1,44 @@
-# Διόρθωση Resend Invite (RASINT & γενικά)
+# File Upload Validation — Costing Module (Phase 1)
 
-## Πρόβλημα
-Η `resend_invite` edge function καλεί `auth.admin.inviteUserByEmail`, που στέλνει email μέσω του built-in SMTP του Supabase — το οποίο έχει σκληρό όριο ~4 emails/ώρα. Έτσι σκάει με `over_email_send_rate_limit` (429) και ο παραλήπτης (RASINT) δεν παίρνει ποτέ έγκυρο link για να μπει πρώτη φορά.
+Add a single shared validation gate for every upload path in Costing: allowed file types, real content checks for images, and size limits — with bilingual EN/EL error messages.
 
-Το κύριο `invite_user` δεν έχει το πρόβλημα γιατί χρησιμοποιεί `generateLink` + Resend. Θα εφαρμόσω το ίδιο pattern και στο `resend_invite`.
+## What changes
 
-## Αλλαγές
+**1. New shared utility `src/lib/fileValidation.ts`**
+- Three categories: `image` (10MB — JPG/PNG/WebP/GIF), `attachment` (10MB — PDF, Word, Excel, TXT, CSV, images), `audio` (25MB — WebM/M4A/MP3/OGG/WAV).
+- `validateFile()` checks extension whitelist, MIME whitelist, size limit; returns EN + EL error text.
+- `validateImageContent()` reads the first bytes of the file to confirm it really is a JPEG/PNG/GIF/WebP — this catches an `.exe` or `.txt` renamed to `.png`.
+- `acceptAttr()` builds the file picker filter string.
+- Explicitly excluded: SVG and HTML (they can carry scripts).
 
-**1. `supabase/functions/resend_invite/index.ts`**
-- Αφαίρεση των κλήσεων `inviteUserByEmail` και του fallback `magiclink` flow (τα δύο σημεία που χτυπάνε το SMTP rate limit).
-- Χρήση μόνο του `adminClient.auth.admin.generateLink({ type: 'invite', ... })` για να πάρω `properties.action_link` (invalidates παλιά tokens αυτόματα).
-- Αποστολή του email μέσω Resend API (`RESEND_API_KEY`, `FROM_EMAIL`) με το ίδιο branded HTML template που ήδη έχει το `invite_user` (κουμπί "Accept invitation" + fallback link).
-- Διατήρηση όλων των υπόλοιπων ελέγχων: admin auth, `email_confirmed_at` guard, `permission_audit_logs` INVITE_RESENT entry.
-- Επαναφορά προτεραιότητας redirect: `origin → SITE_URL → https://skynetshipyard.app` (αντί για το ξεπερασμένο `skynet.lovable.app`).
+**2. Section attachments (`SectionAttachments.tsx`)**
+- Replace the size-only check with `validateFile(file, 'attachment')`; drop the old `MAX_BYTES` constant.
+- Add `accept` to the file input so the picker only offers allowed types.
 
-**2. Επανα-invite για τον RASINT**
-Μετά το deploy, θα ξαναπατήσεις "Resend Invite" από το UI για τον michalisrasint@gmail.com — αυτή τη φορά θα φτάσει κανονικά μέσω Resend και θα μπορεί να ολοκληρώσει τη σύνδεση.
+**3. Item photos (`CostingReportCreate.tsx`)**
+- Validate each picked file (type + real image content) before the preview is created; invalid files are skipped with a bilingual toast.
+- Replace `accept="image/*"` with the whitelist.
+- Re-validate inside `uploadItemPhoto` right before upload (defense in depth).
 
-## Τι ΔΕΝ αλλάζει
-- Καμία αλλαγή σε permissions, roles, templates, DB schema.
-- Καμία αλλαγή στο `invite_user` (ήδη δουλεύει σωστά).
-- Καμία αλλαγή στο UI ή στη διαδικασία assignment templates.
+**4. Field Entry (`CostingFieldEntry.tsx`)**
+- Same photo validation in the photo picker (keeps the existing 2-photo limit untouched) and the same `accept` change.
+- Voice note: store the MIME type chosen by the recorder in a ref at recorder-creation time (both recorder setups at lines ~221 and ~280), then validate the recorded blob as `audio` before upload; abort with a bilingual toast if invalid.
 
-## Επαλήθευση μετά το build
-1. Έλεγχος logs της `resend_invite`: να μην εμφανίζεται πλέον `over_email_send_rate_limit`.
-2. Επιβεβαίωση ότι ο RASINT λαμβάνει το email και μπορεί να ολοκληρώσει signup/login πρώτη φορά.
+## Server-side bucket limits — caveat
+
+The prompt asks for a migration that does `update storage.buckets set allowed_mime_types / file_size_limit`. On this hosting, SQL writes to `storage.buckets` are rejected by the migration tooling, and the bucket-update tool available here only toggles public/private — it cannot set MIME lists or size limits. So the plan is:
+
+- Attempt the bucket-level hardening; if the platform rejects it (expected), report that back rather than working around it.
+- Client-side validation in `fileValidation.ts` still applies on every path in the app, and RLS on both buckets (already in place from the earlier security phases) keeps upload access restricted to authorized users.
+- True server-side enforcement would need an edge-function upload proxy — out of scope for Phase 1; can be Phase 2 alongside antivirus scanning.
+
+## Out of scope
+No antivirus scanning, no new edge functions, no RLS changes. Valid files keep working exactly as before.
+
+## Verification after implementation
+- Normal `.jpg` item photo uploads unchanged.
+- `.txt`/`.exe` renamed to `.png` → rejected by the content check.
+- 11MB PDF attachment → rejected; normal PDF → accepted.
+- `.svg` / `.html` → rejected everywhere.
+- Voice note record + save → unchanged.
+- Typecheck clean.
