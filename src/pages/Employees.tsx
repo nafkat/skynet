@@ -435,7 +435,22 @@ const [searchQuery, setSearchQuery] = useState('');
           .single();
         if (error) throw error;
         employeeId = data.id;
+
+        // First pay-rate history row (effective today)
+        if (hasElevatedRole) {
+          const { error: rateError } = await supabase.from('employee_pay_rates').insert([{
+            employee_id: employeeId,
+            regular_hourly_rate: parseFloat(regularRate) || 0,
+            regular_rate_all_in: parseFloat(regularRateAllIn) || 0,
+            overtime_hourly_rate: parseFloat(overtimeRate) || 0,
+            effective_from: new Date().toISOString().slice(0, 10),
+            notes: language === 'el' ? 'Αρχική τιμή' : 'Initial rate',
+            created_by: user?.id ?? null,
+          }]);
+          if (rateError) console.error('Pay rate seed error:', rateError);
+        }
         toast.success(t('employees.createSuccess'));
+
       }
 
       if (hasElevatedRole && employeeId) {
