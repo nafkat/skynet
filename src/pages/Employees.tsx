@@ -971,8 +971,20 @@ const [searchQuery, setSearchQuery] = useState('');
                   </div>
                 </div>
 
-                {/* Pay Rates Section - Admin/HR Only */}
-                {hasElevatedRole && (
+                {/* Pay Rates — Admin/HR Only. Edit mode uses effective-dated history. */}
+                {hasElevatedRole && editingEmployee && (
+                  <PayRateHistory
+                    employeeId={editingEmployee.id}
+                    currentRates={{
+                      regular_hourly_rate: editingEmployee.regular_hourly_rate || 0,
+                      regular_rate_all_in: editingEmployee.regular_rate_all_in || 0,
+                      overtime_hourly_rate: editingEmployee.overtime_hourly_rate || 0,
+                    }}
+                    onRatesChanged={fetchData}
+                  />
+                )}
+
+                {hasElevatedRole && !editingEmployee && (
                   <div className="space-y-4 border-t pt-4">
                     <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
                       {t('employees.payRates')}
@@ -1029,6 +1041,7 @@ const [searchQuery, setSearchQuery] = useState('');
                     )}
                   </div>
                 )}
+
 
                 {/* HR Details Section */}
                 <div className="space-y-4 border-t pt-4">
