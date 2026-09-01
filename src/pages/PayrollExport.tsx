@@ -111,7 +111,9 @@ export default function PayrollExport() {
     const toDate = format(dateTo, 'yyyy-MM-dd');
 
     try {
-      setTimeEntries(await fetchPayrollTimeEntries(fromDate, toDate));
+      const entriesData = await fetchPayrollTimeEntries(fromDate, toDate);
+      setTimeEntries(entriesData);
+      setRateHistory(await fetchPayRateHistory([...new Set(entriesData.map(e => e.employee_id))]));
     } catch (error) {
       console.error('Payroll entries fetch error:', error);
       toast.error(language === 'el' ? 'Σφάλμα φόρτωσης καταχωρήσεων' : 'Failed to load time entries');
@@ -135,8 +137,10 @@ export default function PayrollExport() {
         selectedSpecialty,
         language,
         projectDetails: selectedProjectDetails,
+        rateHistory,
       }),
-    [timeEntries, employees, specialties, selectedProject, selectedSpecialty, selectedProjectDetails, language]
+    [timeEntries, employees, specialties, selectedProject, selectedSpecialty, selectedProjectDetails, language, rateHistory]
+
   );
 
   // Preview summary
