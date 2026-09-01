@@ -62,6 +62,8 @@ export default function PayrollExport() {
   const [specialties, setSpecialties] = useState<Specialty[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
+  const [rateHistory, setRateHistory] = useState<Record<string, PayRateRow[]>>({});
+
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
 
