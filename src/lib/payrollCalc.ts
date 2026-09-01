@@ -231,17 +231,25 @@ export function buildPayrollRows({
 
   const rows: PayrollRow[] = [];
 
-  totals.forEach((mins, employeeId) => {
+  totals.forEach((acc, employeeId) => {
     const employee = employeeById.get(employeeId);
     if (!employee) return;
     const specialty = specialtyById.get(employee.specialty_id);
 
-    const regular_hours = round2(mins.regular_minutes / 60);
-    const overtime_hours = round2(mins.overtime_minutes / 60);
+    const regular_hours = round2(acc.regular_minutes / 60);
+    const overtime_hours = round2(acc.overtime_minutes / 60);
 
-    const regular_amount = round2(regular_hours * (employee.regular_hourly_rate || 0));
-    const regular_all_in_amount = round2(regular_hours * (employee.regular_rate_all_in || 0));
-    const overtime_amount = round2(overtime_hours * (employee.overtime_hourly_rate || 0));
+    const regular_amount = round2(acc.regular_amount);
+    const regular_all_in_amount = round2(acc.regular_all_in_amount);
+    const overtime_amount = round2(acc.overtime_amount);
+
+    // Displayed rates: the ones in force on the employee's last work day of the period.
+    const displayRates = resolveRatesForDate(rateHistory?.[employee.id], acc.lastDate, {
+      effective_from: '0001-01-01',
+      regular_hourly_rate: employee.regular_hourly_rate || 0,
+      regular_rate_all_in: employee.regular_rate_all_in || 0,
+      overtime_hourly_rate: employee.overtime_hourly_rate || 0,
+    });
 
     const row: PayrollRow = {
       employee_id: employee.id,
@@ -256,9 +264,10 @@ export function buildPayrollRows({
       bank_name: employee.bank_name || '',
       regular_hours,
       overtime_hours,
-      regular_hourly_rate: employee.regular_hourly_rate || 0,
-      regular_rate_all_in: employee.regular_rate_all_in || 0,
-      overtime_hourly_rate: employee.overtime_hourly_rate || 0,
+      regular_hourly_rate: displayRates.regular_hourly_rate || 0,
+      regular_rate_all_in: displayRates.regular_rate_all_in || 0,
+      overtime_hourly_rate: displayRates.overtime_hourly_rate || 0,
+
       regular_amount,
       regular_all_in_amount,
       overtime_amount,
