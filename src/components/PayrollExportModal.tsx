@@ -28,9 +28,12 @@ import {
   fetchPayrollEmployees,
   buildPayrollRows,
   summarizePayroll,
+  fetchPayRateHistory,
+  type PayRateRow,
   type PayrollEmployee,
   type PayrollSpecialty,
   type PayrollTimeEntry,
+
 } from '@/lib/payrollCalc';
 
 interface PayrollExportModalProps {
@@ -56,6 +59,8 @@ export function PayrollExportModal({ open, onOpenChange }: PayrollExportModalPro
   const [specialties, setSpecialties] = useState<Specialty[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
+  const [rateHistory, setRateHistory] = useState<Record<string, PayRateRow[]>>({});
+
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
 
@@ -87,6 +92,7 @@ export function PayrollExportModal({ open, onOpenChange }: PayrollExportModalPro
       if (specialtiesRes.data) setSpecialties(specialtiesRes.data);
       if (projectsRes.data) setProjects(projectsRes.data);
       setTimeEntries(entriesData);
+      setRateHistory(await fetchPayRateHistory([...new Set(entriesData.map(e => e.employee_id))]));
     } catch (error) {
       console.error('Payroll fetch error:', error);
       toast.error(language === 'el' ? 'Σφάλμα φόρτωσης δεδομένων' : 'Failed to load data');
@@ -111,9 +117,11 @@ export function PayrollExportModal({ open, onOpenChange }: PayrollExportModalPro
         selectedSpecialty,
         language,
         projectDetails: selectedProjectDetails,
+        rateHistory,
       }),
-    [timeEntries, employees, specialties, selectedProject, selectedSpecialty, selectedProjectDetails, language]
+    [timeEntries, employees, specialties, selectedProject, selectedSpecialty, selectedProjectDetails, language, rateHistory]
   );
+
 
   const preview = useMemo(() => {
     const s = summarizePayroll(payrollData);

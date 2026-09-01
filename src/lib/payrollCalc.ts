@@ -107,6 +107,55 @@ export async function fetchPayrollEmployees(): Promise<PayrollEmployee[]> {
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
+// ---- Effective-dated pay rates -------------------------------------------
+
+export interface PayRateRow {
+  employee_id?: string;
+  effective_from: string; // ISO date (yyyy-MM-dd)
+  regular_hourly_rate: number;
+  regular_rate_all_in: number;
+  overtime_hourly_rate: number;
+  notes?: string | null;
+  id?: string;
+}
+
+/** Rates valid on `workDate`: latest row with effective_from <= workDate. */
+export function resolveRatesForDate(
+  history: PayRateRow[] | undefined,
+  workDate: string,
+  fallback: PayRateRow
+): PayRateRow {
+  if (!history || history.length === 0) return fallback;
+  const eligible = history
+    .filter(r => r.effective_from <= workDate)
+    .sort((a, b) => b.effective_from.localeCompare(a.effective_from));
+  if (eligible.length > 0) return eligible[0];
+  // Dates before the first known rate → use the earliest known rate.
+  return [...history].sort((a, b) => a.effective_from.localeCompare(b.effective_from))[0];
+}
+
+/** Fetch rate history for the given employees, grouped by employee id. */
+export async function fetchPayRateHistory(
+  employeeIds: string[]
+): Promise<Record<string, PayRateRow[]>> {
+  const byEmployee: Record<string, PayRateRow[]> = {};
+  if (employeeIds.length === 0) return byEmployee;
+
+  const { data, error } = await supabase
+    .from('employee_pay_rates')
+    .select('employee_id, effective_from, regular_hourly_rate, regular_rate_all_in, overtime_hourly_rate')
+    .in('employee_id', employeeIds)
+    .order('effective_from', { ascending: true });
+
+  if (error) throw error;
+
+  for (const row of (data ?? []) as PayRateRow[]) {
+    const key = row.employee_id as string;
+    (byEmployee[key] ||= []).push(row);
+  }
+  return byEmployee;
+}
+
 export interface BuildPayrollOptions {
   entries: PayrollTimeEntry[];
   employees: PayrollEmployee[];
@@ -115,6 +164,8 @@ export interface BuildPayrollOptions {
   selectedSpecialty?: string;
   language?: string;
   projectDetails?: { project_code: string; project_name: string } | null;
+  /** Effective-dated rate history keyed by employee id. Empty ⇒ current rates used. */
+  rateHistory?: Record<string, PayRateRow[]>;
 }
 
 export function buildPayrollRows({
@@ -125,11 +176,21 @@ export function buildPayrollRows({
   selectedSpecialty = 'all',
   language = 'en',
   projectDetails = null,
+  rateHistory,
 }: BuildPayrollOptions): PayrollRow[] {
   const employeeById = new Map(employees.map(e => [e.id, e]));
   const specialtyById = new Map(specialties.map(s => [s.id, s]));
 
-  const totals = new Map<string, { regular_minutes: number; overtime_minutes: number }>();
+  interface Acc {
+    regular_minutes: number;
+    overtime_minutes: number;
+    regular_amount: number;
+    regular_all_in_amount: number;
+    overtime_amount: number;
+    lastDate: string;
+  }
+
+  const totals = new Map<string, Acc>();
 
   for (const entry of entries) {
     if (selectedProject !== 'all' && entry.project_id !== selectedProject) continue;
@@ -137,31 +198,58 @@ export function buildPayrollRows({
     if (!employee) continue;
     if (selectedSpecialty !== 'all' && employee.specialty_id !== selectedSpecialty) continue;
 
+    const fallback: PayRateRow = {
+      effective_from: '0001-01-01',
+      regular_hourly_rate: employee.regular_hourly_rate || 0,
+      regular_rate_all_in: employee.regular_rate_all_in || 0,
+      overtime_hourly_rate: employee.overtime_hourly_rate || 0,
+    };
+    const rates = resolveRatesForDate(rateHistory?.[employee.id], entry.entry_date, fallback);
+
+    const regHours = entry.regular_minutes / 60;
+    const otHours = entry.overtime_minutes / 60;
+
     const existing = totals.get(employee.id);
-    if (existing) {
-      existing.regular_minutes += entry.regular_minutes;
-      existing.overtime_minutes += entry.overtime_minutes;
-    } else {
-      totals.set(employee.id, {
-        regular_minutes: entry.regular_minutes,
-        overtime_minutes: entry.overtime_minutes,
-      });
-    }
+    const acc: Acc = existing ?? {
+      regular_minutes: 0,
+      overtime_minutes: 0,
+      regular_amount: 0,
+      regular_all_in_amount: 0,
+      overtime_amount: 0,
+      lastDate: entry.entry_date,
+    };
+
+    acc.regular_minutes += entry.regular_minutes;
+    acc.overtime_minutes += entry.overtime_minutes;
+    acc.regular_amount += regHours * (rates.regular_hourly_rate || 0);
+    acc.regular_all_in_amount += regHours * (rates.regular_rate_all_in || 0);
+    acc.overtime_amount += otHours * (rates.overtime_hourly_rate || 0);
+    if (entry.entry_date > acc.lastDate) acc.lastDate = entry.entry_date;
+
+    if (!existing) totals.set(employee.id, acc);
   }
 
   const rows: PayrollRow[] = [];
 
-  totals.forEach((mins, employeeId) => {
+  totals.forEach((acc, employeeId) => {
     const employee = employeeById.get(employeeId);
     if (!employee) return;
     const specialty = specialtyById.get(employee.specialty_id);
 
-    const regular_hours = round2(mins.regular_minutes / 60);
-    const overtime_hours = round2(mins.overtime_minutes / 60);
+    const regular_hours = round2(acc.regular_minutes / 60);
+    const overtime_hours = round2(acc.overtime_minutes / 60);
 
-    const regular_amount = round2(regular_hours * (employee.regular_hourly_rate || 0));
-    const regular_all_in_amount = round2(regular_hours * (employee.regular_rate_all_in || 0));
-    const overtime_amount = round2(overtime_hours * (employee.overtime_hourly_rate || 0));
+    const regular_amount = round2(acc.regular_amount);
+    const regular_all_in_amount = round2(acc.regular_all_in_amount);
+    const overtime_amount = round2(acc.overtime_amount);
+
+    // Displayed rates: the ones in force on the employee's last work day of the period.
+    const displayRates = resolveRatesForDate(rateHistory?.[employee.id], acc.lastDate, {
+      effective_from: '0001-01-01',
+      regular_hourly_rate: employee.regular_hourly_rate || 0,
+      regular_rate_all_in: employee.regular_rate_all_in || 0,
+      overtime_hourly_rate: employee.overtime_hourly_rate || 0,
+    });
 
     const row: PayrollRow = {
       employee_id: employee.id,
@@ -176,9 +264,10 @@ export function buildPayrollRows({
       bank_name: employee.bank_name || '',
       regular_hours,
       overtime_hours,
-      regular_hourly_rate: employee.regular_hourly_rate || 0,
-      regular_rate_all_in: employee.regular_rate_all_in || 0,
-      overtime_hourly_rate: employee.overtime_hourly_rate || 0,
+      regular_hourly_rate: displayRates.regular_hourly_rate || 0,
+      regular_rate_all_in: displayRates.regular_rate_all_in || 0,
+      overtime_hourly_rate: displayRates.overtime_hourly_rate || 0,
+
       regular_amount,
       regular_all_in_amount,
       overtime_amount,

@@ -48,6 +48,8 @@ import {
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
+import { PayRateHistory } from '@/components/PayRateHistory';
+
 interface Specialty {
   id: string;
   name_en: string;
@@ -433,7 +435,22 @@ const [searchQuery, setSearchQuery] = useState('');
           .single();
         if (error) throw error;
         employeeId = data.id;
+
+        // First pay-rate history row (effective today)
+        if (hasElevatedRole) {
+          const { error: rateError } = await supabase.from('employee_pay_rates').insert([{
+            employee_id: employeeId,
+            regular_hourly_rate: parseFloat(regularRate) || 0,
+            regular_rate_all_in: parseFloat(regularRateAllIn) || 0,
+            overtime_hourly_rate: parseFloat(overtimeRate) || 0,
+            effective_from: new Date().toISOString().slice(0, 10),
+            notes: language === 'el' ? 'Αρχική τιμή' : 'Initial rate',
+            created_by: user?.id ?? null,
+          }]);
+          if (rateError) console.error('Pay rate seed error:', rateError);
+        }
         toast.success(t('employees.createSuccess'));
+
       }
 
       if (hasElevatedRole && employeeId) {
@@ -971,8 +988,20 @@ const [searchQuery, setSearchQuery] = useState('');
                   </div>
                 </div>
 
-                {/* Pay Rates Section - Admin/HR Only */}
-                {hasElevatedRole && (
+                {/* Pay Rates — Admin/HR Only. Edit mode uses effective-dated history. */}
+                {hasElevatedRole && editingEmployee && (
+                  <PayRateHistory
+                    employeeId={editingEmployee.id}
+                    currentRates={{
+                      regular_hourly_rate: editingEmployee.regular_hourly_rate || 0,
+                      regular_rate_all_in: editingEmployee.regular_rate_all_in || 0,
+                      overtime_hourly_rate: editingEmployee.overtime_hourly_rate || 0,
+                    }}
+                    onRatesChanged={fetchData}
+                  />
+                )}
+
+                {hasElevatedRole && !editingEmployee && (
                   <div className="space-y-4 border-t pt-4">
                     <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
                       {t('employees.payRates')}
@@ -1029,6 +1058,7 @@ const [searchQuery, setSearchQuery] = useState('');
                     )}
                   </div>
                 )}
+
 
                 {/* HR Details Section */}
                 <div className="space-y-4 border-t pt-4">
