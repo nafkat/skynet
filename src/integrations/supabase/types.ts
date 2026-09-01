@@ -888,6 +888,60 @@ export type Database = {
           },
         ]
       }
+      employee_pay_rates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          employee_id: string
+          id: string
+          notes: string | null
+          overtime_hourly_rate: number
+          regular_hourly_rate: number
+          regular_rate_all_in: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          effective_from: string
+          employee_id: string
+          id?: string
+          notes?: string | null
+          overtime_hourly_rate?: number
+          regular_hourly_rate?: number
+          regular_rate_all_in?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          employee_id?: string
+          id?: string
+          notes?: string | null
+          overtime_hourly_rate?: number
+          regular_hourly_rate?: number
+          regular_rate_all_in?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_pay_rates_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_pay_rates_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees_limited"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_recorders: {
         Row: {
           created_at: string
