@@ -48,6 +48,8 @@ import {
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
+import { PayRateHistory } from '@/components/PayRateHistory';
+
 interface Specialty {
   id: string;
   name_en: string;
