@@ -134,6 +134,42 @@ export function resolveRatesForDate(
   return [...history].sort((a, b) => a.effective_from.localeCompare(b.effective_from))[0];
 }
 
+export interface EntryCosts {
+  regularCost: number;      // regular hours × regular_hourly_rate
+  regularAllInCost: number; // regular hours × regular_rate_all_in
+  overtimeCost: number;     // overtime hours × overtime_hourly_rate
+}
+
+/**
+ * Single source of truth for per-entry labor cost.
+ * Resolves the employee's rates AS OF the entry's work date via rate history,
+ * falling back to the employee's current rates when no history exists.
+ */
+export function computeEntryCosts(
+  regularMinutes: number,
+  overtimeMinutes: number,
+  workDate: string,
+  employee: { id: string; regular_hourly_rate?: number | null; regular_rate_all_in?: number | null; overtime_hourly_rate?: number | null } | null | undefined,
+  rateHistory: Record<string, PayRateRow[]> | undefined
+): EntryCosts {
+  if (!employee) return { regularCost: 0, regularAllInCost: 0, overtimeCost: 0 };
+  const fallback: PayRateRow = {
+    effective_from: '0001-01-01',
+    regular_hourly_rate: employee.regular_hourly_rate || 0,
+    regular_rate_all_in: employee.regular_rate_all_in || 0,
+    overtime_hourly_rate: employee.overtime_hourly_rate || 0,
+  };
+  const rates = resolveRatesForDate(rateHistory?.[employee.id], workDate, fallback);
+  const regHours = (regularMinutes || 0) / 60;
+  const otHours = (overtimeMinutes || 0) / 60;
+  return {
+    regularCost: regHours * (rates.regular_hourly_rate || 0),
+    regularAllInCost: regHours * (rates.regular_rate_all_in || 0),
+    overtimeCost: otHours * (rates.overtime_hourly_rate || 0),
+  };
+}
+
+
 /** Fetch rate history for the given employees, grouped by employee id. */
 export async function fetchPayRateHistory(
   employeeIds: string[]
