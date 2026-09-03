@@ -271,12 +271,11 @@ export default function AdminDashboard() {
     let otCost = 0;
     
     filteredEntries.forEach(entry => {
-      const regularHours = entry.regular_minutes / 60;
-      const overtimeHours = entry.overtime_minutes / 60;
+      const costs = computeEntryCosts(entry.regular_minutes, entry.overtime_minutes, entry.entry_date, entry.employees, rateHistory);
       
-      regularCost += regularHours * (entry.employees.regular_hourly_rate || 0);
-      allInCost += regularHours * (entry.employees.regular_rate_all_in || 0);
-      otCost += overtimeHours * (entry.employees.overtime_hourly_rate || 0);
+      regularCost += costs.regularCost;
+      allInCost += costs.regularAllInCost;
+      otCost += costs.overtimeCost;
     });
 
     const openProjectsCount = projects.filter(p => p.status === 'OPEN').length;
@@ -290,7 +289,7 @@ export default function AdminDashboard() {
       totalOT: otCost,
       openProjects: openProjectsCount,
     };
-  }, [filteredEntries, projects]);
+  }, [filteredEntries, projects, rateHistory]);
 
   // Labor by Project - aligned with dashboard cost logic
   const laborByProject = useMemo(() => {
@@ -312,14 +311,15 @@ export default function AdminDashboard() {
       
       const regularHours = entry.regular_minutes / 60;
       const overtimeHours = entry.overtime_minutes / 60;
+      const costs = computeEntryCosts(entry.regular_minutes, entry.overtime_minutes, entry.entry_date, entry.employees, rateHistory);
       
       existing.totalHours += entry.duration_minutes / 60;
       existing.overtimeHours += overtimeHours;
       
-      // Per-entry cost calculation (respecting individual employee rates)
-      existing.regularCost += regularHours * (entry.employees.regular_hourly_rate || 0);
-      existing.allInCost += regularHours * (entry.employees.regular_rate_all_in || 0);
-      existing.otCost += overtimeHours * (entry.employees.overtime_hourly_rate || 0);
+      // Per-entry cost calculation (respecting effective-dated rates)
+      existing.regularCost += costs.regularCost;
+      existing.allInCost += costs.regularAllInCost;
+      existing.otCost += costs.overtimeCost;
       existing.entryIds.push(entry.id);
       
       projectMap.set(entry.project_id, existing);
@@ -334,7 +334,7 @@ export default function AdminDashboard() {
     });
 
     return Array.from(projectMap.values()).sort((a, b) => b.totalHours - a.totalHours);
-  }, [filteredEntries]);
+  }, [filteredEntries, rateHistory]);
 
   // Employee breakdown per project (for expandable rows)
   const employeesByProject = useMemo(() => {
@@ -369,12 +369,13 @@ export default function AdminDashboard() {
 
       const regularHours = entry.regular_minutes / 60;
       const overtimeHours = entry.overtime_minutes / 60;
+      const costs = computeEntryCosts(entry.regular_minutes, entry.overtime_minutes, entry.entry_date, entry.employees, rateHistory);
 
       row.totalHours += entry.duration_minutes / 60;
       row.overtimeHours += overtimeHours;
-      row.regularCost += regularHours * (entry.employees.regular_hourly_rate || 0);
-      row.allInCost += regularHours * (entry.employees.regular_rate_all_in || 0);
-      row.otCost += overtimeHours * (entry.employees.overtime_hourly_rate || 0);
+      row.regularCost += costs.regularCost;
+      row.allInCost += costs.regularAllInCost;
+      row.otCost += costs.overtimeCost;
       row.entryIds.push(entry.id);
 
       result.set(projectKey, list);
@@ -390,7 +391,7 @@ export default function AdminDashboard() {
     });
 
     return result;
-  }, [filteredEntries, specialties, language]);
+  }, [filteredEntries, specialties, language, rateHistory]);
 
 
   // Labor by Specialty - aligned with dashboard cost logic
@@ -416,20 +417,21 @@ export default function AdminDashboard() {
       
       const regularHours = entry.regular_minutes / 60;
       const overtimeHours = entry.overtime_minutes / 60;
+      const costs = computeEntryCosts(entry.regular_minutes, entry.overtime_minutes, entry.entry_date, entry.employees, rateHistory);
       
       existing.totalHours += entry.duration_minutes / 60;
       existing.overtimeHours += overtimeHours;
       
-      // Per-entry cost calculation (respecting individual employee rates)
-      existing.regularCost += regularHours * (entry.employees.regular_hourly_rate || 0);
-      existing.allInCost += regularHours * (entry.employees.regular_rate_all_in || 0);
-      existing.otCost += overtimeHours * (entry.employees.overtime_hourly_rate || 0);
+      // Per-entry cost calculation (respecting effective-dated rates)
+      existing.regularCost += costs.regularCost;
+      existing.allInCost += costs.regularAllInCost;
+      existing.otCost += costs.overtimeCost;
       
       specialtyMap.set(entrySpecialtyId, existing);
     });
 
     return Array.from(specialtyMap.values()).sort((a, b) => b.totalHours - a.totalHours);
-  }, [filteredEntries, specialties, language]);
+  }, [filteredEntries, specialties, language, rateHistory]);
 
   // Daily breakdown (visible when employee search is active) - lists each entry per day for review/fix
   interface DailyEntryRow {
