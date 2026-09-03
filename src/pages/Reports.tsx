@@ -16,6 +16,7 @@ import {
 import { DatePicker } from '@/components/ui/date-picker';
 import { FileBarChart, Download, Clock, DollarSign } from 'lucide-react';
 import { format, subDays } from 'date-fns';
+import { computeEntryCosts, fetchPayRateHistory } from '@/lib/payrollCalc';
 
 interface Employee {
   id: string;
@@ -149,6 +150,10 @@ export default function Reports() {
       const employeeMap = new Map<string, any>();
       const projectMap = new Map<string, any>();
 
+      const rateHistory = await fetchPayRateHistory([
+        ...new Set(filteredEntries.map((e: any) => e.employee_id).filter(Boolean)),
+      ]);
+
       filteredEntries.forEach((entry: any) => {
         const emp = entry.employees;
         const proj = entry.projects;
@@ -156,9 +161,11 @@ export default function Reports() {
         totalRegularMinutes += entry.regular_minutes;
         totalOvertimeMinutes += entry.overtime_minutes;
 
-        const regularPay = (entry.regular_minutes / 60) * (emp?.regular_hourly_rate || 0);
-        const regularAllInPay = (entry.regular_minutes / 60) * (emp?.regular_rate_all_in || 0);
-        const overtimePay = (entry.overtime_minutes / 60) * (emp?.overtime_hourly_rate || 0);
+        const costs = computeEntryCosts(entry.regular_minutes, entry.overtime_minutes, entry.entry_date, emp, rateHistory);
+        const regularPay = costs.regularCost;
+        const regularAllInPay = costs.regularAllInCost;
+        const overtimePay = costs.overtimeCost;
+
 
         totalRegularPay += regularPay;
         totalRegularAllInPay += regularAllInPay;
