@@ -35,6 +35,7 @@ import { cn } from '@/lib/utils';
 import { EntryReviewFlagButton } from '@/components/EntryReviewFlagButton';
 import { EntryReviewFlagBell } from '@/components/EntryReviewFlagBell';
 import { useEntryReviewFlags } from '@/hooks/useEntryReviewFlags';
+import { computeEntryCosts, fetchPayRateHistory, type PayRateRow } from '@/lib/payrollCalc';
 
 interface TimeEntry {
   id: string;
@@ -222,7 +223,15 @@ export default function AdminDashboard() {
       ]);
 
       if (entriesRes.data) {
-        setTimeEntries(entriesRes.data as unknown as TimeEntry[]);
+        const entries = entriesRes.data as unknown as TimeEntry[];
+        setTimeEntries(entries);
+        const employeeIds = [...new Set(entries.map(e => e.employee_id))];
+        try {
+          setRateHistory(await fetchPayRateHistory(employeeIds));
+        } catch (e) {
+          console.error('Error fetching pay rate history:', e);
+          setRateHistory({});
+        }
       }
       if (projectsRes.data) {
         setProjects(projectsRes.data);
