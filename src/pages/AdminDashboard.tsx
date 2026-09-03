@@ -129,6 +129,7 @@ export default function AdminDashboard() {
   const { hasOpenFlags, getFlagsForEntries } = useEntryReviewFlags();
   
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
+  const [rateHistory, setRateHistory] = useState<Record<string, PayRateRow[]>>({});
   const [projects, setProjects] = useState<Project[]>([]);
   const [specialties, setSpecialties] = useState<Specialty[]>([]);
   const [loading, setLoading] = useState(true);
