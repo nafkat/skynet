@@ -457,6 +457,7 @@ export default function AdminDashboard() {
           : (language === 'el' ? 'Άγνωστη' : 'Unknown');
         const regularHours = entry.regular_minutes / 60;
         const overtimeHours = entry.overtime_minutes / 60;
+        const costs = computeEntryCosts(entry.regular_minutes, entry.overtime_minutes, entry.entry_date, entry.employees, rateHistory);
         return {
           entryId: entry.id,
           date: entry.entry_date,
@@ -467,13 +468,13 @@ export default function AdminDashboard() {
           regularHours,
           overtimeHours,
           totalHours: entry.duration_minutes / 60,
-          regularCost: regularHours * (entry.employees.regular_hourly_rate || 0),
-          allInCost: regularHours * (entry.employees.regular_rate_all_in || 0),
-          otCost: overtimeHours * (entry.employees.overtime_hourly_rate || 0),
+          regularCost: costs.regularCost,
+          allInCost: costs.regularAllInCost,
+          otCost: costs.overtimeCost,
         };
       })
       .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
-  }, [filteredEntries, employeeSearch, specialties, language]);
+  }, [filteredEntries, employeeSearch, specialties, language, rateHistory]);
 
   // Alerts
   const alerts = useMemo(() => {
