@@ -32,6 +32,11 @@ Font.registerHyphenationCallback((word) => {
   return chunks;
 });
 
+export interface PdfPhoto {
+  displayUrl: string; // Base64 data URI for embedding
+  linkUrl: string;    // HTTPS signed URL for clicking
+}
+
 export interface PdfCostItem {
   id: string;
   title: string | null;
@@ -40,7 +45,7 @@ export interface PdfCostItem {
   quantity: number | null;
   unit: string | null;
   unit_price: number | null;
-  photos: string[]; // signed URLs
+  photos: PdfPhoto[];
 }
 
 export interface PdfAttachment {
@@ -298,7 +303,7 @@ export function CostingReportPdfDoc({ data }: { data: PdfReportInput }) {
           </View>
 
           {data.version_notes ? (
-            <Text style={styles.coverNotes}>"{data.version_notes}"</Text>
+            <Text style={styles.coverNotes}>"${data.version_notes}"</Text>
           ) : null}
 
           {data.coverPhotoUrl ? (
@@ -348,10 +353,10 @@ export function CostingReportPdfDoc({ data }: { data: PdfReportInput }) {
 
                   {item.photos.length > 0 ? (
                     <View style={styles.photosGrid}>
-                      {item.photos.slice(0, 2).map((url, i) => (
+                      {item.photos.slice(0, 2).map((photo, i) => (
                         <View key={i} style={styles.photoCell}>
-                          <Link src={url}>
-                            <Image src={url} style={styles.photo} />
+                          <Link key={i} src={photo.linkUrl}>
+                            <Image src={photo.displayUrl} style={styles.photo} />
                           </Link>
                         </View>
                       ))}
