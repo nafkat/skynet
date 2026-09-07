@@ -15,10 +15,10 @@ interface Report {
   status: string;
   created_at: string;
   version_notes: string | null;
+  project_id: string;
   projects: {
     project_code: string;
     project_name: string;
-    customer_company_name: string;
     assigned_shipyard_company: string;
   } | null;
 }
@@ -27,12 +27,13 @@ type StatusKey = 'all' | 'draft' | 'sent' | 'agreed' | 'invoiced';
 
 export default function CostingReportsList() {
   const { language } = useLanguage();
-  const { hasPermission } = useAuth();
+  const { hasPermission, hasElevatedRole } = useAuth();
   const navigate = useNavigate();
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusKey>('all');
+  const [clientNames, setClientNames] = useState<Record<string, string>>({});
   const t = (en: string, el: string) => (language === 'el' ? el : en);
   const canCreate = hasPermission('costing.reports.create');
 
@@ -41,11 +42,26 @@ export default function CostingReportsList() {
     const { data } = await supabase
       .from('cost_reports')
       .select(
-        'id, code, version_number, status, created_at, version_notes, projects(project_code, project_name, customer_company_name, assigned_shipyard_company)'
+        'id, code, version_number, status, created_at, version_notes, project_id, projects(project_code, project_name, assigned_shipyard_company)'
       )
       .is('deleted_at', null)
       .order('created_at', { ascending: false });
-    setReports((data as Report[]) || []);
+    const rows = (data as Report[]) || [];
+    setReports(rows);
+
+    if (hasElevatedRole && rows.length > 0) {
+      const { data: details } = await supabase
+        .from('project_customer_details')
+        .select('project_id, customer_company_name')
+        .in('project_id', Array.from(new Set(rows.map((r) => r.project_id))));
+      const map: Record<string, string> = {};
+      (details || []).forEach((d) => {
+        map[d.project_id] = d.customer_company_name;
+      });
+      setClientNames(map);
+    } else {
+      setClientNames({});
+    }
     setLoading(false);
   };
 
@@ -60,7 +76,7 @@ export default function CostingReportsList() {
       !q ||
       r.code.toLowerCase().includes(q) ||
       r.projects?.project_name.toLowerCase().includes(q) ||
-      r.projects?.customer_company_name.toLowerCase().includes(q);
+      (hasElevatedRole && (clientNames[r.project_id] || '').toLowerCase().includes(q));
     return matchStatus && matchSearch;
   });
 
@@ -170,8 +186,9 @@ export default function CostingReportsList() {
                   )}
                   {r.projects && (
                     <p className="text-xs text-white/60">
-                      {t('Client:', 'Πελάτης:')} {r.projects.customer_company_name}
-                      {' · '}
+                      {hasElevatedRole && clientNames[r.project_id]
+                        ? `${t('Client:', 'Πελάτης:')} ${clientNames[r.project_id]} · `
+                        : ''}
                       {t('Company:', 'Εταιρεία:')} {r.projects.assigned_shipyard_company}
                     </p>
                   )}

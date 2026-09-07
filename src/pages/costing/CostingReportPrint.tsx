@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Download, Loader2, AlertTriangle, Info, XCircle } from 'lucide-react';
 import { compressImageToDataUri } from '@/utils/image-compression';
@@ -48,6 +49,7 @@ export default function CostingReportPrint() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { language } = useLanguage();
+  const { hasElevatedRole, loading: authLoading } = useAuth();
   const t = (en: string, el: string) => (language === 'el' ? el : en);
 
   const [loading, setLoading] = useState(true);
@@ -57,19 +59,35 @@ export default function CostingReportPrint() {
   const [preflightOpen, setPreflightOpen] = useState(false);
   const [issues, setIssues] = useState<PreflightIssue[]>([]);
 
+  // Only admin / HR may preview or download the client-facing PDF.
+  useEffect(() => {
+    if (authLoading) return;
+    if (!hasElevatedRole) {
+      toast.error(t('Access restricted', 'Περιορισμένη πρόσβαση'));
+      navigate('/costing', { replace: true });
+    }
+  }, [authLoading, hasElevatedRole]);
+
   useEffect(() => {
     (async () => {
-      if (!id) return;
+      if (!id || authLoading || !hasElevatedRole) return;
       try {
         const { data: r } = await supabase
           .from('cost_reports')
           .select(
-            'code, version_number, status, version_notes, created_at, cover_photo_path, projects(project_code, project_name, customer_company_name, assigned_shipyard_company)',
+            'code, version_number, status, version_notes, created_at, cover_photo_path, project_id, projects(project_code, project_name, assigned_shipyard_company)',
           )
           .eq('id', id)
           .single();
 
         if (!r) return;
+
+        const { data: cd } = await supabase
+          .from('project_customer_details')
+          .select('customer_company_name')
+          .eq('project_id', (r as any).project_id)
+          .maybeSingle();
+        const clientName = cd?.customer_company_name || '';
 
         const { data: secs } = await supabase
           .from('cost_sections')
@@ -208,7 +226,7 @@ export default function CostingReportPrint() {
           project: {
             project_code: (r as any).projects?.project_code || '',
             project_name: (r as any).projects?.project_name || '',
-            customer_company_name: (r as any).projects?.customer_company_name || '',
+            customer_company_name: clientName,
           },
           company,
           coverPhotoUrl,
@@ -218,7 +236,7 @@ export default function CostingReportPrint() {
         setLoading(false);
       }
     })();
-  }, [id, language]);
+  }, [id, language, authLoading, hasElevatedRole]);
 
   if (loading || !data) {
     return (

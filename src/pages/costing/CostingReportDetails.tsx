@@ -66,10 +66,10 @@ interface CostReport {
   version_notes: string | null;
   created_at: string;
   cover_photo_path: string | null;
+  project_id: string;
   projects: {
     project_code: string;
     project_name: string;
-    customer_company_name: string;
     assigned_shipyard_company: string;
   } | null;
 }
@@ -113,6 +113,7 @@ export default function CostingReportDetails() {
   const [coverPhotoUrl, setCoverPhotoUrl] = useState<string | null>(null);
   const [uploadingCover, setUploadingCover] = useState(false);
 
+  const [clientName, setClientName] = useState<string>('');
   const canViewCosts = hasElevatedRole || hasPermission('costing.costs.view');
   const canEditCostsBase = hasElevatedRole || hasPermission('costing.costs.edit');
   const canChangeStatus = hasElevatedRole || hasPermission('costing.reports.change_status');
@@ -151,10 +152,21 @@ export default function CostingReportDetails() {
       const { data: r } = await supabase
         .from('cost_reports')
         .select(
-          'id, code, version_number, status, review_status, created_by, version_notes, created_at, cover_photo_path, projects(project_code, project_name, customer_company_name, assigned_shipyard_company)',
+          'id, code, version_number, status, review_status, created_by, version_notes, created_at, cover_photo_path, project_id, projects(project_code, project_name, assigned_shipyard_company)',
         )
         .eq('id', id)
         .single();
+
+      if (r && hasElevatedRole) {
+        const { data: cd } = await supabase
+          .from('project_customer_details')
+          .select('customer_company_name')
+          .eq('project_id', (r as any).project_id)
+          .maybeSingle();
+        setClientName(cd?.customer_company_name || '');
+      } else {
+        setClientName('');
+      }
 
       const { data: secs } = await supabase
         .from('cost_sections')
@@ -499,14 +511,16 @@ export default function CostingReportDetails() {
           </div>
         )}
 
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => navigate(`/costing/reports/${id}/print`)}
-          title={t('Export PDF', 'Εξαγωγή PDF')}
-        >
-          <FileDown className="h-4 w-4" />
-        </Button>
+        {hasElevatedRole && (
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => navigate(`/costing/reports/${id}/print`)}
+            title={t('Export PDF', 'Εξαγωγή PDF')}
+          >
+            <FileDown className="h-4 w-4" />
+          </Button>
+        )}
 
         {canDeleteReport && (
           <Button
@@ -536,11 +550,13 @@ export default function CostingReportDetails() {
             label={t('Project', 'Έργο')}
             value={`${report.projects?.project_code ?? ''} — ${report.projects?.project_name ?? ''}`}
           />
-          <InfoRow
-            icon={<User className="h-4 w-4" />}
-            label={t('Client', 'Πελάτης')}
-            value={report.projects?.customer_company_name || '—'}
-          />
+          {hasElevatedRole && (
+            <InfoRow
+              icon={<User className="h-4 w-4" />}
+              label={t('Client', 'Πελάτης')}
+              value={clientName || '—'}
+            />
+          )}
           <InfoRow
             icon={<Building2 className="h-4 w-4" />}
             label={t('Our Company', 'Εταιρεία μας')}
