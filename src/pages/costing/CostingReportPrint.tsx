@@ -64,7 +64,7 @@ export default function CostingReportPrint() {
         const { data: r } = await supabase
           .from('cost_reports')
           .select(
-            'code, version_number, status, version_notes, created_at, cover_photo_path, projects(project_code, project_name, customer_company_name, assigned_shipyard_company)',
+            'code, version_number, status, version_notes, created_at, cover_photo_path, project_id, projects(project_code, project_name, assigned_shipyard_company)',
           )
           .eq('id', id)
           .single();
@@ -208,7 +208,7 @@ export default function CostingReportPrint() {
           project: {
             project_code: (r as any).projects?.project_code || '',
             project_name: (r as any).projects?.project_name || '',
-            customer_company_name: (r as any).projects?.customer_company_name || '',
+            customer_company_name: clientName,
           },
           company,
           coverPhotoUrl,
