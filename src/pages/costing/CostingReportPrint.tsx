@@ -22,6 +22,25 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 
+/**
+ * Downloads a storage object through the Supabase client (session-aware, RLS respected)
+ * and returns it as a base64 data URI. react-pdf v4 fails silently on remote signed URLs,
+ * so images must be embedded as data URIs.
+ */
+async function downloadAsDataUri(bucket: string, path: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabase.storage.from(bucket).download(path);
+    if (error || !data) return null;
+    return await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(data);
+    });
+  } catch {
+    return null;
+  }
+}
+
 export default function CostingReportPrint() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -68,10 +87,10 @@ export default function CostingReportPrint() {
                   );
                   let urls: string[] = [];
                   if (paths.length > 0) {
-                    const { data: signed } = await supabase.storage
-                      .from('cost-photos')
-                      .createSignedUrls(paths, 60 * 60 * 24);
-                    urls = (signed || []).map((u: any) => u.signedUrl).filter(Boolean);
+                    const results = await Promise.all(
+                      paths.map((p) => downloadAsDataUri('cost-photos', p)),
+                    );
+                    urls = results.filter((u): u is string => !!u);
                   }
                   return {
                     id: i.id,
@@ -133,10 +152,7 @@ export default function CostingReportPrint() {
           if (c) {
             let logoUrl: string | null = null;
             if (c.logo_url) {
-              const { data: signed } = await supabase.storage
-                .from('company-logos')
-                .createSignedUrl(c.logo_url, 60 * 60 * 24);
-              if (signed?.signedUrl) logoUrl = signed.signedUrl;
+              logoUrl = await downloadAsDataUri('company-logos', c.logo_url);
             }
             company = {
               company_name: c.company_name,
@@ -158,10 +174,7 @@ export default function CostingReportPrint() {
         let coverPhotoUrl: string | null = null;
         const coverPath = (r as any)?.cover_photo_path as string | null;
         if (coverPath) {
-          const { data: cs } = await supabase.storage
-            .from('cost-photos')
-            .createSignedUrl(coverPath, 60 * 60 * 24);
-          if (cs?.signedUrl) coverPhotoUrl = cs.signedUrl;
+          coverPhotoUrl = await downloadAsDataUri('cost-photos', coverPath);
         }
 
         const dateStr = new Date(r.created_at as string).toLocaleDateString(
