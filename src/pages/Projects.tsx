@@ -79,11 +79,15 @@ export default function Projects() {
   const [projectName, setProjectName] = useState('');
   const [customerCompanyName, setCustomerCompanyName] = useState('');
   const [customerCompanyAfm, setCustomerCompanyAfm] = useState('');
+  const [contactName, setContactName] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
   const [assignedShipyardCompany, setAssignedShipyardCompany] = useState('');
   const [status, setStatus] = useState<'OPEN' | 'CLOSED'>('OPEN');
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [customerDetails, setCustomerDetails] = useState<Record<string, CustomerDetails>>({});
 
   const canEdit = role === 'admin' || role === 'hr';
 
@@ -95,10 +99,20 @@ export default function Projects() {
     try {
       const { data } = await supabase
         .from('projects')
-        .select('*')
+        .select('id, project_code, project_name, assigned_shipyard_company, status, created_at')
         .order('project_code');
 
       setProjects((data as Project[]) || []);
+
+      const { data: detailsData } = await supabase
+        .from('project_customer_details')
+        .select('project_id, customer_company_name, customer_company_afm, contact_name, contact_email, contact_phone');
+
+      const map: Record<string, CustomerDetails> = {};
+      (detailsData || []).forEach((d: any) => {
+        map[d.project_id] = d as CustomerDetails;
+      });
+      setCustomerDetails(map);
 
       const { data: companiesData } = await supabase
         .from('companies')
@@ -112,6 +126,7 @@ export default function Projects() {
       setLoading(false);
     }
   };
+
 
   const resetForm = () => {
     setProjectName('');
