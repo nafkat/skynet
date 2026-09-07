@@ -132,20 +132,28 @@ export default function Projects() {
     setProjectName('');
     setCustomerCompanyName('');
     setCustomerCompanyAfm('');
+    setContactName('');
+    setContactEmail('');
+    setContactPhone('');
     setAssignedShipyardCompany('');
     setStatus('OPEN');
     setEditingProject(null);
   };
 
   const openEditDialog = (project: Project) => {
+    const details = customerDetails[project.id];
     setEditingProject(project);
     setProjectName(project.project_name);
-    setCustomerCompanyName(project.customer_company_name);
-    setCustomerCompanyAfm(project.customer_company_afm || '');
+    setCustomerCompanyName(details?.customer_company_name || '');
+    setCustomerCompanyAfm(details?.customer_company_afm || '');
+    setContactName(details?.contact_name || '');
+    setContactEmail(details?.contact_email || '');
+    setContactPhone(details?.contact_phone || '');
     setAssignedShipyardCompany(project.assigned_shipyard_company);
     setStatus(project.status);
     setIsDialogOpen(true);
   };
+
 
   const handleStatusToggle = (project: Project) => {
     setSelectedProject(project);
