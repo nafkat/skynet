@@ -174,10 +174,7 @@ export default function CostingReportPrint() {
         let coverPhotoUrl: string | null = null;
         const coverPath = (r as any)?.cover_photo_path as string | null;
         if (coverPath) {
-          const { data: cs } = await supabase.storage
-            .from('cost-photos')
-            .createSignedUrl(coverPath, 60 * 60 * 24);
-          if (cs?.signedUrl) coverPhotoUrl = cs.signedUrl;
+          coverPhotoUrl = await downloadAsDataUri('cost-photos', coverPath);
         }
 
         const dateStr = new Date(r.created_at as string).toLocaleDateString(
