@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Download, Loader2, AlertTriangle, Info, XCircle } from 'lucide-react';
-import { compressImageToDataUri } from "@/utils/image-compression";
+import { compressImageToDataUri } from '@/utils/image-compression';
 import { pdf } from '@react-pdf/renderer';
 import {
   CostingReportPdfDoc,
@@ -29,11 +29,16 @@ import { toast } from 'sonner';
  * compressed base64 data URI. react-pdf v4 has issues with large data URIs
  * and remote signed URLs for display.
  */
-async function downloadAndCompress(bucket: string, path: string): Promise<string | null> {
+async function downloadAndCompress(
+  bucket: string,
+  path: string,
+  maxDimension = 1000,
+  quality = 0.72,
+): Promise<string | null> {
   try {
     const { data, error } = await supabase.storage.from(bucket).download(path);
     if (error || !data) return null;
-    return await compressImageToDataUri(data);
+    return await compressImageToDataUri(data, maxDimension, quality);
   } catch {
     return null;
   }
@@ -84,19 +89,20 @@ export default function CostingReportPrint() {
                     (p: any) => p.storage_path,
                   );
                   let photos: PdfPhoto[] = [];
-                  if (paths.length > 0) {
+                  const limitedPaths = paths.slice(0, 2);
+                  if (limitedPaths.length > 0) {
                     const [compressedResults, signedRes] = await Promise.all([
-                      Promise.all(paths.map((p) => downloadAndCompress('cost-photos', p))),
-                      supabase.storage.from('cost-photos').createSignedUrls(paths, 60 * 60 * 24 * 365)
+                      Promise.all(limitedPaths.map((p) => downloadAndCompress('cost-photos', p))),
+                      supabase.storage.from('cost-photos').createSignedUrls(limitedPaths, 60 * 60 * 24 * 30),
                     ]);
                     const signedMap = new Map<string, string>();
                     (signedRes.data || []).forEach(d => {
                       if (d.signedUrl && d.path) signedMap.set(d.path, d.signedUrl);
                     });
-                    photos = paths.map((path, idx) => ({
+                    photos = limitedPaths.map((path, idx) => ({
                       displayUrl: compressedResults[idx] || '',
                       linkUrl: signedMap.get(path) || ''
-                    })).filter(p => p.displayUrl);
+                    })).filter((photo) => photo.displayUrl && photo.linkUrl);
                   }
                   return {
                     id: i.id,
@@ -158,7 +164,7 @@ export default function CostingReportPrint() {
           if (c) {
             let logoUrl: string | null = null;
             if (c.logo_url) {
-              logoUrl = await downloadAndCompress('company-logos', c.logo_url);
+              logoUrl = await downloadAndCompress('company-logos', c.logo_url, 500, 0.82);
             }
             company = {
               company_name: c.company_name,
@@ -180,7 +186,7 @@ export default function CostingReportPrint() {
         let coverPhotoUrl: string | null = null;
         const coverPath = (r as any)?.cover_photo_path as string | null;
         if (coverPath) {
-          coverPhotoUrl = await downloadAndCompress('cost-photos', coverPath);
+          coverPhotoUrl = await downloadAndCompress('cost-photos', coverPath, 1400, 0.76);
         }
 
         const dateStr = new Date(r.created_at as string).toLocaleDateString(
