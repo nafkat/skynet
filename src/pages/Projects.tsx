@@ -38,12 +38,20 @@ interface Project {
   id: string;
   project_code: string;
   project_name: string;
-  customer_company_name: string;
-  customer_company_afm: string | null;
   assigned_shipyard_company: string;
   status: 'OPEN' | 'CLOSED';
   created_at: string;
 }
+
+interface CustomerDetails {
+  project_id: string;
+  customer_company_name: string;
+  customer_company_afm: string | null;
+  contact_name: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+}
+
 
 interface Company {
   id: string;
