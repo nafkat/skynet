@@ -87,10 +87,10 @@ export default function CostingReportPrint() {
                   );
                   let urls: string[] = [];
                   if (paths.length > 0) {
-                    const { data: signed } = await supabase.storage
-                      .from('cost-photos')
-                      .createSignedUrls(paths, 60 * 60 * 24);
-                    urls = (signed || []).map((u: any) => u.signedUrl).filter(Boolean);
+                    const results = await Promise.all(
+                      paths.map((p) => downloadAsDataUri('cost-photos', p)),
+                    );
+                    urls = results.filter((u): u is string => !!u);
                   }
                   return {
                     id: i.id,
