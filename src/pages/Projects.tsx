@@ -361,6 +361,35 @@ export default function Projects() {
                   </div>
 
                   <div className="space-y-2">
+                    <Label>{language === 'el' ? 'Όνομα Επαφής' : 'Contact Name'}</Label>
+                    <Input
+                      value={contactName}
+                      onChange={(e) => setContactName(e.target.value)}
+                      className="input-tablet"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>{language === 'el' ? 'Email Επαφής' : 'Contact Email'}</Label>
+                    <Input
+                      type="email"
+                      value={contactEmail}
+                      onChange={(e) => setContactEmail(e.target.value)}
+                      className="input-tablet"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>{language === 'el' ? 'Τηλέφωνο Επαφής' : 'Contact Phone'}</Label>
+                    <Input
+                      value={contactPhone}
+                      onChange={(e) => setContactPhone(e.target.value)}
+                      className="input-tablet"
+                    />
+                  </div>
+
+
+                  <div className="space-y-2">
                     <Label>{language === 'el' ? 'Ναυπηγείο (Εταιρεία)' : 'Assigned Shipyard Company'} *</Label>
                     <Select
                       value={assignedShipyardCompany}
