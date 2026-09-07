@@ -113,6 +113,7 @@ export default function CostingReportDetails() {
   const [coverPhotoUrl, setCoverPhotoUrl] = useState<string | null>(null);
   const [uploadingCover, setUploadingCover] = useState(false);
 
+  const [clientName, setClientName] = useState<string>('');
   const canViewCosts = hasElevatedRole || hasPermission('costing.costs.view');
   const canEditCostsBase = hasElevatedRole || hasPermission('costing.costs.edit');
   const canChangeStatus = hasElevatedRole || hasPermission('costing.reports.change_status');
@@ -155,6 +156,17 @@ export default function CostingReportDetails() {
         )
         .eq('id', id)
         .single();
+
+      if (r && hasElevatedRole) {
+        const { data: cd } = await supabase
+          .from('project_customer_details')
+          .select('customer_company_name')
+          .eq('project_id', (r as any).project_id)
+          .maybeSingle();
+        setClientName(cd?.customer_company_name || '');
+      } else {
+        setClientName('');
+      }
 
       const { data: secs } = await supabase
         .from('cost_sections')
