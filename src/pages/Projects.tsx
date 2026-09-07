@@ -266,7 +266,7 @@ export default function Projects() {
     const matchesSearch =
       proj.project_code.toLowerCase().includes(searchQuery.toLowerCase()) ||
       proj.project_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      proj.customer_company_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (customerDetails[proj.id]?.customer_company_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       proj.assigned_shipyard_company.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || proj.status === statusFilter;
