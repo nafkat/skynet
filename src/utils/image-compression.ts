@@ -4,7 +4,7 @@
  */
 export async function compressImageToDataUri(
   blob: Blob,
-  maxWidth = 1000,
+  maxDimension = 1000,
   quality = 0.75
 ): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -16,9 +16,10 @@ export async function compressImageToDataUri(
       const canvas = document.createElement('canvas');
       let { width, height } = img;
 
-      if (width > maxWidth) {
-        height = (height * maxWidth) / width;
-        width = maxWidth;
+      const scale = Math.min(1, maxDimension / Math.max(width, height));
+      if (scale < 1) {
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
       }
 
       canvas.width = width;
@@ -29,6 +30,8 @@ export async function compressImageToDataUri(
         return;
       }
 
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, width, height);
       ctx.drawImage(img, 0, 0, width, height);
       // Force JPEG for better compatibility and smaller size in PDF
       resolve(canvas.toDataURL('image/jpeg', quality));
