@@ -22,10 +22,10 @@ interface ReportRow {
   status: string;
   review_status: string;
   created_at: string;
+  project_id: string;
   projects: {
     project_code: string;
     project_name: string;
-    customer_company_name: string | null;
     assigned_shipyard_company: string | null;
   } | null;
 }
@@ -52,13 +52,27 @@ export default function CostingDashboard() {
     try {
       const { data } = await supabase
         .from('cost_reports')
-        .select('id, code, version_number, status, review_status, created_at, projects(project_code, project_name, customer_company_name, assigned_shipyard_company)')
+        .select('id, code, version_number, status, review_status, created_at, project_id, projects(project_code, project_name, assigned_shipyard_company)')
         .is('deleted_at', null)
         .order('created_at', { ascending: false });
 
       if (data) {
         const rows = data as unknown as ReportRow[];
         setReports(rows);
+
+        if (hasElevatedRole && rows.length > 0) {
+          const { data: details } = await supabase
+            .from('project_customer_details')
+            .select('project_id, customer_company_name')
+            .in('project_id', Array.from(new Set(rows.map((r) => r.project_id))));
+          const map: Record<string, string> = {};
+          (details || []).forEach((d) => {
+            map[d.project_id] = d.customer_company_name;
+          });
+          setClientNames(map);
+        } else {
+          setClientNames({});
+        }
         setStats({
           total: rows.length,
           draft: rows.filter((r) => r.status === 'draft').length,
@@ -96,7 +110,7 @@ export default function CostingDashboard() {
           `v${r.version_number}`,
           r.projects?.project_code,
           r.projects?.project_name,
-          r.projects?.customer_company_name,
+          hasElevatedRole ? clientNames[r.project_id] : null,
           r.projects?.assigned_shipyard_company,
           en,
           el,
@@ -270,8 +284,8 @@ export default function CostingDashboard() {
                   {r.projects && (
                     <p className="text-sm text-white/60 truncate">
                       {r.projects.project_code} — {r.projects.project_name}
-                      {r.projects.customer_company_name && (
-                        <span className="text-white/40"> · {r.projects.customer_company_name}</span>
+                      {hasElevatedRole && clientNames[r.project_id] && (
+                        <span className="text-white/40"> · {clientNames[r.project_id]}</span>
                       )}
                     </p>
                   )}

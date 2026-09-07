@@ -20,7 +20,6 @@ interface Project {
   id: string;
   project_code: string;
   project_name: string;
-  customer_company_name: string;
   assigned_shipyard_company: string;
 }
 
@@ -93,7 +92,7 @@ export default function CostingReportCreate() {
   useEffect(() => {
     supabase
       .from('projects')
-      .select('id, project_code, project_name, customer_company_name, assigned_shipyard_company')
+      .select('id, project_code, project_name, assigned_shipyard_company')
       .eq('status', 'OPEN')
       .order('project_code')
       .then(({ data }) => setProjects((data as Project[]) || []));
@@ -344,11 +343,7 @@ export default function CostingReportCreate() {
         </div>
 
         {selectedProject && (
-          <div className="grid md:grid-cols-2 gap-3">
-            <div className="rounded-md border bg-muted/40 p-3">
-              <div className="text-xs text-muted-foreground">{t('Client', 'Πελάτης')}</div>
-              <div className="font-medium">{selectedProject.customer_company_name || '—'}</div>
-            </div>
+          <div className="grid gap-3">
             <div className="rounded-md border bg-muted/40 p-3">
               <div className="text-xs text-muted-foreground">
                 {t('Our Company', 'Εταιρεία μας')}
