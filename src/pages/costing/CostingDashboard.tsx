@@ -40,6 +40,7 @@ export default function CostingDashboard() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [clientNames, setClientNames] = useState<Record<string, string>>({});
   const t = (en: string, el: string) => (language === 'el' ? el : en);
 
   useEffect(() => {
