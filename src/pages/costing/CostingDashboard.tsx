@@ -124,7 +124,7 @@ export default function CostingDashboard() {
         return haystack.includes(q);
       })
       .slice(0, 50);
-  }, [reports, debouncedQuery]);
+  }, [reports, debouncedQuery, clientNames, hasElevatedRole]);
 
   const statCards = [
     { label: t('Total', 'Σύνολο'), value: stats.total, icon: FileText, color: 'text-blue-400' },
