@@ -4,11 +4,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Download, Loader2, AlertTriangle, Info, XCircle } from 'lucide-react';
+import { compressImageToDataUri } from "@/utils/image-compression";
 import { pdf } from '@react-pdf/renderer';
 import {
   CostingReportPdfDoc,
   type PdfReportInput,
   type PdfSection,
+  PdfPhoto,
   type PdfCompany,
 } from './CostingReportPdfDoc';
 import { runPdfPreflight, type PreflightIssue } from './costingPdfPreflight';
@@ -25,19 +27,15 @@ import { toast } from 'sonner';
 /**
  * Downloads a storage object through the Supabase client (session-aware, RLS respected)
  * and returns it as a base64 data URI. react-pdf v4 fails silently on remote signed URLs,
- * so images must be embedded as data URIs.
- */
-async function downloadAsDataUri(bucket: string, path: string): Promise<string | null> {
+async function downloadAndCompress(bucket: string, path: string): Promise<string | null> {
   try {
     const { data, error } = await supabase.storage.from(bucket).download(path);
     if (error || !data) return null;
-    return await new Promise<string>((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.readAsDataURL(data);
-    });
+    return await compressImageToDataUri(data);
   } catch {
     return null;
+  }
+}
   }
 }
 
