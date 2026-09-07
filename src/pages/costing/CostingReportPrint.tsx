@@ -22,6 +22,25 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 
+/**
+ * Downloads a storage object through the Supabase client (session-aware, RLS respected)
+ * and returns it as a base64 data URI. react-pdf v4 fails silently on remote signed URLs,
+ * so images must be embedded as data URIs.
+ */
+async function downloadAsDataUri(bucket: string, path: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabase.storage.from(bucket).download(path);
+    if (error || !data) return null;
+    return await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(data);
+    });
+  } catch {
+    return null;
+  }
+}
+
 export default function CostingReportPrint() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
