@@ -152,10 +152,7 @@ export default function CostingReportPrint() {
           if (c) {
             let logoUrl: string | null = null;
             if (c.logo_url) {
-              const { data: signed } = await supabase.storage
-                .from('company-logos')
-                .createSignedUrl(c.logo_url, 60 * 60 * 24);
-              if (signed?.signedUrl) logoUrl = signed.signedUrl;
+              logoUrl = await downloadAsDataUri('company-logos', c.logo_url);
             }
             company = {
               company_name: c.company_name,
