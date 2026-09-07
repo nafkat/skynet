@@ -487,7 +487,7 @@ export default function Projects() {
             <div className="space-y-2 mb-3 text-sm">
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Building2 className="h-4 w-4 flex-shrink-0" />
-                <span className="truncate">{project.customer_company_name}</span>
+                <span className="truncate">{customerDetails[project.id]?.customer_company_name || '—'}</span>
               </div>
               {project.assigned_shipyard_company && (
                 <p className="text-xs text-muted-foreground truncate">
