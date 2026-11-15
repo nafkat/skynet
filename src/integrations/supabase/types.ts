@@ -1433,6 +1433,78 @@ export type Database = {
           },
         ]
       }
+      project_invoices: {
+        Row: {
+          amount_eur: number
+          amount_original: number
+          created_at: string
+          created_by: string | null
+          currency: string
+          doc_type: string
+          exchange_rate: number
+          file_path: string
+          id: string
+          invoice_number: string
+          issue_date: string
+          notes: string | null
+          project_id: string
+          source: string
+          supplier_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount_eur: number
+          amount_original: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          doc_type: string
+          exchange_rate?: number
+          file_path: string
+          id?: string
+          invoice_number: string
+          issue_date: string
+          notes?: string | null
+          project_id: string
+          source: string
+          supplier_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount_eur?: number
+          amount_original?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          doc_type?: string
+          exchange_rate?: number
+          file_path?: string
+          id?: string
+          invoice_number?: string
+          issue_date?: string
+          notes?: string | null
+          project_id?: string
+          source?: string
+          supplier_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_invoices_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_invoices_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           assigned_shipyard_company: string
