@@ -1,0 +1,1 @@
+CREATE POLICY "Elevated permission holders can view projects for invoices" ON public.projects FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.user_roles WHERE user_id=auth.uid() AND role='admin') OR public.has_permission(auth.uid(),'timekeeping.employees.manage') OR public.has_permission(auth.uid(),'timekeeping.reports.export'));

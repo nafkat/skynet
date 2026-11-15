@@ -8,6 +8,13 @@
       "when": 1794741994462,
       "tag": "0000_create_project_invoices_hub",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794743434563,
+      "tag": "0001_allow_hr_permission_project_reads_for_invoices",
+      "breakpoints": true
     }
   ]
 }

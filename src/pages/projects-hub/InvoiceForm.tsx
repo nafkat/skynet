@@ -32,10 +32,17 @@ export default function InvoiceForm({ invoice, projects, suppliers, onSupplierAd
   const [supplierSaving, setSupplierSaving] = useState(false);
   const [supplierName, setSupplierName] = useState('');
   const [supplierVat, setSupplierVat] = useState('');
+  const [addedSupplierId, setAddedSupplierId] = useState<string | null>(null);
   const [rateUnavailable, setRateUnavailable] = useState(false);
   const rateVersion = useRef(0);
   useEffect(() => () => { rateVersion.current++; }, []);
   const set = (key: keyof typeof form, value: string) => setForm(current => ({ ...current, [key]: value }));
+  useEffect(() => {
+    if (addedSupplierId && suppliers.some(supplier => supplier.id === addedSupplierId)) {
+      setForm(current => ({ ...current, supplier_id: addedSupplierId }));
+      setAddedSupplierId(null);
+    }
+  }, [addedSupplierId, suppliers]);
   const amount = Number(form.amount);
   const rate = form.currency === 'EUR' ? 1 : Number(form.rate);
   let eur = 0;
@@ -64,7 +71,7 @@ export default function InvoiceForm({ invoice, projects, suppliers, onSupplierAd
       const { data, error } = await supabase.from('suppliers').insert({ name: supplierName.trim(), trade_name: supplierName.trim(), vat_number: supplierVat.trim() }).select('id,name,vat_number').single();
       if (error) throw error;
       onSupplierAdded(data);
-      set('supplier_id', data.id);
+      setAddedSupplierId(data.id);
       setSupplierOpen(false);
       setSupplierName(''); setSupplierVat('');
       toast.success(t('Supplier added', 'Ο προμηθευτής προστέθηκε'));
