@@ -66,6 +66,8 @@ import CostingReportDetails from "./pages/costing/CostingReportDetails";
 import CostingFieldEntry from "./pages/costing/CostingFieldEntry";
 import CostingReportPrint from "./pages/costing/CostingReportPrint";
 import CostingTrash from "./pages/costing/CostingTrash";
+import ProjectsHubLayout from "./pages/projects-hub/ProjectsHubLayout";
+import InvoicesPage from "./pages/projects-hub/InvoicesPage";
 
 const queryClient = new QueryClient();
 
@@ -236,6 +238,10 @@ function AppRoutes() {
         <Route index element={<MessagesDashboard />} />
         <Route path="dashboard" element={<MessagesDashboard />} />
         <Route path="conversations" element={<Messages />} />
+      </Route>
+
+      <Route path="/projects-hub" element={<ProtectedRoute><ProjectsHubLayout /></ProtectedRoute>}>
+        <Route index element={<InvoicesPage />} />
       </Route>
 
       {/* Costing Module - Admin, HR, and users with costing.create permission */}

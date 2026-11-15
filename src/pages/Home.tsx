@@ -108,10 +108,10 @@ const modules: ModuleTile[] = [
     id: 'projects-hub',
     title: 'Projects Hub',
     titleEl: 'Κέντρο Έργων',
-    description: 'Central project dashboard, documents & progress.',
-    descriptionEl: 'Κεντρικός πίνακας έργων, έγγραφα & πρόοδος.',
+    description: 'Invoices & project documents',
+    descriptionEl: 'Παραστατικά & έγγραφα έργων',
     icon: FolderKanban,
-    status: 'coming_soon',
+    status: 'active',
     route: '/projects-hub',
     permissionKey: 'module.projects_hub',
     section: 'operations',
@@ -188,6 +188,7 @@ export default function Home() {
   // - adminOnly modules are hidden completely for non-admin users
   // - Other modules are shown but may be locked
   const visibleModules = modules.filter((module) => {
+    if (module.id === 'projects-hub') return hasElevatedRole;
     if (module.adminOnly && !isAdmin) {
       return false; // Hide admin-only modules completely from non-admin users
     }
@@ -258,7 +259,7 @@ export default function Home() {
 
   const renderTile = (tile: ModuleTile) => {
     const isModuleActive = tile.status === 'active';
-    const hasAccess = hasPermission(tile.permissionKey);
+    const hasAccess = tile.id === 'projects-hub' ? hasElevatedRole : hasPermission(tile.permissionKey);
     const isLocked = isModuleActive && !hasAccess;
     const Icon = tile.icon;
 
